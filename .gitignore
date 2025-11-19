@@ -1,0 +1,51 @@
+/node_modules
+/public/hot
+/public/storage
+/storage/*.key
+/vendor
+.env
+.env.backup
+.env.phar
+
+.phpunit.result.cache
+Homestead.json
+Homestead.yaml
+npm-debug.log
+yarn-error.log
+
+.DS_Store
+Thumbs.db
+
+# Laravel specific
+/storage/app/
+/storage/framework/
+/storage/logs/
+/bootstrap/cache/
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Archives
+*.zip
+*.tar.gz
+*.rar
+
+# Temporary files
+test_chrome.php
+test_export.php
+
+# Documentation files (optional - remove if you want to track them)
+*.md

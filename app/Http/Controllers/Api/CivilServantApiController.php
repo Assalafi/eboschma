@@ -4,7 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\CivilServant;
-use App\Models\User;
+use App\Models\BeneficiaryLogin;
+use App\Models\Program;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
@@ -32,13 +33,13 @@ class CivilServantApiController extends Controller
 
         try {
             $civilServant = CivilServant::where('dp_no', $request->dp_no)
-                                      ->where('nin', $request->nin)
+                                      ->where('bvn', $request->nin)
                                       ->first();
 
             if (!$civilServant) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'No civil servant found with the provided DP Number and NIN'
+                    'message' => 'No civil servant found with the provided DP Number and BVN'
                 ], 404);
             }
 
@@ -70,14 +71,14 @@ class CivilServantApiController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'civil_servant_id' => 'required|exists:civil_servants,id',
-            'email' => 'required|email|unique:users,email',
+            'email' => 'required|email|unique:beneficiary_logins,email',
             'password' => 'required|min:6|confirmed',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Validation failed',
+                'message' => 'Validation failed: ' . $validator->errors(),
                 'errors' => $validator->errors()
             ], 400);
         }
@@ -86,31 +87,34 @@ class CivilServantApiController extends Controller
             $civilServant = CivilServant::findOrFail($request->civil_servant_id);
 
             // Check if this civil servant already has an account
-            $existingUser = User::where('civil_servant_id', $civilServant->id)->first();
-            if ($existingUser) {
+            $existingLogin = BeneficiaryLogin::where('civil_servant_id', $civilServant->id)->first();
+            if ($existingLogin) {
                 return response()->json([
                     'success' => false,
                     'message' => 'An account already exists for this civil servant'
                 ], 409);
             }
 
-            // Create user account
-            $user = User::create([
+            // Create beneficiary login account
+            $beneficiaryLogin = BeneficiaryLogin::create([
                 'name' => $civilServant->fullname,
                 'email' => $request->email,
-                'password' => Hash::make($request->password),
+                'password' => $request->password,
                 'civil_servant_id' => $civilServant->id,
-                'email_verified_at' => now(), // Auto-verify for civil servants
+                'program_id' => '1',
+                'status' => 'Active',
             ]);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Account created successfully',
                 'data' => [
-                    'user_id' => $user->id,
-                    'name' => $user->name,
-                    'email' => $user->email,
+                    'user_id' => $beneficiaryLogin->id,
+                    'name' => $beneficiaryLogin->name,
+                    'email' => $beneficiaryLogin->email,
                     'dp_no' => $civilServant->dp_no,
+                    'program_id' => $beneficiaryLogin->program_id,
+                    'status' => $beneficiaryLogin->status,
                 ]
             ], 201);
 
@@ -151,10 +155,10 @@ class CivilServantApiController extends Controller
                 ], 401);
             }
 
-            // Find user by civil_servant_id
-            $user = User::where('civil_servant_id', $civilServant->id)->first();
+            // Find beneficiary login by civil_servant_id
+            $beneficiaryLogin = BeneficiaryLogin::where('civil_servant_id', $civilServant->id)->first();
 
-            if (!$user || !Hash::check($request->password, $user->password)) {
+            if (!$beneficiaryLogin || !Hash::check($request->password, $beneficiaryLogin->password)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Invalid DP Number or password'
@@ -162,16 +166,18 @@ class CivilServantApiController extends Controller
             }
 
             // Create personal access token
-            $token = $user->createToken('auth_token')->plainTextToken;
+            $token = $beneficiaryLogin->createToken('auth_token')->plainTextToken;
 
             return response()->json([
                 'success' => true,
                 'message' => 'Login successful',
                 'data' => [
                     'user' => [
-                        'id' => $user->id,
-                        'name' => $user->name,
-                        'email' => $user->email,
+                        'id' => $beneficiaryLogin->id,
+                        'name' => $beneficiaryLogin->name,
+                        'email' => $beneficiaryLogin->email,
+                        'program_id' => $beneficiaryLogin->program_id,
+                        'status' => $beneficiaryLogin->status,
                     ],
                     'civil_servant' => [
                         'dp_no' => $civilServant->dp_no,
@@ -200,22 +206,24 @@ class CivilServantApiController extends Controller
     public function profile(Request $request)
     {
         try {
-            $user = $request->user();
+            $beneficiaryLogin = $request->user();
             $civilServant = null;
             
-            if ($user->civil_servant_id) {
-                $civilServant = CivilServant::find($user->civil_servant_id);
+            if ($beneficiaryLogin->civil_servant_id) {
+                $civilServant = CivilServant::find($beneficiaryLogin->civil_servant_id);
             }
 
             return response()->json([
                 'success' => true,
                 'data' => [
                     'user' => [
-                        'id' => $user->id,
-                        'name' => $user->name,
-                        'email' => $user->email,
-                        'created_at' => $user->created_at,
-                        'updated_at' => $user->updated_at,
+                        'id' => $beneficiaryLogin->id,
+                        'name' => $beneficiaryLogin->name,
+                        'email' => $beneficiaryLogin->email,
+                        'program_id' => $beneficiaryLogin->program_id,
+                        'status' => $beneficiaryLogin->status,
+                        'created_at' => $beneficiaryLogin->created_at,
+                        'updated_at' => $beneficiaryLogin->updated_at,
                     ],
                     'civil_servant' => $civilServant ? [
                         'id' => $civilServant->id,
@@ -260,11 +268,11 @@ class CivilServantApiController extends Controller
     public function dashboard(Request $request)
     {
         try {
-            $user = $request->user();
+            $beneficiaryLogin = $request->user();
             $civilServant = null;
             
-            if ($user->civil_servant_id) {
-                $civilServant = CivilServant::find($user->civil_servant_id);
+            if ($beneficiaryLogin->civil_servant_id) {
+                $civilServant = CivilServant::find($beneficiaryLogin->civil_servant_id);
             }
 
             // Calculate profile completion
@@ -306,9 +314,11 @@ class CivilServantApiController extends Controller
                 'success' => true,
                 'data' => [
                     'user' => [
-                        'name' => $user->name,
-                        'email' => $user->email,
-                        'last_login' => $user->updated_at,
+                        'name' => $beneficiaryLogin->name,
+                        'email' => $beneficiaryLogin->email,
+                        'program_id' => $beneficiaryLogin->program_id,
+                        'status' => $beneficiaryLogin->status,
+                        'last_login' => $beneficiaryLogin->updated_at,
                     ],
                     'civil_servant' => $civilServant ? [
                         'dp_no' => $civilServant->dp_no,
@@ -336,6 +346,122 @@ class CivilServantApiController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch dashboard data: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Step 1: Verify identity for password reset using DP Number and BVN
+     */
+    public function verifyForReset(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'dp_no' => 'required|string',
+            'bvn' => 'required|string|size:11',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 400);
+        }
+
+        try {
+            $civilServant = CivilServant::where('dp_no', $request->dp_no)
+                                      ->where('bvn', $request->bvn)
+                                      ->first();
+
+            if (!$civilServant) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No civil servant found with the provided DP Number and BVN'
+                ], 404);
+            }
+
+            $beneficiaryLogin = BeneficiaryLogin::where('civil_servant_id', $civilServant->id)->first();
+
+            if (!$beneficiaryLogin) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No account found for this civil servant. Please create an account first.'
+                ], 404);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Identity verified successfully',
+                'data' => [
+                    'dp_no' => $civilServant->dp_no,
+                    'name' => $civilServant->fullname,
+                ]
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred during verification'
+            ], 500);
+        }
+    }
+
+    /**
+     * Step 2: Reset password after identity has been verified
+     */
+    public function resetPassword(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'dp_no' => 'required|string',
+            'bvn' => 'required|string|size:11',
+            'new_password' => 'required|min:6|confirmed',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 400);
+        }
+
+        try {
+            $civilServant = CivilServant::where('dp_no', $request->dp_no)
+                                      ->where('bvn', $request->bvn)
+                                      ->first();
+
+            if (!$civilServant) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No civil servant found with the provided DP Number and BVN'
+                ], 404);
+            }
+
+            $beneficiaryLogin = BeneficiaryLogin::where('civil_servant_id', $civilServant->id)->first();
+
+            if (!$beneficiaryLogin) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No account found for this civil servant. Please create an account first.'
+                ], 404);
+            }
+
+            $beneficiaryLogin->password = Hash::make($request->new_password);
+            $beneficiaryLogin->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Password reset successfully. You can now sign in with your new password.',
+                'data' => [
+                    'dp_no' => $civilServant->dp_no,
+                    'name' => $civilServant->fullname,
+                ]
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while resetting password'
             ], 500);
         }
     }

@@ -15,17 +15,42 @@ class DashboardController extends Controller
      */
     public function index(Request $request)
     {
-        // Count beneficiaries - simplified to avoid memory issues
-        $totalBeneficiaries = Beneficiary::count();
+        // Get overall enrollment statistics
+        $stats = Beneficiary::getEnrollmentStats();
+        $totalBeneficiaries = $stats['total_beneficiaries'];
+        $totalSpouses = $stats['total_spouses'];
+        $totalChildren = $stats['total_children'];
+        $totalEnrollments = $stats['total_enrollments'];
 
-        // Count new registrations (beneficiaries registered in the last 30 days)
-        $newRegistrations = Beneficiary::where('created_at', '>=', now()->subDays(30))->count();
-        //dd($newRegistrations);
+        // Get self enrollment count
+        $selfEnrollments = Beneficiary::getSelfEnrollmentCount();
+
+        // Get monthly statistics
+        $monthlyStats = Beneficiary::getMonthlyStats();
+        $thisMonthEnrollments = $monthlyStats['this_month'];
+        $lastMonthEnrollments = $monthlyStats['last_month'];
+
+        // Get top 10 facilities by enrollment count
+        $topFacilities = Beneficiary::getTopFacilities(10);
+
+        // Get program-wise statistics
+        $programStats = Beneficiary::getProgramStats();
 
         // Empty departments array to avoid memory exhaustion
         $departments = [];
 
         $page = 'admin.dashboard';
-        return view('page', compact('page', 'totalBeneficiaries', 'newRegistrations'));
+        return view('page', compact(
+            'page', 
+            'totalBeneficiaries', 
+            'totalSpouses', 
+            'totalChildren', 
+            'totalEnrollments', 
+            'selfEnrollments',
+            'thisMonthEnrollments',
+            'lastMonthEnrollments',
+            'topFacilities',
+            'programStats'
+        ));
     }
 }

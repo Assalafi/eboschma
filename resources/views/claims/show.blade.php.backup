@@ -1,0 +1,1627 @@
+@extends('layouts.app')
+
+@section('title', 'Claim Details - ' . $claim->authorization_code)
+
+@section('content')
+    <div class="page-header d-print-none">
+        <div class="container-xl">
+            <div class="row g-2 align-items-center">
+                <div class="col">
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="/dashboard">Dashboard</a></li>
+                            <li class="breadcrumb-item"><a href="{{ route('claims.index') }}">Claims</a></li>
+                            <li class="breadcrumb-item active" aria-current="page">Claim Details</li>
+                        </ol>
+                    </nav>
+                    <div class="d-flex align-items-center">
+                        <div class="me-3">
+                            <h2 class="page-title mb-0">
+                                <i class="ti-file-text me-2"></i>Claim Details
+                            </h2>
+                            <p class="text-muted mb-0">Authorization Code: {{ $claim->authorization_code }}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-auto ms-auto d-print-none">
+                    <div class="btn-list">
+                        <a href="{{ route('claims.print', $claim->id) }}" class="btn btn-outline-danger" target="_blank">
+                            <i class="ti-printer me-1"></i>Print
+                        </a>
+                        <a href="#" class="btn btn-outline-primary" onclick="downloadClaim()">
+                            <i class="ti-download me-1"></i>Download
+                        </a>
+                        @if ($claim->status === 'pending')
+                            <a href="{{ route('claims.edit', $claim->id) }}" class="btn btn-primary">
+                                <i class="ti-edit me-1"></i>Edit Claim
+                            </a>
+                        @endif
+                        <div class="dropdown">
+                            <button class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                                <i class="ti-settings me-1"></i>Actions
+                            </button>
+                            <div class="dropdown-menu">
+                                <a href="{{ route('claims.audit.trail', $claim->id) }}" class="dropdown-item">
+                                    <i class="ti-shield me-2"></i>View Audit Trail
+                                </a>
+                                @if ($claim->status === 'pending')
+                                    <a href="#" class="dropdown-item" onclick="approveClaim()">
+                                        <i class="ti-check me-2"></i>Approve Claim
+                                    </a>
+                                    <a href="#" class="dropdown-item" onclick="rejectClaim()">
+                                        <i class="ti-x me-2"></i>Reject Claim
+                                    </a>
+                                @endif
+                                <a href="#" class="dropdown-item" onclick="addNote()">
+                                    <i class="ti-message me-2"></i>Add Note
+                                </a>
+                                <a href="#" class="dropdown-item" onclick="viewHistory()">
+                                    <i class="ti-history me-2"></i>View History
+                                </a>
+                                <div class="dropdown-divider"></div>
+                                <a href="#" class="dropdown-item text-danger" onclick="deleteClaim()">
+                                    <i class="ti-trash me-2"></i>Delete Claim
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="page-body">
+        <div class="container-xl">
+            <!-- Claim Status & Workflow Progress -->
+            <div class="card border-0 shadow-sm mb-4" style="border-radius: 12px;">
+                <div class="card-body p-4">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <div class="d-flex align-items-center mb-3">
+                                <div class="me-3">
+                                    @switch($claim->status)
+                                        @case('pending')
+                                            <div class="avatar avatar-lg bg-warning-lt">
+                                                <i class="ti-clock fs-2 text-warning"></i>
+                                            </div>
+                                        @break
+
+                                        @case('approved')
+                                            <div class="avatar avatar-lg bg-success-lt">
+                                                <i class="ti-check fs-2 text-success"></i>
+                                            </div>
+                                        @break
+
+                                        @case('rejected')
+                                            <div class="avatar avatar-lg bg-danger-lt">
+                                                <i class="ti-x fs-2 text-danger"></i>
+                                            </div>
+                                        @break
+
+                                        @case('paid')
+                                            <div class="avatar avatar-lg bg-info-lt">
+                                                <i class="ti-cash fs-2 text-info"></i>
+                                            </div>
+                                        @break
+
+                                        @default
+                                            <div class="avatar avatar-lg bg-secondary-lt">
+                                                <i class="ti-help fs-2 text-secondary"></i>
+                                            </div>
+                                    @endswitch
+                                </div>
+                                <div>
+                                    <h3 class="mb-1">{{ ucfirst($claim->status) }}</h3>
+                                    <p class="text-muted mb-0">
+                                        Last updated: {{ $claim->updated_at->format('M j, Y g:i A') }}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- Workflow Progress -->
+                            <div class="progress mb-2" style="height: 10px;">
+                                @switch($claim->status)
+                                    @case('pending')
+                                        <div class="progress-bar bg-warning" style="width: 25%"></div>
+                                    @break
+
+                                    @case('approved')
+                                        <div class="progress-bar bg-success" style="width: 50%"></div>
+                                    @break
+
+                                    @case('paid')
+                                        <div class="progress-bar bg-info" style="width: 100%"></div>
+                                    @break
+
+                                    @case('rejected')
+                                        <div class="progress-bar bg-danger" style="width: 25%"></div>
+                                    @break
+
+                                    @default
+                                        <div class="progress-bar bg-secondary" style="width: 0%"></div>
+                                @endswitch
+                            </div>
+                            <div class="d-flex justify-content-between text-muted small">
+                                <span>Submitted</span>
+                                <span>RO Review</span>
+                                <span>E5 Approval</span>
+                                <span>Paid</span>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <div class="h4 mb-1">₦{{ number_format($claim->claim_amount, 2) }}</div>
+                            <div class="text-muted">Claim Amount</div>
+                            @if ($claim->status === 'approved' || $claim->status === 'paid')
+                                <div class="mt-2">
+                                    <span class="badge bg-success">Approved for Payment</span>
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Beneficiary Information -->
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card border-0 shadow-sm mb-4" style="border-radius: 12px;">
+                        <div class="card-header bg-primary text-white"
+                            style="padding: 1.5rem; border-radius: 12px 12px 0 0;">
+                            <h5 class="card-title mb-0">
+                                <i class="ti-user me-2"></i>Beneficiary Information
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Beneficiary Name</label>
+                                <div class="fw-semibold">{{ $claim->beneficiary_name }}</div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-muted">BOSCHMA ID</label>
+                                <div class="fw-semibold">{{ $claim->boschma_id }}</div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-muted">NIN</label>
+                                <div class="fw-semibold">{{ $claim->nin }}</div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Phone Number</label>
+                                <div class="fw-semibold">{{ $claim->phone_number }}</div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Facility</label>
+                                <div class="fw-semibold">{{ $claim->facility_name }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Claim Details -->
+                <div class="col-md-6">
+                    <div class="card border-0 shadow-sm mb-4" style="border-radius: 12px;">
+                        <div class="card-header bg-secondary text-white"
+                            style="padding: 1.5rem; border-radius: 12px 12px 0 0;">
+                            <h5 class="card-title mb-0">
+                                <i class="ti-file-text me-2"></i>Claim Details
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Authorization Code</label>
+                                <div class="fw-semibold">{{ $claim->authorization_code }}</div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Claim Type</label>
+                                <div class="fw-semibold">{{ ucfirst($claim->claim_type) }}</div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Service Date</label>
+                                <div class="fw-semibold">{{ $claim->service_date->format('M j, Y') }}</div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Healthcare Provider</label>
+                                <div class="fw-semibold">{{ $claim->healthcare_provider }}</div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Provider Type</label>
+                                <div class="fw-semibold">{{ ucfirst($claim->provider_type) }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Medical Information & Documents -->
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card border-0 shadow-sm mb-4" style="border-radius: 12px;">
+                        <div class="card-header bg-info text-white"
+                            style="padding: 1.5rem; border-radius: 12px 12px 0 0;">
+                            <h5 class="card-title mb-0">
+                                <i class="ti-notes me-2"></i>Medical Information
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Diagnosis/Condition</label>
+                                <div>{{ $claim->diagnosis }}</div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Treatment Description</label>
+                                <div>{{ $claim->treatment_description }}</div>
+                            </div>
+                            @if ($claim->additional_notes)
+                                <div class="mb-3">
+                                    <label class="form-label text-muted">Additional Notes</label>
+                                    <div>{{ $claim->additional_notes }}</div>
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="card border-0 shadow-sm mb-4" style="border-radius: 12px;">
+                        <div class="card-header bg-success text-white"
+                            style="padding: 1.5rem; border-radius: 12px 12px 0 0;">
+                            <h5 class="card-title mb-0">
+                                <i class="ti-file me-2"></i>Supporting Documents
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            @if ($claim->medical_report)
+                                <div class="mb-3">
+                                    <label class="form-label text-muted">Medical Report</label>
+                                    <div>
+                                        <a href="{{ asset('storage/' . $claim->medical_report) }}"
+                                            class="btn btn-sm btn-outline-primary" target="_blank">
+                                            <i class="ti-eye me-1"></i>View Document
+                                        </a>
+                                    </div>
+                                </div>
+                            @endif
+                            @if ($claim->prescription)
+                                <div class="mb-3">
+                                    <label class="form-label text-muted">Prescription</label>
+                                    <div>
+                                        <a href="{{ asset('storage/' . $claim->prescription) }}"
+                                            class="btn btn-sm btn-outline-primary" target="_blank">
+                                            <i class="ti-eye me-1"></i>View Document
+                                        </a>
+                                    </div>
+                                </div>
+                            @endif
+                            @if ($claim->receipt)
+                                <div class="mb-3">
+                                    <label class="form-label text-muted">Receipt/Invoice</label>
+                                    <div>
+                                        <a href="{{ asset('storage/' . $claim->receipt) }}"
+                                            class="btn btn-sm btn-outline-primary" target="_blank">
+                                            <i class="ti-eye me-1"></i>View Document
+                                        </a>
+                                    </div>
+                                </div>
+                            @endif
+                            @if (!$claim->medical_report && !$claim->prescription && !$claim->receipt)
+                                <div class="text-center text-muted py-3">
+                                    <i class="ti-file-off fs-1 mb-2"></i>
+                                    <div>No supporting documents uploaded</div>
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Approval Workflow Timeline -->
+            <div class="card border-0 shadow-sm mb-4" style="border-radius: 12px;">
+                <div class="card-header bg-warning text-dark" style="padding: 1.5rem; border-radius: 12px 12px 0 0;">
+                    <h5 class="card-title mb-0">
+                        <i class="ti-git-branch me-2"></i>Approval Workflow Timeline
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="timeline">
+                        <!-- Claim Submission -->
+                        <div class="timeline-item">
+                            <div class="timeline-point timeline-point-success"></div>
+                            <div class="timeline-content">
+                                <div class="timeline-time">{{ $claim->created_at->format('M j, Y g:i A') }}</div>
+                                <div class="timeline-title">Claim Submitted</div>
+                                <div class="timeline-body">
+                                    Claim submitted by {{ $claim->submitted_by ?? 'System' }}
+                                    <br>Authorization Code: {{ $claim->authorization_code }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- RO Review -->
+                        @if ($claim->ro_review_date)
+                            <div class="timeline-item">
+                                <div class="timeline-point timeline-point-primary"></div>
+                                <div class="timeline-content">
+                                    <div class="timeline-time">{{ $claim->ro_review_date->format('M j, Y g:i A') }}</div>
+                                    <div class="timeline-title">Regional Officer Review</div>
+                                    <div class="timeline-body">
+                                        Reviewed by: {{ $claim->approved_by_ro ?? 'Regional Officer' }}
+                                        <br>Status: {{ $claim->ro_status ? ucfirst($claim->ro_status) : 'Completed' }}
+                                        @if ($claim->ro_notes)
+                                            <br>Notes: {{ $claim->ro_notes }}
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                        @else
+                            <div class="timeline-item">
+                                <div class="timeline-point timeline-point-warning"></div>
+                                <div class="timeline-content">
+                                    <div class="timeline-time">Pending</div>
+                                    <div class="timeline-title">Regional Officer Review</div>
+                                    <div class="timeline-body text-muted">Awaiting review by Regional Officer</div>
+                                </div>
+                            </div>
+                        @endif
+
+                        <!-- E5 Approval -->
+                        @if ($claim->e5_approval_date)
+                            <div class="timeline-item">
+                                <div class="timeline-point timeline-point-success"></div>
+                                <div class="timeline-content">
+                                    <div class="timeline-time">{{ $claim->e5_approval_date->format('M j, Y g:i A') }}
+                                    </div>
+                                    <div class="timeline-title">E5 Approval</div>
+                                    <div class="timeline-body">
+                                        Approved by: {{ $claim->approved_by_e5 ?? 'E5 Authority' }}
+                                        <br>Status: {{ $claim->e5_status ? ucfirst($claim->e5_status) : 'Approved' }}
+                                        @if ($claim->e5_notes)
+                                            <br>Notes: {{ $claim->e5_notes }}
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                        @elseif($claim->status === 'approved')
+                            <div class="timeline-item">
+                                <div class="timeline-point timeline-point-warning"></div>
+                                <div class="timeline-content">
+                                    <div class="timeline-time">Pending</div>
+                                    <div class="timeline-title">E5 Approval</div>
+                                    <div class="timeline-body text-muted">Awaiting final approval by E5 Authority</div>
+                                </div>
+                            </div>
+                        @endif
+
+                        <!-- Payment -->
+                        @if ($claim->payment_date)
+                            <div class="timeline-item">
+                                <div class="timeline-point timeline-point-info"></div>
+                                <div class="timeline-content">
+                                    <div class="timeline-time">{{ $claim->payment_date->format('M j, Y g:i A') }}</div>
+                                    <div class="timeline-title">Payment Processed</div>
+                                    <div class="timeline-body">
+                                        Amount: ₦{{ number_format($claim->paid_amount ?? $claim->claim_amount, 2) }}
+                                        <br>Payment Reference: {{ $claim->payment_reference ?? 'N/A' }}
+                                        @if ($claim->payment_method)
+                                            <br>Method: {{ ucfirst($claim->payment_method) }}
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                        @elseif($claim->status === 'paid')
+                            <div class="timeline-item">
+                                <div class="timeline-point timeline-point-success"></div>
+                                <div class="timeline-content">
+                                    <div class="timeline-time">Completed</div>
+                                    <div class="timeline-title">Payment Processed</div>
+                                    <div class="timeline-body text-success">Claim has been paid successfully</div>
+                                </div>
+                            </div>
+                        @endif
+
+                        <!-- Rejection -->
+                        @if ($claim->status === 'rejected')
+                            <div class="timeline-item">
+                                <div class="timeline-point timeline-point-danger"></div>
+                                <div class="timeline-content">
+                                    <div class="timeline-time">{{ $claim->updated_at->format('M j, Y g:i A') }}</div>
+                                    <div class="timeline-title">Claim Rejected</div>
+                                    <div class="timeline-body text-danger">
+                                        @if ($claim->rejection_reason)
+                                            Reason: {{ $claim->rejection_reason }}
+                                        @else
+                                            Claim was rejected during review process
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
+                    </div>
+                </div>
+            </div>
+
+            <!-- RO & E5 Approval Actions -->
+            @if (auth()->user()->hasRole(['admin', 'claims_manager', 'regional_officer', 'e5_authority']) &&
+                    $claim->status !== 'rejected' &&
+                    $claim->status !== 'paid')
+                <div class="card border-0 shadow-sm mb-4" style="border-radius: 12px;">
+                    <div class="card-header bg-primary text-white" style="padding: 1.5rem; border-radius: 12px 12px 0 0;">
+                        <h5 class="card-title mb-0">
+                            <i class="ti-check-circle me-2"></i>Approval Actions
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- RO Review Section -->
+                        @if (auth()->user()->hasRole(['admin', 'claims_manager', 'regional_officer']) && !$claim->ro_review_date)
+                            <div class="mb-4">
+                                <h6 class="text-primary mb-3">
+                                    <i class="ti-user me-2"></i>Regional Officer Review
+                                </h6>
+                                <div class="row">
+                                    <div class="col-md-8">
+                                        <div class="mb-3">
+                                            <label class="form-label">Review Notes</label>
+                                            <textarea class="form-control" id="roNotes" rows="3" placeholder="Add notes for this review..."></textarea>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">Action</label>
+                                            <div class="d-grid gap-2">
+                                                <button type="button" class="btn btn-success" onclick="roApprove()">
+                                                    <i class="ti-check me-1"></i>RO Approve
+                                                </button>
+                                                <button type="button" class="btn btn-danger" onclick="roReject()">
+                                                    <i class="ti-x me-1"></i>RO Reject
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
+
+                        <!-- E5 Approval Section -->
+                        @if (auth()->user()->hasRole(['admin', 'claims_manager', 'e5_authority']) &&
+                                $claim->ro_review_date &&
+                                !$claim->e5_approval_date &&
+                                $claim->ro_status === 'approved')
+                            <div class="mb-4">
+                                <h6 class="text-success mb-3">
+                                    <i class="ti-shield me-2"></i>E5 Final Approval
+                                </h6>
+                                <div class="row">
+                                    <div class="col-md-8">
+                                        <div class="mb-3">
+                                            <label class="form-label">Approval Notes</label>
+                                            <textarea class="form-control" id="e5Notes" rows="3" placeholder="Add notes for this approval..."></textarea>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">Action</label>
+                                            <div class="d-grid gap-2">
+                                                <button type="button" class="btn btn-success" onclick="e5Approve()">
+                                                    <i class="ti-check me-1"></i>E5 Approve
+                                                </button>
+                                                <button type="button" class="btn btn-danger" onclick="e5Reject()">
+                                                    <i class="ti-x me-1"></i>E5 Reject
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
+
+                        <!-- Payment Processing Section -->
+                        @if (auth()->user()->hasRole(['admin', 'claims_manager']) &&
+                                $claim->e5_approval_date &&
+                                $claim->e5_status === 'approved' &&
+                                $claim->status !== 'paid')
+                            <div class="mb-4">
+                                <h6 class="text-info mb-3">
+                                    <i class="ti-cash me-2"></i>Payment Processing
+                                </h6>
+                                <div class="row">
+                                    <div class="col-md-8">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="mb-3">
+                                                    <label class="form-label">Payment Reference</label>
+                                                    <input type="text" class="form-control" id="paymentReference"
+                                                        placeholder="Enter payment reference...">
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="mb-3">
+                                                    <label class="form-label">Payment Date</label>
+                                                    <input type="date" class="form-control" id="paymentDate"
+                                                        value="{{ now()->format('Y-m-d') }}">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">Action</label>
+                                            <div class="d-grid">
+                                                <button type="button" class="btn btn-info" onclick="markAsPaid()">
+                                                    <i class="ti-cash me-1"></i>Mark as Paid
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
+
+                        <!-- Status Information -->
+                        <div class="alert alert-info">
+                            <h6 class="alert-heading">
+                                <i class="ti-info me-2"></i>Current Workflow Status
+                            </h6>
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <strong>RO Review:</strong>
+                                    <span class="badge bg-{{ $claim->ro_review_date ? 'success' : 'warning' }}">
+                                        {{ $claim->ro_review_date ? 'Completed' : 'Pending' }}
+                                    </span>
+                                </div>
+                                <div class="col-md-3">
+                                    <strong>E5 Approval:</strong>
+                                    <span class="badge bg-{{ $claim->e5_approval_date ? 'success' : 'warning' }}">
+                                        {{ $claim->e5_approval_date ? 'Completed' : 'Pending' }}
+                                    </span>
+                                </div>
+                                <div class="col-md-3">
+                                    <strong>Payment:</strong>
+                                    <span class="badge bg-{{ $claim->status === 'paid' ? 'info' : 'secondary' }}">
+                                        {{ $claim->status === 'paid' ? 'Paid' : 'Pending' }}
+                                    </span>
+                                </div>
+                                <div class="col-md-3">
+                                    <strong>Overall Status:</strong>
+                                    <span
+                                        class="badge bg-{{ $claim->status === 'paid'
+                                            ? 'info'
+                                            : ($claim->status === 'approved'
+                                                ? 'success'
+                                                : ($claim->status === 'rejected'
+                                                    ? 'danger'
+                                                    : 'warning')) }}">
+                                        {{ ucfirst($claim->status) }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @endif
+
+            <!-- Action Buttons -->
+            <div class="card border-0 shadow-sm" style="border-radius: 12px;">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ route('claims.index') }}" class="btn btn-outline-secondary">
+                            <i class="ti-arrow-left me-1"></i>Back to Claims
+                        </a>
+                        <div class="btn-list">
+                            <a href="{{ route('claims.print', $claim->id) }}" class="btn btn-outline-danger"
+                                target="_blank">
+                                <i class="ti-printer me-1"></i>Print Claim
+                            </a>
+                            @if ($claim->status === 'pending')
+                                <a href="{{ route('claims.edit', $claim->id) }}" class="btn btn-primary">
+                                    <i class="ti-edit me-1"></i>Edit Claim
+                                </a>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Note Modal -->
+    <div class="modal fade" id="addNoteModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add Note to Claim</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addNoteForm">
+                        @csrf
+                        <div class="mb-3">
+                            <label class="form-label">Note</label>
+                            <textarea class="form-control" name="note" rows="4" required
+                                placeholder="Enter your note about this claim..."></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Note Type</label>
+                            <select class="form-select" name="note_type" required>
+                                <option value="general">General Note</option>
+                                <option value="approval">Approval Note</option>
+                                <option value="rejection">Rejection Note</option>
+                                <option value="payment">Payment Note</option>
+                            </select>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="saveNote()">Save Note</button>
+                </div>
+            </div>
+        </div>
+    </div>
+@endsection
+
+@push('styles')
+    <style>
+        .timeline {
+            position: relative;
+            padding-left: 30px;
+        }
+
+        .timeline-item {
+            position: relative;
+            padding-bottom: 30px;
+        }
+
+        .timeline-item:last-child {
+            padding-bottom: 0;
+        }
+
+        .timeline-point {
+            position: absolute;
+            left: -30px;
+            top: 5px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 2px solid #fff;
+        }
+
+        .timeline-point-success {
+            background-color: #2fb344;
+        }
+
+        .timeline-point-primary {
+            background-color: #206bc4;
+        }
+
+        .timeline-point-warning {
+            background-color: #f59e0b;
+        }
+
+        .timeline-point-info {
+            background-color: #0ea5e9;
+        }
+
+        .timeline-point-danger {
+            background-color: #dc3545;
+        }
+
+        .timeline-content {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #206bc4;
+        }
+
+        .timeline-time {
+            font-size: 0.875rem;
+            color: #6c757d;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        .timeline-title {
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: #2d3748;
+        }
+
+        .timeline-body {
+            font-size: 0.875rem;
+            line-height: 1.5;
+        }
+
+        .avatar {
+            width: 3rem;
+            height: 3rem;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+        }
+
+        .avatar-lg {
+            width: 4rem;
+            height: 4rem;
+            font-size: 1.5rem;
+        }
+    </style>
+@endpush
+
+@push('scripts')
+    <script>
+        function downloadClaim() {
+            window.open('{{ route('claims.download', $claim->id) }}', '_blank');
+        }
+
+        function approveClaim() {
+            if (confirm('Are you sure you want to approve this claim?')) {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '{{ route('claims.approve', $claim->id) }}';
+
+                const csrf = document.createElement('input');
+                csrf.type = 'hidden';
+                csrf.name = '_token';
+                csrf.value = '{{ csrf_token() }}';
+                form.appendChild(csrf);
+
+                document.body.appendChild(form);
+                form.submit();
+            }
+        }
+
+        function rejectClaim() {
+            const reason = prompt('Please enter the rejection reason:');
+            if (reason) {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '{{ route('claims.reject', $claim->id) }}';
+
+                const csrf = document.createElement('input');
+                csrf.type = 'hidden';
+                csrf.name = '_token';
+                csrf.value = '{{ csrf_token() }}';
+                form.appendChild(csrf);
+
+                const rejectionReason = document.createElement('input');
+                rejectionReason.type = 'hidden';
+                rejectionReason.name = 'rejection_reason';
+                rejectionReason.value = reason;
+                form.appendChild(rejectionReason);
+
+                document.body.appendChild(form);
+                form.submit();
+            }
+        }
+
+        function addNote() {
+            const modal = new bootstrap.Modal(document.getElementById('addNoteModal'));
+            modal.show();
+        }
+
+        function saveNote() {
+            const form = document.getElementById('addNoteForm');
+            const formData = new FormData(form);
+
+            fetch('{{ route('claims.add-note', $claim->id) }}', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Note added successfully!');
+                        bootstrap.Modal.getInstance(document.getElementById('addNoteModal')).hide();
+                        location.reload();
+                    } else {
+                        alert('Error adding note: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    alert('Error adding note. Please try again.');
+                });
+        }
+
+        function viewHistory() {
+            window.open('{{ route('claims.audit.trail', $claim->id) }}', '_blank');
+        }
+
+        function deleteClaim() {
+            if (confirm('Are you sure you want to delete this claim? This action cannot be undone.')) {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '{{ route('claims.destroy', $claim->id) }}';
+
+                const csrf = document.createElement('input');
+                csrf.type = 'hidden';
+                csrf.name = '_token';
+                csrf.value = '{{ csrf_token() }}';
+                form.appendChild(csrf);
+
+                const method = document.createElement('input');
+                method.type = 'hidden';
+                method.name = '_method';
+                method.value = 'DELETE';
+                form.appendChild(method);
+
+                document.body.appendChild(form);
+                form.submit();
+            }
+        }
+    </script>
+@endpush
+</div>
+
+<div class="mb-3">
+    <label class="form-label text-muted">Referred to</label>
+    <div>{{ $claim->referred_to }}</div>
+</div>
+
+<div class="mb-3">
+    <label class="form-label text-muted">Date of Discharged</label>
+    <div>{{ $claim->date_discharged }}</div>
+</div>
+
+<div class="mb-3">
+    <label class="form-label text-muted">Claimed Amount</label>
+    <div>{{ $claim->claimed_amount }}</div>
+</div>
+</div>
+
+<!-- Right Column -->
+<div class="col-md-6">
+    <div class="mb-3">
+        <label class="form-label text-muted">Boschma Id</label>
+        <div>{{ $claim->boschma_id }}</div>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label text-muted">Referred from</label>
+        <div>{{ $claim->referred_from }}</div>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label text-muted">Date of admission</label>
+        <div>{{ $claim->date_admission }}</div>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label text-muted">Diagnosis</label>
+        <div>{{ $claim->diagnosis }}</div>
+    </div>
+</div>
+</div>
+
+<hr class="my-4">
+
+<!-- Medications Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3 class="mb-0">Medications</h3>
+            <button class="btn btn-success btn-sm">+ Add Medication</button>
+        </div>
+
+        @if ($claim->medications && count($claim->medications) > 0)
+            <div class="table-responsive">
+                <table class="table table-vcenter">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Cost</th>
+                            <th>Frequency</th>
+                            <th>Days</th>
+                            <th>Claimed</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($claim->medications as $medication)
+                            <tr>
+                                <td>{{ $medication['name'] }}</td>
+                                <td>{{ $medication['cost'] }}</td>
+                                <td>{{ $medication['frequency'] }}</td>
+                                <td>{{ $medication['days'] }}</td>
+                                <td>{{ $medication['claimed'] }}</td>
+                                <td class="text-end">
+                                    <button class="btn btn-sm btn-success me-1">Edit</button>
+                                    <button class="btn btn-sm btn-danger">Delete</button>
+                                </td>
+                            </tr>
+                        @endforeach
+                        <tr class="fw-bold">
+                            <td colspan="4" class="text-end">Sum</td>
+                            <td>{{ $claim->medications_total }}</td>
+                            <td></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        @else
+            <div class="alert alert-light text-center">
+                No medications claimed
+            </div>
+        @endif
+    </div>
+</div>
+
+<hr class="my-4">
+
+<!-- Laboratory Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3 class="mb-0">LABORATORY</h3>
+            <button class="btn btn-success btn-sm">+ Add Laboratory Test</button>
+        </div>
+
+        @if ($claim->laboratory_tests && count($claim->laboratory_tests) > 0)
+            <div class="table-responsive">
+                <table class="table table-vcenter">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Cost</th>
+                            <th>Frequency</th>
+                            <th>Claimed</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($claim->laboratory_tests as $test)
+                            <tr>
+                                <td>{{ $test['name'] }}</td>
+                                <td>{{ $test['cost'] }}</td>
+                                <td>{{ $test['frequency'] }}</td>
+                                <td>{{ $test['claimed'] }}</td>
+                                <td class="text-end">
+                                    <button class="btn btn-sm btn-success me-1">Edit</button>
+                                    <button class="btn btn-sm btn-danger">Delete</button>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @else
+            <div class="alert alert-light text-center">
+                ✕<br>
+                No laboratory test claims
+            </div>
+        @endif
+    </div>
+</div>
+
+<hr class="my-4">
+
+<!-- Rendered Service Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3 class="mb-0">RENDERED SERVICE</h3>
+            <button class="btn btn-success btn-sm">+ Add Rendered Service</button>
+        </div>
+
+        @if ($claim->rendered_services && count($claim->rendered_services) > 0)
+            <div class="table-responsive">
+                <table class="table table-vcenter">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Cost</th>
+                            <th>Frequency</th>
+                            <th>Claimed</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($claim->rendered_services as $service)
+                            <tr>
+                                <td>{{ $service['name'] }}</td>
+                                <td>{{ $service['cost'] }}</td>
+                                <td>{{ $service['frequency'] }}</td>
+                                <td>{{ $service['claimed'] }}</td>
+                                <td class="text-end">
+                                    <button class="btn btn-sm btn-success me-1">Edit</button>
+                                    <button class="btn btn-sm btn-danger">Delete</button>
+                                </td>
+                            </tr>
+                        @endforeach
+                        <tr class="fw-bold">
+                            <td colspan="3" class="text-end">Sum</td>
+                            <td>{{ $claim->services_total }}</td>
+                            <td></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="mt-3">
+                <strong>Grand Total:</strong> N{{ number_format($claim->grand_total, 2) }}
+            </div>
+        @else
+            <div class="alert alert-light text-center">
+                No rendered services claimed
+            </div>
+        @endif
+    </div>
+</div>
+
+<hr class="my-4">
+
+<!-- Clinical Note Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3 class="mb-0">Clinical Note</h3>
+            <button class="btn btn-success btn-sm">+ Add Clinical Note</button>
+        </div>
+
+        @if ($claim->clinical_note)
+            <div>
+                <div class="mb-2"><strong>Picture</strong></div>
+                <div class="d-flex align-items-center">
+                    <span class="me-2">{{ $claim->clinical_note }}</span>
+                    <button class="btn btn-sm btn-ghost-primary">View</button>
+                </div>
+            </div>
+        @else
+            <div class="alert alert-light text-center">
+                No clinical notes
+            </div>
+        @endif
+    </div>
+</div>
+
+<hr class="my-4">
+
+<!-- Laboratory Investigation Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3 class="mb-0">Laboratory Investigation</h3>
+            <button class="btn btn-success btn-sm">+ Add Lab Investigation Note</button>
+        </div>
+
+        @if ($claim->lab_investigations && count($claim->lab_investigations) > 0)
+            <!-- Display lab investigations -->
+        @else
+            <div class="alert alert-light text-center">
+                ✕<br>
+                No lab investigations
+            </div>
+        @endif
+    </div>
+</div>
+
+<hr class="my-4">
+
+<!-- Operation Sheet Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3 class="mb-0">Operation Sheet</h3>
+            <button class="btn btn-success btn-sm">+ Add Operation Sheet</button>
+        </div>
+
+        @if ($claim->operation_sheets && count($claim->operation_sheets) > 0)
+            <!-- Display operation sheets -->
+        @else
+            <div class="alert alert-light text-center">
+                ✕<br>
+                No operation sheets
+            </div>
+        @endif
+    </div>
+</div>
+
+<hr class="my-4">
+
+<!-- Laboratory Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3 class="mb-0">LABORATORY</h3>
+            <button class="btn btn-success btn-sm">+ Add Laboratory Test</button>
+        </div>
+
+        @if ($claim->laboratory_tests && count($claim->laboratory_tests) > 0)
+            <div class="table-responsive">
+                <table class="table table-vcenter">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Cost</th>
+                            <th>Frequency</th>
+                            <th>Claimed</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($claim->laboratory_tests as $test)
+                            <tr>
+                                <td>{{ $test['name'] }}</td>
+                                <td>{{ $test['cost'] }}</td>
+                                <td>{{ $test['frequency'] }}</td>
+                                <td>{{ $test['claimed'] }}</td>
+                                <td class="text-end">
+                                    <button class="btn btn-sm btn-success me-1">Edit</button>
+                                    <button class="btn btn-sm btn-danger">Delete</button>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @else
+            <div class="alert alert-light text-center">
+                No laboratory test claims
+            </div>
+        @endif
+    </div>
+</div>
+
+<hr class="my-4">
+
+<!-- Rendered Service Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3 class="mb-0">RENDERED SERVICE</h3>
+            <button class="btn btn-success btn-sm">+ Add Rendered Service</button>
+        </div>
+
+        @if ($claim->rendered_services && count($claim->rendered_services) > 0)
+            <div class="table-responsive">
+                <table class="table table-vcenter">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Cost</th>
+                            <th>Frequency</th>
+                            <th>Claimed</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($claim->rendered_services as $service)
+                            <tr>
+                                <td>{{ $service['name'] }}</td>
+                                <td>{{ $service['cost'] }}</td>
+                                <td>{{ $service['frequency'] }}</td>
+                                <td>{{ $service['claimed'] }}</td>
+                                <td class="text-end">
+                                    <button class="btn btn-sm btn-success me-1">Edit</button>
+                                    <button class="btn btn-sm btn-danger">Delete</button>
+                                </td>
+                            </tr>
+                        @endforeach
+                        <tr class="fw-bold">
+                            <td colspan="3" class="text-end">Sum</td>
+                            <td>{{ $claim->services_total }}</td>
+                            <td></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="mt-3">
+                <strong>Grand Total:</strong> N{{ number_format($claim->grand_total, 2) }}
+            </div>
+        @else
+            <div class="alert alert-light text-center">
+                No rendered services claimed
+            </div>
+        @endif
+    </div>
+</div>
+
+<hr class="my-4">
+
+<!-- Clinical Note Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3 class="mb-0">Clinical Note</h3>
+            <button class="btn btn-success btn-sm">+ Add Clinical Note</button>
+        </div>
+
+        @if ($claim->clinical_note)
+            <div>
+                <div class="mb-2"><strong>Picture</strong></div>
+                <div class="d-flex align-items-center">
+                    <span class="me-2">{{ $claim->clinical_note }}</span>
+                    <button class="btn btn-sm btn-ghost-primary">View</button>
+                </div>
+            </div>
+        @else
+            <div class="alert alert-light text-center">
+                No clinical notes
+            </div>
+        @endif
+    </div>
+</div>
+
+<hr class="my-4">
+
+<!-- Laboratory Investigation Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3 class="mb-0">Laboratory Investigation</h3>
+            <button class="btn btn-success btn-sm">+ Add Lab Investigation Note</button>
+        </div>
+
+        @if ($claim->lab_investigations && count($claim->lab_investigations) > 0)
+            <!-- Display lab investigations -->
+        @else
+            <div class="alert alert-light text-center">
+                No lab investigations
+            </div>
+        @endif
+    </div>
+</div>
+
+<hr class="my-4">
+
+<!-- Operation Sheet Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3 class="mb-0">Operation Sheet</h3>
+            <button class="btn btn-success btn-sm">+ Add Operation Sheet</button>
+        </div>
+
+        @if ($claim->operation_sheets && count($claim->operation_sheets) > 0)
+            <!-- Display operation sheets -->
+        @else
+            <div class="alert alert-light text-center">
+                No operation sheets
+            </div>
+        @endif
+    </div>
+</div>
+
+<hr class="my-4">
+
+<!-- Prescription Sheet Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3 class="mb-0">Prescription Sheet</h3>
+            <button class="btn btn-success btn-sm">+ Add Prescription Sheet</button>
+        </div>
+
+        @if ($claim->prescription_sheet)
+            <div>
+                <div class="mb-2"><strong>Picture</strong></div>
+                <div class="d-flex align-items-center">
+                    <span class="me-2">{{ $claim->prescription_sheet }}</span>
+                    <button class="btn btn-sm btn-ghost-primary">View</button>
+                </div>
+            </div>
+
+            <div class="mt-4 text-end">
+                <button class="btn btn-success">Approved Claim</button>
+            </div>
+        @else
+            <div class="alert alert-light text-center">
+                No prescription sheet
+            </div>
+        @endif
+    </div>
+</div>
+
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+@section('scripts')
+    <script>
+        function roApprove() {
+            const notes = document.getElementById('roNotes').value;
+
+            if (!confirm('Are you sure you want to approve this claim at the Regional Officer level?')) {
+                return;
+            }
+
+            fetch(`/claims/{{ $claim->id }}/ro-approve`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({
+                        notes: notes
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert(data.message || 'Error approving claim');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error approving claim');
+                });
+        }
+
+        function roReject() {
+            const notes = document.getElementById('roNotes').value;
+
+            if (!notes.trim()) {
+                alert('Please provide rejection notes before rejecting this claim.');
+                return;
+            }
+
+            if (!confirm('Are you sure you want to reject this claim at the Regional Officer level?')) {
+                return;
+            }
+
+            fetch(`/claims/{{ $claim->id }}/ro-reject`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({
+                        notes: notes
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert(data.message || 'Error rejecting claim');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error rejecting claim');
+                });
+        }
+
+        function e5Approve() {
+            const notes = document.getElementById('e5Notes').value;
+
+            if (!confirm('Are you sure you want to give final E5 approval for this claim?')) {
+                return;
+            }
+
+            fetch(`/claims/{{ $claim->id }}/e5-approve`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({
+                        notes: notes
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert(data.message || 'Error approving claim');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error approving claim');
+                });
+        }
+
+        function e5Reject() {
+            const notes = document.getElementById('e5Notes').value;
+
+            if (!notes.trim()) {
+                alert('Please provide rejection notes before rejecting this claim.');
+                return;
+            }
+
+            if (!confirm('Are you sure you want to reject this claim at the E5 level?')) {
+                return;
+            }
+
+            fetch(`/claims/{{ $claim->id }}/e5-reject`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({
+                        notes: notes
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert(data.message || 'Error rejecting claim');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error rejecting claim');
+                });
+        }
+
+        function markAsPaid() {
+            const reference = document.getElementById('paymentReference').value;
+            const date = document.getElementById('paymentDate').value;
+
+            if (!reference.trim()) {
+                alert('Please provide a payment reference.');
+                return;
+            }
+
+            if (!date) {
+                alert('Please provide a payment date.');
+                return;
+            }
+
+            if (!confirm('Are you sure you want to mark this claim as paid?')) {
+                return;
+            }
+
+            fetch(`/claims/{{ $claim->id }}/mark-as-paid`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({
+                        payment_reference: reference,
+                        payment_date: date
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert(data.message || 'Error marking claim as paid');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error marking claim as paid');
+                });
+        }
+
+        function approveClaim() {
+            if (!confirm('Are you sure you want to approve this claim?')) {
+                return;
+            }
+
+            fetch(`/claims/{{ $claim->id }}/approve`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert(data.message || 'Error approving claim');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error approving claim');
+                });
+        }
+
+        function rejectClaim() {
+            const reason = prompt('Please provide the rejection reason:');
+
+            if (!reason || !reason.trim()) {
+                alert('Rejection reason is required.');
+                return;
+            }
+
+            fetch(`/claims/{{ $claim->id }}/reject`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({
+                        rejection_reason: reason
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert(data.message || 'Error rejecting claim');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error rejecting claim');
+                });
+        }
+
+        function addNote() {
+            const content = prompt('Please enter your note:');
+
+            if (!content || !content.trim()) {
+                return;
+            }
+
+            fetch(`/claims/{{ $claim->id }}/add-note`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({
+                        content: content,
+                        is_internal: false
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert(data.message || 'Error adding note');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error adding note');
+                });
+        }
+
+        function viewHistory() {
+            // This would typically open a modal with history details
+            alert('History view would be implemented here');
+        }
+
+        function deleteClaim() {
+            if (!confirm('Are you sure you want to delete this claim? This action cannot be undone.')) {
+                return;
+            }
+
+            fetch(`/claims/{{ $claim->id }}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        window.location.href = '{{ route('claims.index') }}';
+                    } else {
+                        alert(data.message || 'Error deleting claim');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error deleting claim');
+                });
+        }
+
+        function downloadClaim() {
+            window.open(`/claims/{{ $claim->id }}/export`, '_blank');
+        }
+    </script>
+@endsection

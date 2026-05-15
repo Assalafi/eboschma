@@ -115,6 +115,10 @@
                                     beneficiaries in the system</p>
                             </div>
                             <div class="d-flex gap-2">
+                                <a href="{{ route('beneficiaries.upload.form') }}" class="btn btn-outline-primary"
+                                    style="border-color: #01542B; color: #01542B;">
+                                    <i class="fe fe-upload"></i> Bulk Upload
+                                </a>
                                 <a href="{{ route('beneficiaries.verify') }}" class="btn btn-primary"
                                     style="background-color: #01542B; border-color: #01542B;">
                                     <i class="fe fe-plus-circle"></i> New Enrollment
@@ -149,7 +153,8 @@
                                             <label class="small mb-1" style="color: #01542B;">Search</label>
                                             <input type="text" name="search" id="search"
                                                 class="form-control form-control-sm"
-                                                placeholder="Search by ID, Name, Phone..." value="{{ request('search') }}">
+                                                placeholder="Search by ID, Name, Phone..."
+                                                value="{{ request('search') }}">
                                         </div>
                                         <div class="col-lg-2 col-md-6 mb-2">
                                             <label class="small mb-1" style="color: #01542B;">Status</label>
@@ -168,7 +173,20 @@
                                                 </option>
                                             </select>
                                         </div>
-                                        <div class="col-lg-3 col-md-6 mb-2">
+                                        <div class="col-lg-2 col-md-6 mb-2">
+                                            <label class="small mb-1" style="color: #01542B;">Program</label>
+                                            <select name="program_id" id="program_id"
+                                                class="form-control form-control-sm">
+                                                <option value="">All Programs</option>
+                                                @foreach ($programs ?? [] as $program)
+                                                    <option value="{{ $program->id }}"
+                                                        {{ request('program_id') == $program->id ? 'selected' : '' }}>
+                                                        {{ $program->name }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                        <div class="col-lg-2 col-md-6 mb-2">
                                             <label class="small mb-1" style="color: #01542B;">Facility</label>
                                             <select name="facility_id" id="facility_id"
                                                 class="form-control form-control-sm">
@@ -200,7 +218,7 @@
                                             </button>
                                         </div>
                                     </div>
-                                    @if (request()->hasAny(['search', 'status', 'facility_id', 'gender']))
+                                    @if (request()->hasAny(['search', 'status', 'program_id', 'facility_id', 'gender']))
                                         <div class="mt-2">
                                             <a href="{{ route('beneficiaries.index') }}"
                                                 class="btn btn-sm btn-outline-secondary">
@@ -351,49 +369,14 @@
                                                         class="btn btn-sm btn-primary" title="Download ID Card">
                                                         <i class="fe fe-file"></i>
                                                     </a>
-                                                    <button type="button" class="btn btn-sm btn-danger"
-                                                        data-toggle="modal"
-                                                        data-target="#delete-beneficiary-{{ $beneficiary->id }}"
+                                                    <button type="button" class="btn btn-sm btn-danger btn-delete-beneficiary"
+                                                        data-id="{{ $beneficiary->id }}"
+                                                        data-boschma="{{ $beneficiary->boschma_no }}"
+                                                        data-name="{{ $beneficiary->fullname }}"
+                                                        data-url="{{ route('beneficiaries.destroy', $beneficiary->id) }}"
                                                         title="Delete">
                                                         <i class="fe fe-trash"></i>
                                                     </button>
-                                                </div>
-
-                                                <!-- Delete Modal -->
-                                                <div class="modal fade" id="delete-beneficiary-{{ $beneficiary->id }}"
-                                                    tabindex="-1" role="dialog" aria-hidden="true">
-                                                    <div class="modal-dialog modal-dialog-centered" role="document">
-                                                        <div class="modal-content">
-                                                            <div class="modal-header">
-                                                                <h5 class="modal-title">Delete Confirmation</h5>
-                                                                <button type="button" class="close"
-                                                                    data-dismiss="modal" aria-label="Close">
-                                                                    <span aria-hidden="true">&times;</span>
-                                                                </button>
-                                                            </div>
-                                                            <div class="modal-body">
-                                                                <p>Are you sure you want to delete beneficiary
-                                                                    <strong>{{ $beneficiary->boschma_no }}</strong>:
-                                                                    {{ $beneficiary->surname }},
-                                                                    {{ $beneficiary->first_name }}?
-                                                                </p>
-                                                                <p class="text-danger">This will also delete all associated
-                                                                    dependents and cannot be undone.</p>
-                                                            </div>
-                                                            <div class="modal-footer">
-                                                                <button type="button" class="btn btn-secondary"
-                                                                    data-dismiss="modal">Cancel</button>
-                                                                <form
-                                                                    action="{{ route('beneficiaries.destroy', $beneficiary->id) }}"
-                                                                    method="POST">
-                                                                    @csrf
-                                                                    @method('DELETE')
-                                                                    <button type="submit"
-                                                                        class="btn btn-danger">Delete</button>
-                                                                </form>
-                                                            </div>
-                                                        </div>
-                                                    </div>
                                                 </div>
                                             </td>
                                         </tr>
@@ -497,6 +480,34 @@
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Shared Delete Modal (outside DataTable) -->
+    <div class="modal fade" id="delete-beneficiary-modal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Delete Confirmation</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to delete beneficiary
+                        <strong id="delete-boschma"></strong>: <span id="delete-name"></span>?
+                    </p>
+                    <p class="text-danger">This will also delete all associated dependents and cannot be undone.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <form id="delete-beneficiary-form" method="POST">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="btn btn-danger">Delete</button>
+                    </form>
                 </div>
             </div>
         </div>
@@ -721,7 +732,7 @@
                 "responsive": true,
                 "columnDefs": [{
                     "orderable": false,
-                    "targets": [0, 9]
+                    "targets": [0, 8]
                 }]
             });
 
@@ -772,6 +783,17 @@
                 $('#select-all').prop('checked', false);
                 $('#select-all').prop('indeterminate', false);
                 updateBulkActionsBar();
+            });
+
+            // Handle delete button click - populate shared modal
+            $(document).on('click', '.btn-delete-beneficiary', function() {
+                var url = $(this).data('url');
+                var boschma = $(this).data('boschma');
+                var name = $(this).data('name');
+                $('#delete-boschma').text(boschma);
+                $('#delete-name').text(name);
+                $('#delete-beneficiary-form').attr('action', url);
+                $('#delete-beneficiary-modal').modal('show');
             });
 
             // Handle bulk action form submission

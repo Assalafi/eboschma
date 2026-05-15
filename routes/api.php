@@ -4,6 +4,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\BeneficiaryApiController;
 use App\Http\Controllers\Api\CivilServantApiController;
+use App\Http\Controllers\Api\OcrController;
+use App\Http\Controllers\Api\BackgroundRemovalController;
 
 /*
 |--------------------------------------------------------------------------
@@ -22,6 +24,21 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 
 // Mobile App API Routes
 require __DIR__.'/api_mobile.php';
+
+// NIN Uniqueness Verification (for beneficiary mobile app - no auth required)
+Route::post('/mobile/verify-nin-uniqueness', [BeneficiaryApiController::class, 'verifyNinUniqueness']);
+
+// OCR API Routes (for web platform - no auth required)
+Route::prefix('ocr')->group(function () {
+    Route::post('/verify-nin', [OcrController::class, 'verifyNin']);
+    Route::post('/test', [OcrController::class, 'testOcr']); // For testing OCR functionality
+});
+
+// Background Removal API Routes (for web platform - no auth required)
+Route::prefix('background-removal')->group(function () {
+    Route::post('/remove', [BackgroundRemovalController::class, 'removeBackground']);
+    Route::get('/test', [BackgroundRemovalController::class, 'test']); // For testing service availability
+});
 
 // Facilities API Route - separate from beneficiaries to avoid conflicts
 
@@ -63,6 +80,8 @@ Route::prefix('auth')->group(function () {
     Route::post('/verify', [CivilServantApiController::class, 'verify']);
     Route::post('/create-account', [CivilServantApiController::class, 'createAccount']);
     Route::post('/login', [CivilServantApiController::class, 'login']);
+    Route::post('/verify-for-reset', [CivilServantApiController::class, 'verifyForReset']);
+    Route::post('/reset-password', [CivilServantApiController::class, 'resetPassword']);
     
     // Protected routes
     Route::middleware('auth:sanctum')->group(function () {

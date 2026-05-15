@@ -564,10 +564,9 @@
         }
 
         .footer-text {
-            font-size: 1.5mm;
-            font-weight: 700;
-            color: #000000;
-            line-height: 1.5;
+            font-size: 1.9mm;
+            font-weight: 1000;
+            line-height: 1.1;
             text-align: center;
         }
 
@@ -665,12 +664,12 @@
                         <span class="value">{{ $beneficiary->facility->name ?? 'N/A' }}
                             ({{ $beneficiary->facility->ward }})</span>
                     </div>
-                    <div style="font-weight: 900; margin-top: 20px;">
-                        BOSCHMA NO: {{ $beneficiary->boschma_no }}
-                    </div>
                 </div>
             </div>
 
+            <div style="font-weight: 900; margin-top: 40px; font-size: 6mm;">
+                BOSCHMA NO: {{ $beneficiary->boschma_no }}
+            </div>
 
         </div>
 
@@ -770,7 +769,7 @@
                     FOUND, PLEASE RETURN TO THE ADDRESS OVERLEAF OR TO THE NEAREST POLICE STATION
                 </div>
                 <div class="footer-text">
-                    <img src="{{ $signBase64 }}" style="width: 70px;" class="header-brand-img desktop-logo"
+                    <img src="{{ $signBase64 }}" style="width: 60px;" class="header-brand-img desktop-logo"
                         alt="sign">
                 </div>
                 <div class="footer-text">

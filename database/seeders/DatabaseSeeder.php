@@ -23,8 +23,12 @@ class DatabaseSeeder extends Seeder
 
         // Run the staff seeder and admin user seeder
         $this->call([
-            StaffSeeder::class,
-            AdminUserSeeder::class,
+            RolesAndPermissionsSeeder::class,
+            CrmPermissionSeeder::class,
+            ReferralPermissionSeeder::class,
+            ClaimPermissionSeeder::class,
+            ServiceManagementPermissionsSeeder::class,
+            WardManagementPermissionsSeeder::class,
         ]);
     }
 }

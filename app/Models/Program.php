@@ -11,6 +11,8 @@ class Program extends Model
 
     protected $fillable = [
         'name',
+        'description',
+        'logo',
         'format',
         'has_dependant',
         'status',

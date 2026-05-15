@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Beneficiary;
 use App\Models\Program;
 use App\Models\Facility;
+use App\Models\BeneficiaryCategory;
 use App\Models\Spouse;
 use App\Models\Child;
 use Illuminate\Http\Request;
@@ -16,6 +17,19 @@ use Illuminate\Support\Facades\Validator;
 
 class MobileEnrollmentController extends Controller
 {
+    /**
+     * Get beneficiary categories list
+     */
+    public function getBeneficiaryCategories(Request $request)
+    {
+        $categories = BeneficiaryCategory::orderBy('name')->get();
+
+        return response()->json([
+            'success' => true,
+            'categories' => $categories
+        ], 200);
+    }
+
     /**
      * Get programs list
      */
@@ -470,7 +484,7 @@ class MobileEnrollmentController extends Controller
     public function getBeneficiaries(Request $request)
     {
         $staff = $request->user();
-        $isSuperAdmin = strtolower($staff->role->name ?? '') === 'super admin';
+        $isSuperAdmin = $staff instanceof \App\Models\Staff && $staff->hasRole('super admin');
 
         Log::info('📝 Fetching Beneficiaries', [
             'staff_id' => $staff->id,
@@ -507,7 +521,7 @@ class MobileEnrollmentController extends Controller
     public function getBeneficiary(Request $request, $id)
     {
         $staff = $request->user();
-        $isSuperAdmin = strtolower($staff->role->name ?? '') === 'super admin';
+        $isSuperAdmin = $staff instanceof \App\Models\Staff && $staff->hasRole('super admin');
 
         Log::info('👤 Fetching Beneficiary Details', [
             'staff_id' => $staff->id,
@@ -731,7 +745,7 @@ class MobileEnrollmentController extends Controller
     public function updateBeneficiary(Request $request, $id)
     {
         $staff = $request->user();
-        $isSuperAdmin = strtolower($staff->role->name ?? '') === 'super admin';
+        $isSuperAdmin = $staff instanceof \App\Models\Staff && $staff->hasRole('super admin');
 
         Log::info('✏️ Updating Beneficiary', [
             'staff_id' => $staff->id,
@@ -820,7 +834,7 @@ class MobileEnrollmentController extends Controller
     public function deleteBeneficiary(Request $request, $id)
     {
         $staff = $request->user();
-        $isSuperAdmin = strtolower($staff->role->name ?? '') === 'super admin';
+        $isSuperAdmin = $staff instanceof \App\Models\Staff && $staff->hasRole('super admin');
 
         Log::info('🗑️ Deleting Beneficiary', [
             'staff_id' => $staff->id,
@@ -877,7 +891,7 @@ class MobileEnrollmentController extends Controller
     public function getDashboardStats(Request $request)
     {
         $staff = $request->user();
-        $isSuperAdmin = strtolower($staff->role->name ?? '') === 'super admin';
+        $isSuperAdmin = $staff instanceof \App\Models\Staff && $staff->hasRole('super admin');
 
         Log::info('📊 Fetching Dashboard Stats', [
             'staff_id' => $staff->id,
@@ -911,10 +925,17 @@ class MobileEnrollmentController extends Controller
      */
     public function uploadBeneficiary(Request $request)
     {
-        $staff = $request->user();
+        $user = $request->user();
+        
+        // Check if user is a staff member (for enumerator app) or beneficiary (for beneficiary app)
+        // Use model type check since Staff uses Spatie roles (relationship, not direct attribute)
+        $isStaff = $user instanceof \App\Models\Staff;
+        $staffId = $isStaff ? $user->id : null;
 
         Log::info('📤 Uploading Beneficiary from Mobile', [
-            'staff_id' => $staff->id,
+            'user_id' => $user->id ?? 'unknown',
+            'is_staff' => $isStaff,
+            'staff_id' => $staffId,
             'nin' => $request->nin,
             'created_at_received' => $request->created_at ?? 'NOT_SENT'
         ]);
@@ -924,7 +945,7 @@ class MobileEnrollmentController extends Controller
             'facility_id' => 'required|exists:facilities,id',
             'alt_facility_id' => 'nullable|exists:facilities,id',
             'nin' => 'required|string|size:11',
-            'dp_no' => 'required|string',
+            'dp_no' => 'nullable|string',
             'fullname' => 'required|string|max:255',
             'gender' => 'required|in:Male,Female',
             'date_of_birth' => 'required|date',
@@ -941,8 +962,8 @@ class MobileEnrollmentController extends Controller
             'date_of_retirement' => 'nullable|date',
             'occupation' => 'nullable|string',
             'category' => 'required|string',
-            'id_type' => 'required|string',
-            'id_no' => 'required|string',
+            'id_type' => 'nullable|string',
+            'id_no' => 'nullable|string',
             'marital_status' => 'nullable|string',
             'religion' => 'nullable|string',
             'beneficiary_photo' => 'nullable|file|mimes:jpg,jpeg,png|max:4096',
@@ -1057,6 +1078,47 @@ class MobileEnrollmentController extends Controller
             }
         }
 
+        // Verify children NIns if provided
+        if ($request->has_children && $request->children) {
+            $childrenData = json_decode($request->children, true);
+            if (is_array($childrenData)) {
+                foreach ($childrenData as $index => $childData) {
+                    if (!empty($childData['nin'])) {
+                        $childNin = $childData['nin'];
+                        
+                        // Check if child NIN exists in any table
+                        $existingChildNin = Beneficiary::where('nin', $childNin)->first();
+                        if (!$existingChildNin) {
+                            $existingChildNin = Spouse::where('nin', $childNin)->first();
+                        }
+                        if (!$existingChildNin) {
+                            $existingChildNin = Child::where('nin', $childNin)->first();
+                        }
+                        
+                        if ($existingChildNin) {
+                            $childName = $childData['name'] ?? 'Child ' . ($index + 1);
+                            Log::warning('⚠️ Upload Failed - Child NIN Already Exists', [
+                                'child_nin' => $childNin,
+                                'child_name' => $childName,
+                            ]);
+
+                            return response()->json([
+                                'success' => false,
+                                'error_code' => 'CHILD_NIN_DUPLICATE',
+                                'message' => "Child NIN ({$childName}) is already registered in the system",
+                                'error_details' => [
+                                    'field' => 'child_nin',
+                                    'child_index' => $index,
+                                    'child_name' => $childName,
+                                    'value' => $childNin,
+                                ]
+                            ], 409);
+                        }
+                    }
+                }
+            }
+        }
+
         DB::beginTransaction();
 
         try {
@@ -1064,8 +1126,7 @@ class MobileEnrollmentController extends Controller
             $program = Program::findOrFail($request->program_id);
             $programFormat = $program->format ?? 'BOSCHMA';
             
-            $latestSequence = Beneficiary::where('program_id', $request->program_id)
-                ->whereNotNull('sequence_number')
+            $latestSequence = Beneficiary::whereNotNull('sequence_number')
                 ->max('sequence_number');
             
             $sequenceNumber = $latestSequence ? $latestSequence + 1 : 1;
@@ -1122,9 +1183,9 @@ class MobileEnrollmentController extends Controller
                 'status' => 'pending', // Always pending from mobile
                 'has_spouse' => $request->has_spouse ? 1 : 0,
                 'number_of_children' => $numberOfChildren,
-                'created_by' => $staff->id,
-                'updated_by' => $staff->id,
-                'submitted_by' => $staff->id,
+                'created_by' => $staffId,
+                'updated_by' => $staffId,
+                'submitted_by' => $staffId,
             ];
             
             // Use original creation date if provided by mobile app
@@ -1182,6 +1243,9 @@ class MobileEnrollmentController extends Controller
                     'phone' => $request->spouse_phone,
                     'email' => $request->spouse_email,
                     'photo' => $spousePhotoPath,
+                    'created_by' => $staffId,
+                    'updated_by' => $staffId,
+                    'submitted_by' => $staffId,
                 ]);
             }
 
@@ -1231,6 +1295,9 @@ class MobileEnrollmentController extends Controller
                         'birth_certificate_no' => $childData['birth_certificate_no'] ?? null,
                         'birth_certificate_file' => $birthCertPath,
                         'photo' => $childPhotoPath,
+                        'created_by' => $staffId,
+                        'updated_by' => $staffId,
+                        'submitted_by' => $staffId,
                     ]);
                     
                     Log::info("✅ Child {$index} created", [
@@ -1246,7 +1313,8 @@ class MobileEnrollmentController extends Controller
             DB::commit();
 
             Log::info('✅ Beneficiary Uploaded Successfully', [
-                'staff_id' => $staff->id,
+                'user_id' => $user->id ?? 'unknown',
+                'staff_id' => $staffId,
                 'beneficiary_id' => $beneficiary->id,
                 'boschma_no' => $boschmaNo,
                 'status' => 'pending'
@@ -1279,7 +1347,8 @@ class MobileEnrollmentController extends Controller
             DB::rollBack();
 
             Log::error('❌ Error Uploading Beneficiary', [
-                'staff_id' => $staff->id,
+                'user_id' => $user->id ?? 'unknown',
+                'staff_id' => $staffId,
                 'nin' => $request->nin,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
@@ -1445,7 +1514,7 @@ class MobileEnrollmentController extends Controller
     public function getBeneficiaryFull(Request $request, $id)
     {
         $staff = $request->user();
-        $isSuperAdmin = strtolower($staff->role->name ?? '') === 'super admin';
+        $isSuperAdmin = $staff instanceof \App\Models\Staff && $staff->hasRole('super admin');
 
         Log::info('📝 Fetching Full Beneficiary Data for Edit', [
             'staff_id' => $staff->id,
@@ -1551,12 +1620,18 @@ class MobileEnrollmentController extends Controller
      */
     public function updateBeneficiaryFull(Request $request, $id)
     {
-        $staff = $request->user();
-        $isSuperAdmin = strtolower($staff->role->name ?? '') === 'super admin';
+        $user = $request->user();
+        
+        // Check if user is a staff member (for enumerator app) or beneficiary (for beneficiary app)
+        // Use model type check since Staff uses Spatie roles (relationship, not direct attribute)
+        $isStaff = $user instanceof \App\Models\Staff;
+        $staffId = $isStaff ? $user->id : null;
+        $isSuperAdmin = $isStaff && $user->hasRole('super admin');
 
         Log::info('🔄 ============ BENEFICIARY UPDATE START ============', [
-            'staff_id' => $staff->id,
-            'staff_name' => $staff->name,
+            'user_id' => $user->id ?? 'unknown',
+            'is_staff' => $isStaff,
+            'staff_id' => $staffId,
             'beneficiary_id' => $id,
             'timestamp' => now()->toDateTimeString()
         ]);
@@ -1625,7 +1700,8 @@ class MobileEnrollmentController extends Controller
         */
 
         Log::info('✅ Update Access Granted (Open Access Mode)', [
-            'staff_id' => $staff->id,
+            'user_id' => $user->id ?? 'unknown',
+            'staff_id' => $staffId,
             'beneficiary_id' => $id,
             'created_by' => $beneficiary->created_by
         ]);
@@ -1707,7 +1783,7 @@ class MobileEnrollmentController extends Controller
                 'date_of_retirement' => $request->date_of_retirement,
                 'has_spouse' => $request->has_spouse ? 1 : 0,
                 'number_of_children' => $numberOfChildren,
-                'updated_by' => $staff->id,
+                'updated_by' => $staffId,
                 'status' => 'pending',
             ]);
 
@@ -1721,6 +1797,14 @@ class MobileEnrollmentController extends Controller
                 'religion' => $beneficiary->religion,
                 'category' => $beneficiary->category,
             ]);
+
+            // Handle beneficiary photo upload
+            if ($request->hasFile('beneficiary_photo')) {
+                $photoPath = $request->file('beneficiary_photo')->store('beneficiary_photos', 'public');
+                $beneficiary->photo = $photoPath;
+                $beneficiary->save();
+                Log::info('📸 Beneficiary Photo Uploaded', ['path' => $photoPath]);
+            }
 
             // Handle Spouse CRUD
             Log::info('👥 Processing Spouse Data', [
@@ -1748,6 +1832,7 @@ class MobileEnrollmentController extends Controller
                     'phone' => $request->spouse_phone,
                     'email' => $request->spouse_email,
                     'nin' => $request->spouse_nin,
+                    'updated_by' => $staffId,
                 ];
 
                 // Handle spouse photo upload
@@ -1832,6 +1917,7 @@ class MobileEnrollmentController extends Controller
                         'dob' => $childData['dob'] ?? null,
                         'nin' => $childData['nin'] ?? null,
                         'birth_certificate_no' => $childData['birth_certificate_no'] ?? null,
+                        'updated_by' => $staffId,
                     ];
                     
                     // Handle child photo upload
@@ -1906,7 +1992,8 @@ class MobileEnrollmentController extends Controller
 
             Log::error('❌ ============ ERROR UPDATING BENEFICIARY ============', [
                 'beneficiary_id' => $id,
-                'staff_id' => $staff->id,
+                'user_id' => $user->id ?? 'unknown',
+                'staff_id' => $staffId,
                 'error_message' => $e->getMessage(),
                 'error_file' => $e->getFile(),
                 'error_line' => $e->getLine(),

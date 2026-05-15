@@ -58,8 +58,9 @@ class FacilityController extends Controller
         $lgas = Facility::getBornoLGAs();
         $types = Facility::getFacilityTypes();
         $wards = Facility::getBornoWards();
+        $secondaryServices = \App\Models\Service::where('type', 'Secondary')->orderBy('name')->get();
         
-        return view('admin.facilities.create', compact('lgas', 'types', 'wards'));
+        return view('admin.facilities.create', compact('lgas', 'types', 'wards', 'secondaryServices'));
     }
 
     /**
@@ -79,7 +80,12 @@ class FacilityController extends Controller
         }
 
         try {
-            Facility::create($request->all());
+            $facility = Facility::create($request->only(['name', 'lga', 'ward', 'type']));
+            
+            // Sync secondary services if provided
+            if ($request->has('services')) {
+                $facility->services()->sync($request->services);
+            }
             
             return redirect()->route('facilities.index')
                 ->with('success', 'Facility created successfully!');
@@ -105,8 +111,9 @@ class FacilityController extends Controller
         $lgas = Facility::getBornoLGAs();
         $types = Facility::getFacilityTypes();
         $wards = Facility::getBornoWards();
+        $secondaryServices = \App\Models\Service::where('type', 'Secondary')->orderBy('name')->get();
         
-        return view('admin.facilities.edit', compact('facility', 'lgas', 'types', 'wards'));
+        return view('admin.facilities.edit', compact('facility', 'lgas', 'types', 'wards', 'secondaryServices'));
     }
 
     /**
@@ -126,7 +133,15 @@ class FacilityController extends Controller
         }
 
         try {
-            $facility->update($request->all());
+            $facility->update($request->only(['name', 'lga', 'ward', 'type']));
+            
+            // Sync secondary services if provided
+            if ($request->has('services')) {
+                $facility->services()->sync($request->services);
+            } else {
+                // If no services selected, detach all
+                $facility->services()->sync([]);
+            }
             
             return redirect()->route('facilities.index')
                 ->with('success', 'Facility updated successfully!');

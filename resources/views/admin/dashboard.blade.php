@@ -37,7 +37,7 @@
                 </div>
                 <div class="stat-content">
                     <span class="stat-label">Total Beneficiaries</span>
-                    <h3 class="stat-number counter">{{ number_format($totalBeneficiaries ?? 0) }}</h3>
+                    <h3 class="stat-number counter">{{ number_format($totalEnrollments ?? 0) }}</h3>
                     <span class="stat-trend up"><i class="fe fe-trending-up"></i> 12% vs last month</span>
                 </div>
             </div>
@@ -45,40 +45,134 @@
         <div class="col-lg-3 col-md-6">
             <div class="stat-card stat-card-success">
                 <div class="stat-icon">
-                    <i class="fe fe-user-plus"></i>
+                    <i class="fe fe-user"></i>
                 </div>
                 <div class="stat-content">
-                    <span class="stat-label">New This Month</span>
-                    <h3 class="stat-number counter">{{ number_format($newRegistrations ?? 0) }}</h3>
-                    <span class="stat-trend up"><i class="fe fe-trending-up"></i> 8% increase</span>
+                    <span class="stat-label">Total Principals</span>
+                    <h3 class="stat-number counter">{{ number_format($totalBeneficiaries ?? 0) }}</h3>
+                    <span class="stat-trend up"><i class="fe fe-trending-up"></i> Primary beneficiaries</span>
                 </div>
             </div>
         </div>
         <div class="col-lg-3 col-md-6">
             <div class="stat-card stat-card-warning">
                 <div class="stat-icon">
-                    <i class="fe fe-check-circle"></i>
+                    <i class="fe fe-users"></i>
                 </div>
                 <div class="stat-content">
-                    <span class="stat-label">Active Status</span>
-                    <h3 class="stat-number counter">{{ number_format(($totalBeneficiaries ?? 0) - 50) }}</h3>
-                    <span class="stat-trend up"><i class="fe fe-trending-up"></i> 95% active</span>
+                    <span class="stat-label">Total Spouses</span>
+                    <h3 class="stat-number counter">{{ number_format($totalSpouses ?? 0) }}</h3>
+                    <span class="stat-trend up"><i class="fe fe-trending-up"></i> Dependents</span>
                 </div>
             </div>
         </div>
         <div class="col-lg-3 col-md-6">
             <div class="stat-card stat-card-info">
                 <div class="stat-icon">
-                    <i class="fe fe-file-text"></i>
+                    <i class="fe fe-users"></i>
                 </div>
                 <div class="stat-content">
-                    <span class="stat-label">Documents</span>
-                    <h3 class="stat-number counter">{{ number_format(($totalBeneficiaries ?? 0) * 3) }}</h3>
-                    <span class="stat-trend neutral"><i class="fe fe-minus"></i> Processed</span>
+                    <span class="stat-label">Total Children</span>
+                    <h3 class="stat-number counter">{{ number_format($totalChildren ?? 0) }}</h3>
+                    <span class="stat-trend neutral"><i class="fe fe-minus"></i> Minors</span>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- Secondary Stats Cards -->
+    <div class="row g-4 mb-4">
+        <div class="col-lg-4 col-md-6">
+            <div class="stat-card stat-card-secondary">
+                <div class="stat-icon">
+                    <i class="fe fe-smartphone"></i>
+                </div>
+                <div class="stat-content">
+                    <span class="stat-label">Self Enrollment</span>
+                    <h3 class="stat-number counter">{{ number_format($selfEnrollments ?? 0) }}</h3>
+                    <span class="stat-trend neutral"><i class="fe fe-globe"></i> Via Mobile App</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4 col-md-6">
+            <div class="stat-card stat-card-success">
+                <div class="stat-icon">
+                    <i class="fe fe-calendar"></i>
+                </div>
+                <div class="stat-content">
+                    <span class="stat-label">This Month</span>
+                    <h3 class="stat-number counter">{{ number_format($thisMonthEnrollments ?? 0) }}</h3>
+                    <span class="stat-trend up"><i class="fe fe-trending-up"></i> {{ now()->format('F Y') }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4 col-md-6">
+            <div class="stat-card stat-card-warning">
+                <div class="stat-icon">
+                    <i class="fe fe-clock"></i>
+                </div>
+                <div class="stat-content">
+                    <span class="stat-label">Last Month</span>
+                    <h3 class="stat-number counter">{{ number_format($lastMonthEnrollments ?? 0) }}</h3>
+                    <span class="stat-trend neutral"><i class="fe fe-calendar"></i>
+                        {{ now()->subMonth()->format('F Y') }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Program-wise Enrollment Stats -->
+    @if (isset($programStats) && $programStats->count() > 0)
+        <div class="row mb-3">
+            <div class="col-12">
+                <h5 class="fw-bold text-dark mb-0"><i class="fe fe-layers me-2"></i>Enrollments by Program</h5>
+                <p class="text-muted small mb-0">Breakdown of beneficiaries, spouses & children per program</p>
+            </div>
+        </div>
+        <div class="row g-4 mb-4">
+            @php
+                $count = $programStats->count();
+                if ($count >= 4) {
+                    $colClass = 'col-lg-3 col-md-6';
+                } elseif ($count == 3) {
+                    $colClass = 'col-lg-4 col-md-6';
+                } elseif ($count == 2) {
+                    $colClass = 'col-lg-6 col-md-6';
+                } else {
+                    $colClass = 'col-12';
+                }
+                $cardStyles = [
+                    'stat-card-primary',
+                    'stat-card-success',
+                    'stat-card-warning',
+                    'stat-card-info',
+                    'stat-card-secondary',
+                ];
+                $icons = ['fe-box', 'fe-package', 'fe-briefcase', 'fe-shield', 'fe-layers'];
+            @endphp
+            @foreach ($programStats as $index => $pStat)
+                <div class="{{ $colClass }}">
+                    <div class="stat-card {{ $cardStyles[$index % count($cardStyles)] }}">
+                        <div class="stat-icon">
+                            <i class="fe {{ $icons[$index % count($icons)] }}"></i>
+                        </div>
+                        <div class="stat-content">
+                            <span class="stat-label">{{ $pStat->program_name }}</span>
+                            <h3 class="stat-number counter">{{ number_format($pStat->total) }}</h3>
+                            <div class="d-flex gap-3 mt-1" style="font-size: 12px; opacity: 0.85;">
+                                <span><i class="fe fe-user me-1"></i>{{ number_format($pStat->beneficiaries) }}
+                                    Principals</span>
+                                <span><i class="fe fe-users me-1"></i>{{ number_format($pStat->spouses) }}
+                                    Spouses</span>
+                                <span><i class="fe fe-smile me-1"></i>{{ number_format($pStat->children) }}
+                                    Children</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @endforeach
+        </div>
+    @endif
 
     <!-- Modern Quick Actions -->
     <div class="row g-4 mb-4">
@@ -125,35 +219,54 @@
         <div class="col-12">
             <div class="timeline-card">
                 <div class="timeline-header">
-                    <h5 class="mb-0"><i class="fe fe-calendar me-2"></i>2025 Activities Timeline</h5>
-                    <span class="timeline-badge">Planning Phase</span>
+                    <h5 class="mb-0"><i class="fe fe-award me-2"></i>Top 10 Facilities by Total Enrollments</h5>
+                    <span class="timeline-badge">Ranked</span>
                 </div>
-                <div class="timeline-body">
-                    <div class="modern-timeline">
-                        <div class="timeline-item active">
-                            <div class="timeline-marker"></div>
-                            <div class="timeline-content">
-                                <h6>Beneficiary Registration</h6>
-                                <p class="text-muted mb-2">Jan 15 - Feb 28, 2025</p>
-                                <span class="timeline-status active">In Progress</span>
-                            </div>
-                        </div>
-                        <div class="timeline-item">
-                            <div class="timeline-marker"></div>
-                            <div class="timeline-content">
-                                <h6>Mid-Year Review</h6>
-                                <p class="text-muted mb-2">Jun 1 - Jun 30, 2025</p>
-                                <span class="timeline-status pending">Pending</span>
-                            </div>
-                        </div>
-                        <div class="timeline-item">
-                            <div class="timeline-marker"></div>
-                            <div class="timeline-content">
-                                <h6>Annual Review</h6>
-                                <p class="text-muted mb-2">Dec 1 - Dec 20, 2025</p>
-                                <span class="timeline-status pending">Scheduled</span>
-                            </div>
-                        </div>
+                <div class="timeline-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead style="background-color: #f8f9fa;">
+                                <tr>
+                                    <th class="border-0" style="width: 60px;">#</th>
+                                    <th class="border-0">Facility Name</th>
+                                    <th class="border-0">LGA</th>
+                                    <th class="border-0 text-center">Total Enrollments</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($topFacilities ?? [] as $index => $facility)
+                                    <tr>
+                                        <td>
+                                            @if ($index == 0)
+                                                <span class="badge bg-warning text-dark"><i class="fe fe-award"></i>
+                                                    1</span>
+                                            @elseif($index == 1)
+                                                <span class="badge bg-secondary">2</span>
+                                            @elseif($index == 2)
+                                                <span class="badge bg-info">3</span>
+                                            @else
+                                                <span class="text-muted">{{ $index + 1 }}</span>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            <strong>{{ $facility->name }}</strong>
+                                        </td>
+                                        <td class="text-muted">{{ $facility->lga ?? 'N/A' }}</td>
+                                        <td class="text-center">
+                                            <span class="badge bg-success"
+                                                title="Principals: {{ $facility->beneficiaries_count ?? 0 }}, Spouses: {{ $facility->spouses_count ?? 0 }}, Children: {{ $facility->children_count ?? 0 }}">
+                                                {{ number_format($facility->enrollments_count) }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="4" class="text-center text-muted py-4">No enrollment data
+                                            available</td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>

@@ -112,6 +112,19 @@
                                         </div>
                                     </button>
                                     <button type="button"
+                                        class="btn btn-outline-primary text-start p-3 border-2 generation-btn"
+                                        onclick="selectGenerationType('program')">
+                                        <div class="d-flex align-items-center">
+                                            <div class="bg-dark bg-gradient rounded-circle p-2 me-3">
+                                                <i class="fe fe-layers text-white"></i>
+                                            </div>
+                                            <div class="flex-grow-1">
+                                                <strong class="d-block">By Program</strong>
+                                                <small class="text-muted">Generate by program &amp; card type</small>
+                                            </div>
+                                        </div>
+                                    </button>
+                                    <button type="button"
                                         class="btn btn-outline-success text-start p-3 border-2 generation-btn"
                                         onclick="selectGenerationType('custom_selection')">
                                         <div class="d-flex align-items-center">
@@ -124,6 +137,20 @@
                                             </div>
                                         </div>
                                     </button>
+                                </div>
+                            </div>
+
+                            <!-- Dependants Filter Option -->
+                            <div class="mt-3 pt-3 border-top">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="quickHasDependants">
+                                    <label class="form-check-label fw-semibold text-muted small" for="quickHasDependants">
+                                        <i class="fe fe-users me-1 text-info"></i>
+                                        Only generate for beneficiaries with dependants
+                                    </label>
+                                    <small class="d-block text-muted ms-4 mt-1">
+                                        Filters beneficiaries who have spouse and/or children
+                                    </small>
                                 </div>
                             </div>
                         </form>
@@ -183,43 +210,34 @@
                     </div>
                     <div class="card-body p-4">
                         <form id="filterForm" class="row g-3">
-                            <div class="col-md-3">
-                                <label for="statusFilter" class="form-label fw-semibold text-muted small">Status</label>
-                                <select class="form-select form-select-sm" id="statusFilter" name="status"
-                                    data-placeholder="All Status" style="border-radius: 8px;">
-                                    <option value="">All Status</option>
-                                    <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>Active
-                                    </option>
-                                    <option value="pending" {{ request('status') == 'pending' ? 'selected' : '' }}>Pending
-                                    </option>
-                                    <option value="inactive" {{ request('status') == 'inactive' ? 'selected' : '' }}>
-                                        Inactive</option>
-                                </select>
+                            <div class="col-md-5">
+                                <label for="searchFilter" class="form-label fw-semibold text-muted small">Search</label>
+                                <input type="text" class="form-control form-control-sm" id="searchFilter" name="search"
+                                    placeholder="Name or BOSCHMA No..." value="{{ request('search') }}"
+                                    style="border-radius: 8px;">
                             </div>
                             <div class="col-md-3">
-                                <label for="facilityFilter"
-                                    class="form-label fw-semibold text-muted small">Facility</label>
-                                <select class="form-select form-select-sm" id="facilityFilter" name="facility_id"
-                                    data-placeholder="All Facilities" style="border-radius: 8px;">
-                                    <option value="">All Facilities</option>
-                                    @foreach ($facilities as $facility)
-                                        <option value="{{ $facility->id }}"
-                                            {{ request('facility_id') == $facility->id ? 'selected' : '' }}>
-                                            {{ $facility->name }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="col-md-4">
-                                <label for="workplaceFilter" class="form-label fw-semibold text-muted small">Place of
-                                    Work</label>
-                                <select class="form-select form-select-sm" id="workplaceFilter" name="workplace"
-                                    data-placeholder="All Workplaces" style="border-radius: 8px;">
-                                    <option value="">All Workplaces</option>
-                                    @foreach ($workplaces as $workplace)
-                                        <option value="{{ $workplace }}"
-                                            {{ request('workplace') == $workplace ? 'selected' : '' }}>{{ $workplace }}
+                                <label for="programFilter" class="form-label fw-semibold text-muted small">Program</label>
+                                <select class="form-select form-select-sm" id="programFilter" name="program_id"
+                                    style="border-radius: 8px;">
+                                    <option value="">All Programs</option>
+                                    @foreach ($programs as $program)
+                                        <option value="{{ $program->id }}"
+                                            {{ request('program_id') == $program->id ? 'selected' : '' }}>
+                                            {{ $program->name }}
+                                            ({{ $program->has_dependant ? 'Dependants' : 'No Dep.' }})
                                         </option>
                                     @endforeach
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label for="statusFilter" class="form-label fw-semibold text-muted small">Status</label>
+                                <select class="form-select form-select-sm" id="statusFilter" name="status"
+                                    style="border-radius: 8px;">
+                                    <option value="">All Status</option>
+                                    <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>Active</option>
+                                    <option value="pending" {{ request('status') == 'pending' ? 'selected' : '' }}>Pending</option>
+                                    <option value="inactive" {{ request('status') == 'inactive' ? 'selected' : '' }}>Inactive</option>
                                 </select>
                             </div>
                             <div class="col-md-2">
@@ -232,6 +250,70 @@
                                         onclick="clearFilters()" style="border-radius: 8px;">
                                         <i class="fe fe-x"></i>
                                     </button>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="facilityFilter" class="form-label fw-semibold text-muted small">Facility</label>
+                                <select class="form-select form-select-sm" id="facilityFilter" name="facility_id"
+                                    style="border-radius: 8px;">
+                                    <option value="">All Facilities</option>
+                                    @foreach ($facilities as $facility)
+                                        <option value="{{ $facility->id }}"
+                                            {{ request('facility_id') == $facility->id ? 'selected' : '' }}>
+                                            {{ $facility->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="categoryFilter" class="form-label fw-semibold text-muted small">Category</label>
+                                <select class="form-select form-select-sm" id="categoryFilter" name="category"
+                                    style="border-radius: 8px;">
+                                    <option value="">All Categories</option>
+                                    @foreach ($categories as $category)
+                                        <option value="{{ $category }}"
+                                            {{ request('category') == $category ? 'selected' : '' }}>
+                                            {{ $category }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="workplaceFilter" class="form-label fw-semibold text-muted small">Place of Work</label>
+                                <select class="form-select form-select-sm" id="workplaceFilter" name="workplace"
+                                    style="border-radius: 8px;">
+                                    <option value="">All Workplaces</option>
+                                    @foreach ($workplaces as $workplace)
+                                        <option value="{{ $workplace }}"
+                                            {{ request('workplace') == $workplace ? 'selected' : '' }}>{{ $workplace }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold text-muted small">Enrollment Date Range</label>
+                                <div class="row g-2">
+                                    <div class="col-6">
+                                        <input type="date" class="form-control form-control-sm" id="enrollmentDateFrom" 
+                                            name="enrollment_date_from" value="{{ request('enrollment_date_from') }}"
+                                            placeholder="From" style="border-radius: 8px;">
+                                    </div>
+                                    <div class="col-6">
+                                        <input type="date" class="form-control form-control-sm" id="enrollmentDateTo" 
+                                            name="enrollment_date_to" value="{{ request('enrollment_date_to') }}"
+                                            placeholder="To" style="border-radius: 8px;">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-check mt-4">
+                                    <input class="form-check-input" type="checkbox" name="has_dependants"
+                                        id="hasDependantsFilter" value="1"
+                                        {{ request('has_dependants') ? 'checked' : '' }}>
+                                    <label class="form-check-label fw-semibold text-muted small"
+                                        for="hasDependantsFilter">
+                                        <i class="fe fe-users me-1 text-info"></i>
+                                        Only with dependants
+                                    </label>
                                 </div>
                             </div>
                         </form>
@@ -278,9 +360,16 @@
                                 <i class="fe fe-users me-2 text-primary"></i>
                                 <h6 class="mb-0 fw-semibold">Beneficiaries</h6>
                             </div>
-                            <div class="text-muted small">
-                                <i class="fe fe-database me-1"></i>
-                                {{ $beneficiaries->total() }} total records
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="text-muted small">
+                                    <i class="fe fe-database me-1"></i>
+                                    {{ $beneficiaries->total() }} total records
+                                </span>
+                                @if($beneficiaries->total() > 0)
+                                    <button type="button" class="btn btn-primary btn-sm" onclick="generateAllFiltered()" style="border-radius: 8px;">
+                                        <i class="fe fe-download me-1"></i> Generate All {{ $beneficiaries->total() }} Filtered
+                                    </button>
+                                @endif
                             </div>
                         </div>
                     </div>
@@ -289,17 +378,18 @@
                             <table class="table table-hover mb-0" id="beneficiariesTable">
                                 <thead class="table-light">
                                     <tr>
-                                        <th width="50">
+                                        <th width="40">
                                             <div class="form-check">
                                                 <input type="checkbox" class="form-check-input" id="selectAllCheckbox">
                                             </div>
                                         </th>
                                         <th class="fw-semibold">BOSCHMA No</th>
                                         <th class="fw-semibold">Full Name</th>
-                                        <th class="fw-semibold">Gender</th>
+                                        <th class="fw-semibold">Program</th>
+                                        <th class="fw-semibold">Card Type</th>
                                         <th class="fw-semibold">Facility</th>
                                         <th class="fw-semibold">Status</th>
-                                        <th class="fw-semibold">Dependants</th>
+                                        <th class="fw-semibold">Dep.</th>
                                         <th class="fw-semibold text-center">Actions</th>
                                     </tr>
                                 </thead>
@@ -315,34 +405,33 @@
                                                 </div>
                                             </td>
                                             <td>
-                                                <span
-                                                    class="badge bg-info bg-gradient text-white px-2 py-1">{{ $beneficiary->boschma_no }}</span>
+                                                <span class="badge bg-info bg-gradient text-white px-2 py-1">{{ $beneficiary->boschma_no }}</span>
                                             </td>
-                                            <td class="fw-medium">{{ $beneficiary->fullname }}</td>
+                                            <td class="fw-medium">{{ Str::limit($beneficiary->fullname, 20) }}</td>
+                                            <td class="small">{{ $beneficiary->program->name ?? 'N/A' }}</td>
                                             <td>
-                                                <span class="badge bg-light text-dark">
-                                                    <i class="fe fe-user me-1"></i>{{ $beneficiary->gender }}
-                                                </span>
-                                            </td>
-                                            <td class="small">{{ $beneficiary->facility->name ?? 'N/A' }}</td>
-                                            <td>
-                                                @if ($beneficiary->status == 'active')
-                                                    <span class="badge bg-success bg-gradient">
-                                                        <i class="fe fe-check-circle me-1"></i>Active
-                                                    </span>
-                                                @elseif($beneficiary->status == 'pending')
-                                                    <span class="badge bg-warning">
-                                                        <i class="fe fe-clock me-1"></i>Pending
+                                                @if ($beneficiary->program && $beneficiary->program->has_dependant)
+                                                    <span class="badge bg-primary bg-gradient" title="With Dependants card">
+                                                        <i class="fe fe-users me-1"></i>With Dep.
                                                     </span>
                                                 @else
-                                                    <span class="badge bg-secondary">
-                                                        <i class="fe fe-slash me-1"></i>Inactive
+                                                    <span class="badge bg-dark bg-gradient" title="No Dependants card">
+                                                        <i class="fe fe-user me-1"></i>No Dep.
                                                     </span>
                                                 @endif
                                             </td>
+                                            <td class="small">{{ Str::limit($beneficiary->facility->name ?? 'N/A', 15) }}</td>
                                             <td>
-                                                <span class="badge bg-primary bg-gradient text-white">
-                                                    <i class="fe fa-users me-1"></i>
+                                                @if ($beneficiary->status == 'active')
+                                                    <span class="badge bg-success bg-gradient">Active</span>
+                                                @elseif($beneficiary->status == 'pending')
+                                                    <span class="badge bg-warning">Pending</span>
+                                                @else
+                                                    <span class="badge bg-secondary">Inactive</span>
+                                                @endif
+                                            </td>
+                                            <td class="text-center">
+                                                <span class="badge bg-light text-dark border">
                                                     {{ ($beneficiary->spouse ? 1 : 0) + $beneficiary->children->count() }}
                                                 </span>
                                             </td>
@@ -363,7 +452,7 @@
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="8" class="text-center py-5">
+                                            <td colspan="9" class="text-center py-5">
                                                 <div class="text-center">
                                                     <i class="fe fe-users fe-3x text-muted mb-3"></i>
                                                     <p class="text-muted mb-0 fw-semibold">No beneficiaries found</p>
@@ -557,6 +646,11 @@
                                                 onclick="refreshJobStatus('{{ $job->job_id }}')" title="Refresh">
                                                 <i class="fe fe-refresh-cw"></i>
                                             </button>
+                                            <button type="button" class="btn btn-outline-danger"
+                                                style="border-radius: 6px;"
+                                                onclick="deleteJob('{{ $job->job_id }}')" title="Delete">
+                                                <i class="fe fe-trash-2"></i>
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -642,6 +736,29 @@
                                     @endforeach
                                 </select>
                                 <small class="text-muted">Select from available workplaces</small>
+                            </div>
+                        </div>
+
+                        <div id="programOptions" style="display: none;">
+                            <div class="mb-4">
+                                <label for="programSelect" class="form-label fw-semibold text-muted">
+                                    <i class="fe fe-layers me-1"></i>Select Program
+                                </label>
+                                <select class="form-select form-select-lg" id="programSelect" required
+                                    style="border-radius: 10px;">
+                                    <option value="">Choose a program</option>
+                                    @foreach ($programs as $program)
+                                        <option value="{{ $program->id }}" data-has-dependant="{{ $program->has_dependant ? '1' : '0' }}">
+                                            {{ $program->name }}
+                                            &mdash; {{ $program->has_dependant ? 'With Dependants' : 'No Dependants' }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                                <small class="text-muted">Card type is determined by the program's dependant setting</small>
+                            </div>
+                            <div id="programCardTypePreview" class="alert alert-light border small d-none">
+                                <i class="fe fe-info me-1"></i>
+                                <strong>Card Type:</strong> <span id="cardTypeLabel">—</span>
                             </div>
                         </div>
 
@@ -934,6 +1051,28 @@
                 const params = new URLSearchParams(formData);
                 window.location.href = '{{ route('beneficiaries.bulk-id-cards') }}?' + params.toString();
             });
+
+            // Program select - show card type preview
+            document.getElementById('programSelect').addEventListener('change', function() {
+                const selected = this.options[this.selectedIndex];
+                const preview = document.getElementById('programCardTypePreview');
+                const label = document.getElementById('cardTypeLabel');
+
+                if (this.value) {
+                    const hasDep = selected.dataset.hasDependant === '1';
+                    label.textContent = hasDep
+                        ? 'With Dependants (Formal Sector card with spouse/children)'
+                        : 'No Dependants (Single beneficiary card)';
+                    preview.classList.remove('d-none');
+
+                    // Update job title with program name
+                    const programName = selected.textContent.split('—')[0].trim();
+                    document.getElementById('jobTitle').value = 'ID Cards - ' + programName +
+                        ' - ' + new Date().toLocaleDateString();
+                } else {
+                    preview.classList.add('d-none');
+                }
+            });
         }
 
         function selectGenerationType(type) {
@@ -943,6 +1082,7 @@
             document.getElementById('facilityOptions').style.display = 'none';
             document.getElementById('statusOptions').style.display = 'none';
             document.getElementById('workplaceOptions').style.display = 'none';
+            document.getElementById('programOptions').style.display = 'none';
 
             // Show relevant options
             switch (type) {
@@ -957,6 +1097,11 @@
                 case 'workplace':
                     document.getElementById('workplaceOptions').style.display = 'block';
                     document.getElementById('jobTitle').value = 'ID Cards - ' + new Date().toLocaleDateString();
+                    break;
+                case 'program':
+                    document.getElementById('programOptions').style.display = 'block';
+                    document.getElementById('jobTitle').value = 'ID Cards - By Program - ' + new Date()
+                        .toLocaleDateString();
                     break;
                 default:
                     document.getElementById('jobTitle').value = 'ID Cards - All Beneficiaries - ' + new Date()
@@ -998,6 +1143,15 @@
                 case 'workplace':
                     formData.set('workplace', document.getElementById('workplaceSelect').value);
                     break;
+                case 'program':
+                    formData.set('program_id', document.getElementById('programSelect').value);
+                    break;
+            }
+
+            // Add dependants filter if checked
+            const hasDependantsCheckbox = document.getElementById('quickHasDependants');
+            if (hasDependantsCheckbox && hasDependantsCheckbox.checked) {
+                formData.set('has_dependants', '1');
             }
 
             // Convert to JSON
@@ -1330,6 +1484,90 @@
         function clearFilters() {
             document.getElementById('filterForm').reset();
             window.location.href = '{{ route('beneficiaries.bulk-id-cards') }}';
+        }
+
+        function generateAllFiltered() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const hasFilters = urlParams.get('facility_id') || urlParams.get('status') || urlParams.get('workplace') ||
+                urlParams.get('program_id') || urlParams.get('search') || urlParams.get('category') ||
+                urlParams.get('enrollment_date_from') || urlParams.get('enrollment_date_to') || urlParams.get('has_dependants');
+
+            const data = {
+                generation_type: hasFilters ? 'filtered' : 'all',
+                title: 'All Filtered Beneficiaries - {{ $beneficiaries->total() }} records - ' + new Date().toLocaleDateString(),
+            };
+
+            // Pass all filter params as-is
+            if (urlParams.get('facility_id')) data.facility_id = urlParams.get('facility_id');
+            if (urlParams.get('status')) data.filter_status = urlParams.get('status');
+            if (urlParams.get('workplace')) data.workplace = urlParams.get('workplace');
+            if (urlParams.get('program_id')) data.program_id = urlParams.get('program_id');
+            if (urlParams.get('category')) data.category = urlParams.get('category');
+            if (urlParams.get('search')) data.search = urlParams.get('search');
+            if (urlParams.get('enrollment_date_from')) data.enrollment_date_from = urlParams.get('enrollment_date_from');
+            if (urlParams.get('enrollment_date_to')) data.enrollment_date_to = urlParams.get('enrollment_date_to');
+            if (urlParams.get('has_dependants')) data.has_dependants = '1';
+
+            if (!confirm('This will generate ID cards for all {{ $beneficiaries->total() }} filtered beneficiaries in the background. Continue?')) {
+                return;
+            }
+
+            fetch('{{ route('beneficiaries.bulk-id-cards.start') }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert('success', data.message);
+                    monitorJob(data.job_id);
+                    document.getElementById('jobHistorySection').style.display = 'block';
+                    startAutoRefresh();
+                } else {
+                    showAlert('error', data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('error', 'An error occurred while starting generation');
+            });
+        }
+
+        function deleteJob(jobId) {
+            if (!confirm('Are you sure you want to delete this job and its files? This cannot be undone.')) {
+                return;
+            }
+
+            fetch('{{ route('beneficiaries.bulk-id-cards.delete', ':jobId') }}'.replace(':jobId', jobId), {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert('success', data.message);
+                    // Remove the row from the table
+                    const rows = document.querySelectorAll('#jobHistoryTable tr');
+                    rows.forEach(row => {
+                        const jobIdCell = row.querySelector('td:first-child code');
+                        if (jobIdCell && jobIdCell.textContent === jobId) {
+                            row.remove();
+                        }
+                    });
+                } else {
+                    showAlert('error', data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('error', 'Failed to delete job');
+            });
         }
 
         function showAlert(type, message) {

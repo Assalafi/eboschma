@@ -70,7 +70,9 @@
                             <thead>
                                 <tr>
                                     <th>ID</th>
+                                    <th>Logo</th>
                                     <th>Name</th>
+                                    <th>Description</th>
                                     <th>Format</th>
                                     <th>Has Dependant</th>
                                     <th>Status</th>
@@ -82,7 +84,15 @@
                                 @forelse($programs as $program)
                                 <tr>
                                     <td>{{ $program->id }}</td>
+                                    <td>
+                                        @if($program->logo)
+                                            <img src="{{ asset('storage/' . $program->logo) }}" alt="{{ $program->name }}" style="max-height: 32px; max-width: 32px; object-fit: contain;">
+                                        @else
+                                            <span class="text-muted"><i class="fe fe-image"></i></span>
+                                        @endif
+                                    </td>
                                     <td><strong>{{ $program->name }}</strong></td>
+                                    <td>{{ Str::limit($program->description, 40) ?? '-' }}</td>
                                     <td>{{ $program->format }}</td>
                                     <td>
                                         @if($program->has_dependant)
@@ -125,7 +135,7 @@
                                 </tr>
                                 @empty
                                 <tr>
-                                    <td colspan="7" class="text-center py-4">
+                                    <td colspan="9" class="text-center py-4">
                                         <i class="fe fe-inbox" style="font-size: 48px; color: #ccc;"></i>
                                         <p class="mt-2 text-muted">No programs found</p>
                                     </td>

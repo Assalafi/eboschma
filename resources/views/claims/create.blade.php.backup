@@ -1,0 +1,581 @@
+@extends('layouts.app')
+
+@section('title', 'Create New Claim')
+
+@section('content')
+    <div class="page-header d-print-none">
+        <div class="container-xl">
+            <div class="row g-2 align-items-center">
+                <div class="col">
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="/dashboard">Dashboard</a></li>
+                            <li class="breadcrumb-item"><a href="{{ route('claims.index') }}">Claims</a></li>
+                            <li class="breadcrumb-item active" aria-current="page">Create Claim</li>
+                        </ol>
+                    </nav>
+                    <div class="d-flex align-items-center">
+                        <div class="me-3">
+                            <h2 class="page-title mb-0">
+                                <i class="ti-file-plus me-2"></i>Create New Claim
+                            </h2>
+                            <p class="text-muted mb-0">Submit a new claim for beneficiary reimbursement</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-auto ms-auto d-print-none">
+                    <div class="btn-list">
+                        <a href="{{ route('claims.index') }}" class="btn btn-outline-secondary">
+                            <i class="ti-arrow-left me-1"></i>Back to Claims
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="page-body">
+        <div class="container-xl">
+            <!-- Claims Processing Workflow Steps -->
+            <div class="card border-0 shadow-sm mb-4" style="border-radius: 12px;">
+                <div class="card-body p-4">
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="progress mb-3" style="height: 8px;">
+                                <div class="progress-bar bg-primary" role="progressbar" style="width: 25%"
+                                    aria-valuenow="25" aria-valuemin="0" aria-valuemax="100"></div>
+                            </div>
+                            <div class="d-flex justify-content-between text-center">
+                                <div class="flex-fill">
+                                    <div class="avatar avatar-sm bg-primary text-white mb-2">
+                                        <i class="ti-user"></i>
+                                    </div>
+                                    <div class="fw-semibold">Beneficiary</div>
+                                    <div class="text-muted small">Step 1</div>
+                                </div>
+                                <div class="flex-fill">
+                                    <div class="avatar avatar-sm bg-light text-muted mb-2">
+                                        <i class="ti-file-text"></i>
+                                    </div>
+                                    <div class="text-muted">Claim Details</div>
+                                    <div class="text-muted small">Step 2</div>
+                                </div>
+                                <div class="flex-fill">
+                                    <div class="avatar avatar-sm bg-light text-muted mb-2">
+                                        <i class="ti-check"></i>
+                                    </div>
+                                    <div class="text-muted">Review</div>
+                                    <div class="text-muted small">Step 3</div>
+                                </div>
+                                <div class="flex-fill">
+                                    <div class="avatar avatar-sm bg-light text-muted mb-2">
+                                        <i class="ti-send"></i>
+                                    </div>
+                                    <div class="text-muted">Submit</div>
+                                    <div class="text-muted small">Step 4</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Claim Creation Form -->
+            <form id="claimCreationForm" method="POST" action="{{ route('claims.store') }}" enctype="multipart/form-data">
+                @csrf
+
+                <!-- Step 1: Beneficiary Selection -->
+                <div class="card border-0 shadow-sm mb-4" style="border-radius: 12px;">
+                    <div class="card-header bg-primary text-white" style="padding: 1.5rem; border-radius: 12px 12px 0 0;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h5 class="card-title mb-0">
+                                    <i class="ti-user me-2"></i>Step 1: Beneficiary Information
+                                </h5>
+                                <p class="mb-0 small opacity-75">Select or search for the beneficiary</p>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="newBeneficiarySwitch">
+                                <label class="form-check-label text-white" for="newBeneficiarySwitch">
+                                    New Beneficiary
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <!-- Existing Beneficiary Search -->
+                        <div id="existingBeneficiarySection">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Search Beneficiary</label>
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" id="beneficiarySearch"
+                                            placeholder="Search by BOSCHMA ID, NIN, or Name">
+                                        <button class="btn btn-outline-secondary" type="button"
+                                            onclick="searchBeneficiary()">
+                                            <i class="ti-search"></i>
+                                        </button>
+                                    </div>
+                                    <div class="form-text">Enter BOSCHMA ID, NIN, or beneficiary name</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Facility</label>
+                                    <select class="form-select" id="facilityFilter" onchange="filterBeneficiaries()">
+                                        <option value="">All Facilities</option>
+                                        @foreach ($facilities ?? [] as $facility)
+                                            <option value="{{ $facility->id }}">{{ $facility->name }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Beneficiary Search Results -->
+                            <div id="beneficiarySearchResults" class="mt-3" style="display: none;">
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>BOSCHMA ID</th>
+                                                <th>Name</th>
+                                                <th>NIN</th>
+                                                <th>Facility</th>
+                                                <th>Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="beneficiaryResultsBody">
+                                            <!-- Results will be loaded here -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- New Beneficiary Form -->
+                        <div id="newBeneficiarySection" style="display: none;">
+                            <div class="alert alert-info">
+                                <i class="ti-info-alt me-2"></i>
+                                Complete the beneficiary information below to create a new claim.
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Full Name *</label>
+                                    <input type="text" class="form-control" name="beneficiary_name" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">NIN *</label>
+                                    <input type="text" class="form-control" name="beneficiary_nin" maxlength="11"
+                                        required>
+                                    <div class="form-text">11-digit National Identification Number</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Phone Number *</label>
+                                    <input type="tel" class="form-control" name="beneficiary_phone" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Email</label>
+                                    <input type="email" class="form-control" name="beneficiary_email">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Date of Birth *</label>
+                                    <input type="date" class="form-control" name="beneficiary_dob" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Gender *</label>
+                                    <select class="form-select" name="beneficiary_gender" required>
+                                        <option value="">Select Gender</option>
+                                        <option value="Male">Male</option>
+                                        <option value="Female">Female</option>
+                                    </select>
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label fw-semibold">Address</label>
+                                    <textarea class="form-control" name="beneficiary_address" rows="2"></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Selected Beneficiary Display -->
+                        <div id="selectedBeneficiaryDisplay" class="mt-3" style="display: none;">
+                            <div class="alert alert-success">
+                                <div class="d-flex align-items-center">
+                                    <i class="ti-check-circle me-2"></i>
+                                    <div>
+                                        <strong>Selected Beneficiary:</strong>
+                                        <span id="selectedBeneficiaryName"></span>
+                                        (<span id="selectedBeneficiaryId"></span>)
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-outline-danger ms-auto"
+                                        onclick="clearBeneficiarySelection()">
+                                        <i class="ti-x"></i> Clear
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 2: Claim Details -->
+                <div class="card border-0 shadow-sm mb-4" style="border-radius: 12px;">
+                    <div class="card-header bg-secondary text-white"
+                        style="padding: 1.5rem; border-radius: 12px 12px 0 0;">
+                        <div>
+                            <h5 class="card-title mb-0">
+                                <i class="ti-file-text me-2"></i>Step 2: Claim Details
+                            </h5>
+                            <p class="mb-0 small opacity-75">Provide claim and medical information</p>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Claim Type *</label>
+                                <select class="form-select" name="claim_type" required onchange="updateClaimFields()">
+                                    <option value="">Select Claim Type</option>
+                                    <option value="medical">Medical Services</option>
+                                    <option value="pharmacy">Pharmacy/Medication</option>
+                                    <option value="hospitalization">Hospitalization</option>
+                                    <option value="diagnostic">Diagnostic Tests</option>
+                                    <option value="emergency">Emergency Services</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Service Date *</label>
+                                <input type="date" class="form-control" name="service_date" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Healthcare Provider *</label>
+                                <input type="text" class="form-control" name="healthcare_provider" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Provider Type *</label>
+                                <select class="form-select" name="provider_type" required>
+                                    <option value="">Select Provider Type</option>
+                                    <option value="hospital">Hospital</option>
+                                    <option value="clinic">Clinic</option>
+                                    <option value="pharmacy">Pharmacy</option>
+                                    <option value="laboratory">Laboratory</option>
+                                    <option value="diagnostic_center">Diagnostic Center</option>
+                                </select>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Diagnosis/Condition *</label>
+                                <textarea class="form-control" name="diagnosis" rows="3" required
+                                    placeholder="Describe the medical condition or diagnosis"></textarea>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Treatment Description *</label>
+                                <textarea class="form-control" name="treatment_description" rows="3" required
+                                    placeholder="Describe the treatment provided"></textarea>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Claim Amount *</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">₦</span>
+                                    <input type="number" class="form-control" name="claim_amount" min="0"
+                                        step="0.01" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Authorization Code</label>
+                                <input type="text" class="form-control" name="authorization_code"
+                                    placeholder="If pre-authorized">
+                            </div>
+                        </div>
+
+                        <!-- Supporting Documents -->
+                        <div class="mt-4">
+                            <label class="form-label fw-semibold">Supporting Documents</label>
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <div class="form-label">Medical Report</div>
+                                    <input type="file" class="form-control" name="medical_report"
+                                        accept=".pdf,.jpg,.jpeg,.png">
+                                    <div class="form-text">PDF, JPG, PNG (Max 5MB)</div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-label">Prescription</div>
+                                    <input type="file" class="form-control" name="prescription"
+                                        accept=".pdf,.jpg,.jpeg,.png">
+                                    <div class="form-text">PDF, JPG, PNG (Max 5MB)</div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-label">Receipt/Invoice</div>
+                                    <input type="file" class="form-control" name="receipt"
+                                        accept=".pdf,.jpg,.jpeg,.png">
+                                    <div class="form-text">PDF, JPG, PNG (Max 5MB)</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 3: Review & Validation -->
+                <div class="card border-0 shadow-sm mb-4" style="border-radius: 12px;">
+                    <div class="card-header bg-warning text-dark" style="padding: 1.5rem; border-radius: 12px 12px 0 0;">
+                        <div>
+                            <h5 class="card-title mb-0">
+                                <i class="ti-check me-2"></i>Step 3: Review & Validation
+                            </h5>
+                            <p class="mb-0 small opacity-75">Review all information before submission</p>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info">
+                            <i class="ti-info-alt me-2"></i>
+                            Please review all claim information carefully. Once submitted, the claim will enter the approval
+                            workflow.
+                        </div>
+
+                        <!-- Validation Checklist -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6 class="fw-semibold mb-3">Beneficiary Information</h6>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="validateBeneficiary">
+                                    <label class="form-check-label" for="validateBeneficiary">
+                                        Beneficiary information is complete and accurate
+                                    </label>
+                                </div>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="validateEligibility">
+                                    <label class="form-check-label" for="validateEligibility">
+                                        Beneficiary is eligible for claim benefits
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <h6 class="fw-semibold mb-3">Claim Details</h6>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="validateClaimDetails">
+                                    <label class="form-check-label" for="validateClaimDetails">
+                                        Claim details are complete and accurate
+                                    </label>
+                                </div>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="validateDocuments">
+                                    <label class="form-check-label" for="validateDocuments">
+                                        All required documents are attached
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Additional Notes -->
+                        <div class="mt-4">
+                            <label class="form-label fw-semibold">Additional Notes (Optional)</label>
+                            <textarea class="form-control" name="additional_notes" rows="3"
+                                placeholder="Any additional information or special considerations"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form Actions -->
+                <div class="card border-0 shadow-sm" style="border-radius: 12px;">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ route('claims.index') }}" class="btn btn-outline-secondary">
+                                <i class="ti-arrow-left me-1"></i>Cancel
+                            </a>
+                            <div class="btn-list">
+                                <button type="button" class="btn btn-outline-primary" onclick="saveAsDraft()">
+                                    <i class="ti-save me-1"></i>Save as Draft
+                                </button>
+                                <button type="submit" class="btn btn-primary"
+                                    onclick="return validateClaimSubmission()">
+                                    <i class="ti-send me-1"></i>Submit Claim
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+@endsection
+
+@push('styles')
+    <style>
+        .progress {
+            background-color: #e9ecef;
+        }
+
+        .progress-bar {
+            transition: width 0.6s ease;
+        }
+
+        .avatar {
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+        }
+
+        .avatar-sm {
+            width: 2rem;
+            height: 2rem;
+            font-size: 0.875rem;
+        }
+
+        .form-check-input:checked {
+            background-color: #206bc4;
+            border-color: #206bc4;
+        }
+    </style>
+@endpush
+
+@push('scripts')
+    <script>
+        let selectedBeneficiary = null;
+
+        // Toggle between existing and new beneficiary
+        document.getElementById('newBeneficiarySwitch').addEventListener('change', function() {
+            const existingSection = document.getElementById('existingBeneficiarySection');
+            const newSection = document.getElementById('newBeneficiarySection');
+            const selectedDisplay = document.getElementById('selectedBeneficiaryDisplay');
+
+            if (this.checked) {
+                existingSection.style.display = 'none';
+                newSection.style.display = 'block';
+                selectedDisplay.style.display = 'none';
+                selectedBeneficiary = null;
+            } else {
+                existingSection.style.display = 'block';
+                newSection.style.display = 'none';
+            }
+        });
+
+        // Search beneficiary
+        function searchBeneficiary() {
+            const searchTerm = document.getElementById('beneficiarySearch').value;
+            const facilityId = document.getElementById('facilityFilter').value;
+            const resultsDiv = document.getElementById('beneficiarySearchResults');
+            const resultsBody = document.getElementById('beneficiaryResultsBody');
+
+            if (!searchTerm) {
+                resultsDiv.style.display = 'none';
+                return;
+            }
+
+            // Show loading
+            resultsBody.innerHTML =
+                '<tr><td colspan="5" class="text-center"><div class="spinner-border spinner-border-sm me-2"></div>Searching...</td></tr>';
+            resultsDiv.style.display = 'block';
+
+            // Simulate API call (replace with actual endpoint)
+            fetch(`/api/beneficiaries/search?q=${searchTerm}&facility=${facilityId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.length === 0) {
+                        resultsBody.innerHTML =
+                            '<tr><td colspan="5" class="text-center text-muted">No beneficiaries found</td></tr>';
+                    } else {
+                        resultsBody.innerHTML = data.map(beneficiary => `
+                    <tr>
+                        <td>${beneficiary.boschma_id}</td>
+                        <td>${beneficiary.name}</td>
+                        <td>${beneficiary.nin}</td>
+                        <td>${beneficiary.facility}</td>
+                        <td>
+                            <button type="button" class="btn btn-sm btn-primary" 
+                                    onclick="selectBeneficiary('${beneficiary.id}', '${beneficiary.name}', '${beneficiary.boschma_id}')">
+                                Select
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+                    }
+                })
+                .catch(error => {
+                    resultsBody.innerHTML =
+                        '<tr><td colspan="5" class="text-center text-danger">Error searching beneficiaries</td></tr>';
+                });
+        }
+
+        // Select beneficiary
+        function selectBeneficiary(id, name, boschmaId) {
+            selectedBeneficiary = {
+                id,
+                name,
+                boschma_id: boschmaId
+            };
+
+            document.getElementById('selectedBeneficiaryName').textContent = name;
+            document.getElementById('selectedBeneficiaryId').textContent = boschmaId;
+            document.getElementById('selectedBeneficiaryDisplay').style.display = 'block';
+            document.getElementById('beneficiarySearchResults').style.display = 'none';
+            document.getElementById('beneficiarySearch').value = '';
+        }
+
+        // Clear beneficiary selection
+        function clearBeneficiarySelection() {
+            selectedBeneficiary = null;
+            document.getElementById('selectedBeneficiaryDisplay').style.display = 'none';
+        }
+
+        // Update claim fields based on claim type
+        function updateClaimFields() {
+            const claimType = document.querySelector('select[name="claim_type"]').value;
+            // Add specific field requirements based on claim type
+            // This can be expanded to show/hide specific fields
+        }
+
+        // Validate claim submission
+        function validateClaimSubmission() {
+            const checkboxes = [
+                'validateBeneficiary',
+                'validateEligibility',
+                'validateClaimDetails',
+                'validateDocuments'
+            ];
+
+            const uncheckedBoxes = checkboxes.filter(id => !document.getElementById(id).checked);
+
+            if (uncheckedBoxes.length > 0) {
+                alert('Please complete all validation checkboxes before submitting the claim.');
+                return false;
+            }
+
+            if (!selectedBeneficiary && !document.getElementById('newBeneficiarySwitch').checked) {
+                alert('Please select a beneficiary or choose to create a new one.');
+                return false;
+            }
+
+            return true;
+        }
+
+        // Save as draft
+        function saveAsDraft() {
+            const form = document.getElementById('claimCreationForm');
+            const formData = new FormData(form);
+            formData.append('save_as_draft', 'true');
+
+            fetch('{{ route('claims.store') }}', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Claim saved as draft successfully!');
+                        window.location.href = '{{ route('claims.index') }}';
+                    } else {
+                        alert('Error saving draft: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    alert('Error saving draft. Please try again.');
+                });
+        }
+
+        // Filter beneficiaries by facility
+        function filterBeneficiaries() {
+            searchBeneficiary();
+        }
+    </script>
+@endpush

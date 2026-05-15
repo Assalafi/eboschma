@@ -93,10 +93,12 @@ class BulkIdCardJob extends Model
     {
         return match($this->generation_type) {
             'all' => 'All Beneficiaries',
+            'filtered' => 'Filtered',
             'facility' => 'By Facility',
             'workplace' => 'By Workplace',
             'custom_selection' => 'Custom Selection',
             'status' => 'By Status',
+            'program' => 'By Program',
             default => 'Unknown',
         };
     }
@@ -114,6 +116,22 @@ class BulkIdCardJob extends Model
         
         if (isset($criteria['status'])) {
             $description[] = 'Status: ' . ucfirst($criteria['status']);
+        }
+        
+        if (isset($criteria['program_name'])) {
+            $description[] = 'Program: ' . $criteria['program_name'];
+        }
+        
+        if (isset($criteria['card_type'])) {
+            $description[] = 'Card: ' . $criteria['card_type'];
+        }
+        
+        if (isset($criteria['enrollment_date_from'])) {
+            $description[] = 'From: ' . $criteria['enrollment_date_from'];
+        }
+        
+        if (isset($criteria['enrollment_date_to'])) {
+            $description[] = 'To: ' . $criteria['enrollment_date_to'];
         }
         
         if (isset($criteria['search'])) {
@@ -145,7 +163,7 @@ class BulkIdCardJob extends Model
         $this->file_size = $fileSize;
         $this->generated_at = now();
         $this->completed_at = now();
-        $this->expires_at = now()->addDays(7); // File expires in 7 days
+        $this->expires_at = now()->addDays(2); // File expires in 2 days
         $this->save();
     }
 

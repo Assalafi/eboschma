@@ -7,7 +7,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Imports\CivilServantsImport;
+use App\Imports\BvnImport;
 use App\Exports\CivilServantsTemplateExport;
+use App\Exports\BvnTemplateExport;
 
 class CivilServantController extends Controller
 {
@@ -202,6 +204,58 @@ class CivilServantController extends Controller
     public function downloadTemplate()
     {
         return Excel::download(new CivilServantsTemplateExport, 'civil_servants_template.xlsx');
+    }
+
+    /**
+     * Handle BVN Excel file upload and update.
+     */
+    public function uploadBvn(Request $request)
+    {
+        $request->validate([
+            'bvn_file' => 'required|mimes:xlsx,xls,csv|max:10240', // 10MB max
+        ]);
+
+        try {
+            $import = new BvnImport();
+            Excel::import($import, $request->file('bvn_file'));
+            
+            $updatedCount = $import->getUpdatedCount();
+            $skippedCount = $import->getSkippedCount();
+            $errors = $import->getErrors();
+
+            $message = "BVN update completed: {$updatedCount} updated";
+            
+            if ($skippedCount > 0) {
+                $message .= ", {$skippedCount} skipped";
+            }
+
+            if (!empty($errors)) {
+                Log::warning('BVN Import Errors: ', $errors);
+                $errorSummary = count($errors) > 5 
+                    ? implode(', ', array_slice($errors, 0, 5)) . '... and ' . (count($errors) - 5) . ' more errors'
+                    : implode(', ', $errors);
+                    
+                return redirect()->back()
+                    ->with('bvn_error', $message . '. Errors: ' . $errorSummary);
+            }
+            
+            return redirect()->back()
+                ->with('bvn_success', $message);
+                
+        } catch (\Exception $e) {
+            Log::error('BVN import failed: ' . $e->getMessage());
+            
+            return redirect()->back()
+                ->with('bvn_error', 'Failed to import BVN file: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Download BVN template for updating existing civil servants.
+     */
+    public function downloadBvnTemplate()
+    {
+        return Excel::download(new BvnTemplateExport, 'bvn_update_template.xlsx');
     }
 
     /**

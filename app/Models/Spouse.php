@@ -25,7 +25,10 @@ class Spouse extends Model
         'phone',
         'email',
         'photo',
-        'remarks'
+        'remarks',
+        'created_by',
+        'updated_by',
+        'submitted_by',
     ];
     
     /**

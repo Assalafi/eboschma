@@ -16,6 +16,9 @@ class Staff extends Authenticatable
     protected $table = 'staff';
     public $incrementing = false;
     protected $keyType = 'string';
+    
+    // Spatie Permission guard
+    protected $guard_name = 'staff';
 
     protected $fillable = [
         'email',

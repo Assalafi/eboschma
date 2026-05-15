@@ -1,0 +1,55 @@
+=== MANUAL EXECUTION INSTRUCTIONS ===
+
+Since the bash tool has path issues, please run these commands manually:
+
+STEP 1: Open PowerShell as Administrator
+- Right-click Start Menu
+- Select "Windows PowerShell (Admin)" or "Terminal (Admin)"
+
+STEP 2: Navigate to project directory
+cd "C:\xampp\htdocs\Boschma\admin.enrolment.boschma"
+
+STEP 3: Run the complete setup script
+powershell -ExecutionPolicy Bypass -File .\complete_setup.ps1
+
+ALTERNATIVE: If PowerShell script doesn't work, run these commands manually:
+
+1. Create Git symlink (as Administrator):
+mklink /D C:\git "C:\Program Files\Git"
+
+2. Test bash:
+C:\git\bin\bash.exe -c "echo 'Bash works!'"
+
+3. Test SSH connection:
+C:\git\bin\bash.exe -c "ssh root@67.205.161.212 'echo SSH connection successful'"
+
+4. List remote directory:
+C:\git\bin\bash.exe -c "ssh root@67.205.161.212 'ls -la /var/www/BornoStateGovernment/eboschma'"
+
+5. Upload all files (run these one by one):
+
+C:\git\bin\bash.exe -c "scp 'C:/xampp/htdocs/Boschma/admin.enrolment.boschma/resources/views/facility/pharmacy/bulk-stock-request.blade.php' root@67.205.161.212:/var/www/BornoStateGovernment/eboschma/resources/views/facility/pharmacy/"
+
+C:\git\bin\bash.exe -c "scp 'C:/xampp/htdocs/Boschma/admin.enrolment.boschma/resources/views/drug-stock-requests/dispense.blade.php' root@67.205.161.212:/var/www/BornoStateGovernment/eboschma/resources/views/drug-stock-requests/"
+
+C:\git\bin\bash.exe -c "scp 'C:/xampp/htdocs/Boschma/admin.enrolment.boschma/app/Http/Controllers/DrugStockRequestController.php' root@67.205.161.212:/var/www/BornoStateGovernment/eboschma/app/Http/Controllers/"
+
+C:\git\bin\bash.exe -c "scp 'C:/xampp/htdocs/Boschma/admin.enrolment.boschma/resources/views/drug-stock-requests/show.blade.php' root@67.205.161.212:/var/www/BornoStateGovernment/eboschma/resources/views/drug-stock-requests/"
+
+C:\git\bin\bash.exe -c "scp 'C:/xampp/htdocs/Boschma/admin.enrolment.boschma/resources/views/drug-stock-requests/facility-requests.blade.php' root@67.205.161.212:/var/www/BornoStateGovernment/eboschma/resources/views/drug-stock-requests/"
+
+C:\git\bin\bash.exe -c "scp 'C:/xampp/htdocs/Boschma/admin.enrolment.boschma/resources/views/drug-stock-requests/edit.blade.php' root@67.205.161.212:/var/www/BornoStateGovernment/eboschma/resources/views/drug-stock-requests/"
+
+C:\git\bin\bash.exe -c "scp 'C:/xampp/htdocs/Boschma/admin.enrolment.boschma/resources/views/drug-stock-requests/create.blade.php' root@67.205.161.212:/var/www/BornoStateGovernment/eboschma/resources/views/drug-stock-requests/"
+
+C:\git\bin\bash.exe -c "scp 'C:/xampp/htdocs/Boschma/admin.enrolment.boschma/database/migrations/2026_03_14_170000_increase_estimated_cost_column_size.php' root@67.205.161.212:/var/www/BornoStateGovernment/eboschma/database/migrations/"
+
+C:\git\bin\bash.exe -c "scp 'C:/xampp/htdocs/Boschma/admin.enrolment.boschma/routes/web.php' root@67.205.161.212:/var/www/BornoStateGovernment/eboschma/routes/"
+
+C:\git\bin\bash.exe -c "scp 'C:/xampp/htdocs/Boschma/admin.enrolment.boschma/routes/debug.php' root@67.205.161.212:/var/www/BornoStateGovernment/eboschma/routes/"
+
+C:\git\bin\bash.exe -c "scp 'C:/xampp/htdocs/Boschma/admin.enrolment.boschma/app/Models/Drug.php' root@67.205.161.212:/var/www/BornoStateGovernment/eboschma/app/Models/"
+
+C:\git\bin\bash.exe -c "scp 'C:/xampp/htdocs/Boschma/admin.enrolment.boschma/app/Http/Controllers/Facility/PharmacyController.php' root@67.205.161.212:/var/www/BornoStateGovernment/eboschma/app/Http/Controllers/Facility/"
+
+After running these commands, all 12 files will be uploaded to their correct locations on the server.

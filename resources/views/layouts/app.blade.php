@@ -1,9 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     @include('css')
     @stack('styles')
 </head>
+
 <body class="ltr main-body leftmenu">
     <!-- Loader -->
     <div id="global-loader">
@@ -20,13 +22,13 @@
         <!-- End Main Header-->
 
         <!-- Sidemenu -->
-        <div class="sticky">
+        <div style="z-index: 1000" class="sticky">
             @include('sidebar')
         </div>
         <!-- End Sidemenu -->
 
         <!-- Main Content-->
-        <div class="main-content side-content pt-0">
+        <div style="padding-top: 125px" class="main-content side-content pt-8 pb-8">
             @yield('content')
         </div>
         <!-- End Main Content-->
@@ -44,4 +46,5 @@
     @include('script')
     @stack('scripts')
 </body>
+
 </html>

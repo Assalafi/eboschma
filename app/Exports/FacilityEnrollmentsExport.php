@@ -18,11 +18,13 @@ class FacilityEnrollmentsExport implements FromCollection, WithHeadings, WithTit
 {
     protected $facilityId;
     protected $facilityName;
+    protected $programId;
 
-    public function __construct($facilityId, $facilityName)
+    public function __construct($facilityId, $facilityName, $programId = null)
     {
         $this->facilityId = $facilityId;
         $this->facilityName = $facilityName;
+        $this->programId = $programId;
     }
 
     public function collection()
@@ -30,10 +32,15 @@ class FacilityEnrollmentsExport implements FromCollection, WithHeadings, WithTit
         $enrollments = collect();
 
         // Get beneficiaries for this facility
-        $beneficiaries = Beneficiary::where('facility_id', $this->facilityId)
+        $beneficiaryQuery = Beneficiary::where('facility_id', $this->facilityId)
             ->where('status', '!=', 'draft')
-            ->with('creator')
-            ->get();
+            ->with('creator');
+        
+        if ($this->programId) {
+            $beneficiaryQuery->where('program_id', $this->programId);
+        }
+        
+        $beneficiaries = $beneficiaryQuery->get();
 
         foreach ($beneficiaries as $beneficiary) {
             $enrollments->push([
@@ -42,8 +49,14 @@ class FacilityEnrollmentsExport implements FromCollection, WithHeadings, WithTit
                 'Full Name' => $beneficiary->fullname ?? 'N/A',
                 'Gender' => $beneficiary->gender ?? 'N/A',
                 'Date of Birth' => $beneficiary->date_of_birth ?? 'N/A',
+                'NIN' => $beneficiary->nin ?? 'N/A',
+                'Category' => $beneficiary->category ?? 'N/A',
+                'Occupation' => $beneficiary->occupation ?? 'N/A',
+                'Marital Status' => $beneficiary->marital_status ?? 'N/A',
+                'Facility' => $beneficiary->facility->name ?? 'N/A',
                 'Phone' => $beneficiary->phone_no ?? 'N/A',
                 'Email' => $beneficiary->email ?? 'N/A',
+                'Address' => $beneficiary->contact_address ?? 'N/A',
                 'Status' => ucfirst($beneficiary->status ?? 'N/A'),
                 'Enrolled By' => $beneficiary->creator->fullname ?? 'N/A',
                 'Created At' => $beneficiary->created_at->format('Y-m-d H:i:s')
@@ -51,19 +64,32 @@ class FacilityEnrollmentsExport implements FromCollection, WithHeadings, WithTit
         }
 
         // Get spouses for beneficiaries in this facility
-        $spouses = Spouse::where('facility_id', $this->facilityId)
-            ->with('beneficiary.creator')
-            ->get();
+        $spouseQuery = Spouse::where('facility_id', $this->facilityId)
+            ->with('beneficiary.creator');
+        
+        if ($this->programId) {
+            $spouseQuery->whereHas('beneficiary', function($q) {
+                $q->where('program_id', $this->programId);
+            });
+        }
+        
+        $spouses = $spouseQuery->get();
 
         foreach ($spouses as $spouse) {
             $enrollments->push([
                 'Type' => 'Spouse',
                 'BOSCHMA ID' => $spouse->boschma_no ?? 'N/A',
-                'Full Name' => $spouse->fullname ?? 'N/A',
+                'Full Name' => $spouse->name ?? 'N/A',
                 'Gender' => $spouse->gender ?? 'N/A',
-                'Date of Birth' => $spouse->date_of_birth ?? 'N/A',
+                'Date of Birth' => $spouse->dob ?? 'N/A',
+                'NIN' => $spouse->nin ?? 'N/A',
+                'Category' => 'N/A',
+                'Occupation' => 'N/A',
+                'Marital Status' => 'Married',
+                'Facility' => $spouse->beneficiary->facility->name ?? 'N/A',
                 'Phone' => $spouse->phone_no ?? 'N/A',
                 'Email' => $spouse->email ?? 'N/A',
+                'Address' => 'N/A',
                 'Status' => ucfirst($spouse->beneficiary->status ?? 'N/A'),
                 'Enrolled By' => $spouse->beneficiary->creator->fullname ?? 'N/A',
                 'Created At' => $spouse->created_at->format('Y-m-d H:i:s')
@@ -71,19 +97,32 @@ class FacilityEnrollmentsExport implements FromCollection, WithHeadings, WithTit
         }
 
         // Get children for beneficiaries in this facility
-        $children = Child::where('facility_id', $this->facilityId)
-            ->with('beneficiary.creator')
-            ->get();
+        $childQuery = Child::where('facility_id', $this->facilityId)
+            ->with('beneficiary.creator');
+        
+        if ($this->programId) {
+            $childQuery->whereHas('beneficiary', function($q) {
+                $q->where('program_id', $this->programId);
+            });
+        }
+        
+        $children = $childQuery->get();
 
         foreach ($children as $child) {
             $enrollments->push([
                 'Type' => 'Child',
                 'BOSCHMA ID' => $child->boschma_no ?? 'N/A',
-                'Full Name' => $child->fullname ?? 'N/A',
+                'Full Name' => $child->name ?? 'N/A',
                 'Gender' => $child->gender ?? 'N/A',
-                'Date of Birth' => $child->date_of_birth ?? 'N/A',
+                'Date of Birth' => $child->dob ?? 'N/A',
+                'NIN' => $child->nin ?? 'N/A',
+                'Category' => 'N/A',
+                'Occupation' => 'N/A',
+                'Marital Status' => 'Single',
+                'Facility' => $child->beneficiary->facility->name ?? 'N/A',
                 'Phone' => $child->phone_no ?? 'N/A',
                 'Email' => $child->email ?? 'N/A',
+                'Address' => 'N/A',
                 'Status' => ucfirst($child->beneficiary->status ?? 'N/A'),
                 'Enrolled By' => $child->beneficiary->creator->fullname ?? 'N/A',
                 'Created At' => $child->created_at->format('Y-m-d H:i:s')
@@ -102,8 +141,14 @@ class FacilityEnrollmentsExport implements FromCollection, WithHeadings, WithTit
             'Full Name',
             'Gender',
             'Date of Birth',
+            'NIN',
+            'Category',
+            'Occupation',
+            'Marital Status',
+            'Facility',
             'Phone',
             'Email',
+            'Address',
             'Status',
             'Enrolled By',
             'Created At'
@@ -119,7 +164,7 @@ class FacilityEnrollmentsExport implements FromCollection, WithHeadings, WithTit
     {
         return [
             1 => ['font' => ['bold' => true, 'size' => 12]],
-            'A1:J1' => [
+            'A1:P1' => [
                 'fill' => ['fillType' => 'solid', 'startColor' => ['rgb' => '4F84AB']],
                 'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']]
             ],

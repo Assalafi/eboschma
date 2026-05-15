@@ -54,6 +54,12 @@ class AuthController extends Controller
             session()->put('sector', 'basic');
             
             \Log::info('Staff session set, redirecting');
+            
+            // Check if user has BODMA role and redirect to drug-stock-requests
+            if ($staff->hasRole('BODMA')) {
+                return redirect()->route('drug-stock-requests.index');
+            }
+            
             return redirect()->intended('/');
             } catch (\Exception $e) {
                 \Log::error('Staff login error: ' . $e->getMessage());

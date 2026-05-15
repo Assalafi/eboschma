@@ -38,7 +38,8 @@ class StaffController extends Controller
             'email' => 'required|email|unique:staff,email',
             'phone' => 'required|string|max:20',
             'password' => 'required|string|min:8|confirmed',
-            'role' => 'required|exists:roles,name',
+            'roles' => 'required|array',
+            'roles.*' => 'required|exists:roles,name',
         ]);
 
         $staff = Staff::create([
@@ -48,8 +49,8 @@ class StaffController extends Controller
             'password' => Hash::make($validated['password']),
         ]);
 
-        // Assign role
-        $staff->assignRole($validated['role']);
+        // Assign multiple roles
+        $staff->syncRoles($validated['roles']);
 
         return redirect()->route('staff.index')
             ->with('success', 'Staff member created successfully!');
@@ -84,7 +85,8 @@ class StaffController extends Controller
             'email' => 'required|email|unique:staff,email,' . $staff->id,
             'phone' => 'required|string|max:20',
             'password' => 'nullable|string|min:8|confirmed',
-            'role' => 'required|exists:roles,name',
+            'roles' => 'required|array',
+            'roles.*' => 'required|exists:roles,name',
         ]);
 
         $staff->update([
@@ -98,8 +100,8 @@ class StaffController extends Controller
             $staff->update(['password' => Hash::make($validated['password'])]);
         }
 
-        // Sync roles
-        $staff->syncRoles([$validated['role']]);
+        // Sync multiple roles
+        $staff->syncRoles($validated['roles']);
 
         return redirect()->route('staff.index')
             ->with('success', 'Staff member updated successfully!');

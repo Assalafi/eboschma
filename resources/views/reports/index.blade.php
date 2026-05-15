@@ -166,7 +166,7 @@
                 </div>
 
                 <!-- Available Reports -->
-                <div class="row row-deck row-cards mb-6">
+                <div class="row g-4">
                     <div class="col-12">
                         <div class="d-flex align-items-center mb-4">
                             <div>
@@ -174,7 +174,7 @@
                                 <div class="text-muted">Click on any report to view detailed analytics and insights</div>
                             </div>
                             <div class="ms-auto">
-                                <span class="badge bg-blue text-white">
+                                <span class="badge bg-info text-white">
                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
                                         stroke="currentColor" stroke-width="2" class="me-1">
                                         <rect x="3" y="3" width="18" height="18" rx="2" ry="2">
@@ -322,6 +322,53 @@
                             <div class="card-footer bg-transparent border-0 pt-0">
                                 <a href="{{ route('reports.enrollments') }}" class="btn btn-info w-100">
                                     View Trends Report
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                        stroke="currentColor" stroke-width="2" class="ms-1">
+                                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                                        <polyline points="12,5 19,12 12,19"></polyline>
+                                    </svg>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card border-0 shadow-sm hover-lift h-100">
+                            <div class="card-body">
+                                <div class="d-flex align-items-start mb-3">
+                                    <div class="avatar avatar-lg bg-danger bg-gradient text-white rounded-3 me-3">
+                                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round">
+                                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                                        </svg>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <h4 class="card-title mb-1">Customer Care Report</h4>
+                                        <div class="badge bg-light bg-opacity-10 text-danger mb-2">Support Analytics</div>
+                                    </div>
+                                </div>
+                                <p class="text-muted mb-4">Analyze customer support tickets, resolution times, categories,
+                                    and department performance metrics</p>
+                                <div class="row g-3">
+                                    <div class="col-6">
+                                        <div class="text-center">
+                                            <div class="h4 mb-1 text-danger">{{ App\Models\Ticket::count() }}</div>
+                                            <div class="text-muted small">Total Tickets</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="text-center">
+                                            <div class="h4 mb-1 text-danger">
+                                                {{ App\Models\Ticket::status('completed')->count() }}</div>
+                                            <div class="text-muted small">Resolved</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-footer bg-transparent border-0 pt-0">
+                                <a href="{{ route('reports.crm') }}" class="btn btn-danger w-100">
+                                    View CRM Report
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
                                         stroke="currentColor" stroke-width="2" class="ms-1">
                                         <line x1="5" y1="12" x2="19" y2="12"></line>

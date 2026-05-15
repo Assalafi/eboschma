@@ -22,10 +22,15 @@
                                 <i class="ti ti-arrow-left me-2"></i>
                                 Back to Reports
                             </a>
-                            <a href="{{ route('reports.facilities.export') }}"
-                                class="btn btn-primary d-none d-sm-inline-block">
-                                <i class="ti ti-download me-2"></i>
-                                Export
+                            <a href="{{ route('reports.facilities.export') }}{{ $programId ? '?program_id='.$programId : '' }}{{ request('lga') ? ($programId ? '&' : '?').'lga='.request('lga') : '' }}{{ request('date_from') ? (($programId || request('lga')) ? '&' : '?').'date_from='.request('date_from') : '' }}{{ request('date_to') ? (($programId || request('lga') || request('date_from')) ? '&' : '?').'date_to='.request('date_to') : '' }}" class="btn btn-primary">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                    style="display: inline; margin-right: 0.25rem;">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                    <polyline points="7,10 12,15 17,10"></polyline>
+                                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                                </svg>
+                                Export{{ $selectedProgram ? ' ('.$selectedProgram->name.')' : '' }}{{ (request('lga') || request('date_from') || request('date_to')) ? ' (Filtered)' : '' }}
                             </a>
                         </div>
                     </div>
@@ -35,6 +40,80 @@
 
         <div class="page-body">
             <div class="container-xl">
+                <!-- Program Filter -->
+                <div class="card mb-3">
+                    <div class="card-body py-3">
+                        <form method="GET" action="{{ route('reports.facilities') }}" class="row g-3 align-items-end">
+                            <div class="col-md-3">
+                                <label class="form-label">Filter by Program</label>
+                                <select name="program_id" class="form-select">
+                                    <option value="">All Programs</option>
+                                    @foreach($programs as $program)
+                                        <option value="{{ $program->id }}" {{ $programId == $program->id ? 'selected' : '' }}>
+                                            {{ $program->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Filter by LGA</label>
+                                <select name="lga" class="form-select">
+                                    <option value="">All LGAs</option>
+                                    @foreach($lgas as $lga)
+                                        <option value="{{ $lga }}" {{ request('lga') == $lga ? 'selected' : '' }}>
+                                            {{ $lga }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">From Date</label>
+                                <input type="date" name="date_from" value="{{ request('date_from') }}" class="form-control">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">To Date</label>
+                                <input type="date" name="date_to" value="{{ request('date_to') }}" class="form-control">
+                            </div>
+                            <div class="col-md-12">
+                                <div class="btn-list">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="ti ti-filter me-1"></i>Filter
+                                    </button>
+                                    @if($selectedProgram || request('lga') || request('date_from') || request('date_to'))
+                                        <a href="{{ route('reports.facilities') }}" class="btn btn-ghost-secondary">
+                                            <i class="ti ti-x"></i> Clear
+                                        </a>
+                                    @endif
+                                </div>
+                            </div>
+                        </form>
+                        @if($selectedProgram || request('lga') || request('date_from') || request('date_to'))
+                            <div class="mt-2">
+                                @if($selectedProgram)
+                                    <span class="badge bg-primary fs-6 me-2">
+                                        <i class="ti ti-filter me-1"></i>{{ $selectedProgram->name }}
+                                    </span>
+                                @endif
+                                @if(request('lga'))
+                                    <span class="badge bg-secondary fs-6 me-2">
+                                        LGA: {{ request('lga') }}
+                                    </span>
+                                @endif
+                                @if(request('date_from'))
+                                    <span class="badge bg-info fs-6 me-2">
+                                        From: {{ request('date_from') }}
+                                    </span>
+                                @endif
+                                @if(request('date_to'))
+                                    <span class="badge bg-info fs-6 me-2">
+                                        To: {{ request('date_to') }}
+                                    </span>
+                                @endif
+                            </div>
+                        @endif
+                    </div>
+                </div>
+
                 <!-- Summary Cards -->
                 <div class="row row-deck row-cards mb-4">
                     <div class="col-sm-6 col-lg-3">
@@ -206,11 +285,11 @@
                                                 </td>
                                                 <td>
                                                     <div class="btn-list flex-nowrap">
-                                                        <a href="{{ route('reports.facilities.show', $facility->id) }}"
+                                                        <a href="{{ route('reports.facilities.show', $facility->id) }}{{ $programId ? '?program_id='.$programId : '' }}"
                                                             class="btn" title="View Details">
                                                             <i class="ti ti-eye"></i>
                                                         </a>
-                                                        <a href="{{ route('reports.facilities.export') }}?facility_id={{ $facility->id }}"
+                                                        <a href="{{ route('reports.facilities.export') }}?facility_id={{ $facility->id }}{{ $programId ? '&program_id='.$programId : '' }}{{ request('lga') ? '&lga='.request('lga') : '' }}{{ request('date_from') ? '&date_from='.request('date_from') : '' }}{{ request('date_to') ? '&date_to='.request('date_to') : '' }}"
                                                             class="btn" title="Export Data">
                                                             <i class="ti ti-download"></i>
                                                         </a>

@@ -275,7 +275,9 @@
                         </div>
 
                         <div class="login-footer">
-                            <a href="#" class="forgot-link">Forgot password?</a>
+                            <a href="/facility/login" class="forgot-link" style="font-weight: 800; font-size: 24px;">Log
+                                as Facility
+                                Staff</a>
                             <button type="submit" class="btn-login">Login</button>
                         </div>
                     </form>

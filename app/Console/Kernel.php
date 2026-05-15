@@ -21,6 +21,7 @@ class Kernel extends ConsoleKernel
         Commands\UpdateSuperAdminStaff::class,
         Commands\MakeSuperAdmin::class,
         Commands\SyncRolesBetweenGuards::class,
+        Commands\CleanupStuckBulkJobs::class,
     ];
 
     /**
@@ -28,7 +29,8 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        // $schedule->command('inspire')->hourly();
+        // Clean up stuck bulk ID card jobs every hour
+        $schedule->command('bulk-jobs:cleanup-stuck')->hourly();
     }
 
     /**

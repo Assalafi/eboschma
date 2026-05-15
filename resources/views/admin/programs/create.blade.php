@@ -28,7 +28,7 @@
                         </div>
                     @endif
 
-                    <form action="{{ route('programs.store') }}" method="POST">
+                    <form action="{{ route('programs.store') }}" method="POST" enctype="multipart/form-data">
                         @csrf
 
                         <div class="row mb-3">
@@ -38,6 +38,31 @@
                                        id="name" name="name" value="{{ old('name') }}" 
                                        placeholder="Enter program name" required>
                                 @error('name')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <label for="description" class="col-md-3 col-form-label">Description</label>
+                            <div class="col-md-9">
+                                <textarea class="form-control @error('description') is-invalid @enderror" 
+                                       id="description" name="description" rows="2"
+                                       placeholder="e.g. Basic Health Care Provision Fund">{{ old('description') }}</textarea>
+                                <small class="text-muted">Full name or description shown on ID cards</small>
+                                @error('description')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <label for="logo" class="col-md-3 col-form-label">Program Logo</label>
+                            <div class="col-md-9">
+                                <input type="file" class="form-control @error('logo') is-invalid @enderror" 
+                                       id="logo" name="logo" accept="image/png,image/jpg,image/jpeg,image/svg+xml">
+                                <small class="text-muted">PNG, JPG or SVG. Max 2MB. Used on ID cards.</small>
+                                @error('logo')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
                             </div>

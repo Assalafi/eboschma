@@ -1006,4 +1006,78 @@ class BeneficiaryApiController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Verify NIN uniqueness across beneficiaries, spouses, and children tables
+     * Used by beneficiary mobile app for NIN verification
+     */
+    public function verifyNinUniqueness(Request $request): JsonResponse
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'nin' => 'required|string|size:11',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'exists' => false,
+                    'message' => 'Invalid NIN format - must be 11 digits',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $nin = $request->nin;
+
+            // Check if NIN exists in beneficiaries table
+            $existingBeneficiary = Beneficiary::where('nin', $nin)->first();
+            if ($existingBeneficiary) {
+                return response()->json([
+                    'success' => false,
+                    'exists' => true,
+                    'exists_in' => 'beneficiaries',
+                    'message' => 'This NIN is already enrolled as a beneficiary (BOSCHMA ID: ' . $existingBeneficiary->boschma_no . ')'
+                ], 409);
+            }
+
+            // Check if NIN exists in spouses table
+            $existingSpouse = Spouse::where('nin', $nin)->first();
+            if ($existingSpouse) {
+                $beneficiary = Beneficiary::find($existingSpouse->beneficiary_id);
+                return response()->json([
+                    'success' => false,
+                    'exists' => true,
+                    'exists_in' => 'spouses',
+                    'message' => 'This NIN is already registered as a spouse (under BOSCHMA ID: ' . ($beneficiary->boschma_no ?? 'N/A') . ')'
+                ], 409);
+            }
+
+            // Check if NIN exists in children table
+            $existingChild = Child::where('nin', $nin)->first();
+            if ($existingChild) {
+                $beneficiary = Beneficiary::find($existingChild->beneficiary_id);
+                return response()->json([
+                    'success' => false,
+                    'exists' => true,
+                    'exists_in' => 'children',
+                    'message' => 'This NIN is already registered as a child (under BOSCHMA ID: ' . ($beneficiary->boschma_no ?? 'N/A') . ')'
+                ], 409);
+            }
+
+            // NIN is unique
+            return response()->json([
+                'success' => true,
+                'exists' => false,
+                'message' => 'NIN is available and unique'
+            ], 200);
+
+        } catch (\Exception $e) {
+            Log::error('NIN uniqueness check error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'exists' => false,
+                'message' => 'Error checking NIN uniqueness: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

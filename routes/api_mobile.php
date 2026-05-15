@@ -24,9 +24,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/mobile/profile', [MobileAuthController::class, 'profile']);
     Route::post('/mobile/update-password', [MobileAuthController::class, 'updatePassword']);
     
-    // Programs & Facilities
+    // Programs, Facilities & Categories
     Route::get('/mobile/programs', [MobileEnrollmentController::class, 'getPrograms']);
     Route::get('/mobile/facilities', [MobileEnrollmentController::class, 'getFacilities']);
+    Route::get('/mobile/beneficiary-categories', [MobileEnrollmentController::class, 'getBeneficiaryCategories']);
     Route::get('/mobile/civil-servants', [MobileEnrollmentController::class, 'getCivilServants']);
     Route::get('/mobile/spouses', [MobileEnrollmentController::class, 'getSpouses']);
     Route::get('/mobile/children', [MobileEnrollmentController::class, 'getChildren']);

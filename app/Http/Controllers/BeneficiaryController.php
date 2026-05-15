@@ -33,6 +33,10 @@ use Illuminate\Support\Facades\Queue;
 use Illuminate\Validation\Rule;
 use Spatie\Browsershot\Browsershot;
 use Dompdf\Dompdf;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Imports\BeneficiariesImport;
+use App\Exports\BeneficiariesTemplateExport;
+use Illuminate\Support\Facades\Log;
 
 class BeneficiaryController extends Controller
 {
@@ -61,6 +65,10 @@ class BeneficiaryController extends Controller
             $query->where('facility_id', $request->facility_id);
         }
 
+        if ($request->filled('program_id')) {
+            $query->where('program_id', $request->program_id);
+        }
+
         if ($request->filled('gender')) {
             $query->where('gender', $request->gender);
         }
@@ -75,12 +83,14 @@ class BeneficiaryController extends Controller
             });
         }
 
-        $beneficiaries = $query->latest()->paginate(20);
+        $beneficiaries = $query->latest()->paginate(20)->withQueryString();
         $facilities = Facility::orderBy('name')->get();
+        $programs = Program::orderBy('name')->get();
 
         return view('admin.beneficiaries.index', [
             'beneficiaries' => $beneficiaries,
             'facilities' => $facilities,
+            'programs' => $programs,
             'statusCounts' => $statusCounts,
         ]);
     }
@@ -333,10 +343,12 @@ class BeneficiaryController extends Controller
         
         // Get all programs for dependant checking
         $programs = Program::all();
+        $beneficiaryCategories = \App\Models\BeneficiaryCategory::orderBy('name')->get();
 
         return view('admin.beneficiaries.create', [
             'facilities' => $facilities,
             'programs' => $programs,
+            'beneficiaryCategories' => $beneficiaryCategories,
         ]);
     }
 
@@ -668,11 +680,15 @@ class BeneficiaryController extends Controller
      */
     public function show(Beneficiary $beneficiary)
     {
+        // Get programs for convert modal
+        $programs = Program::orderBy('name')->get();
+        
         return view('admin.beneficiaries.show', [
             'beneficiary' => $beneficiary->load([
                 'spouse', 
                 'children', 
                 'facility',
+                'program',
                 'creator',
                 'submitter',
                 'updater',
@@ -680,6 +696,7 @@ class BeneficiaryController extends Controller
                     $query->orderBy('year', 'desc')->orderBy('month', 'desc');
                 }
             ]),
+            'programs' => $programs,
         ]);
     }
 
@@ -691,11 +708,13 @@ class BeneficiaryController extends Controller
         // Get all facilities and programs for selection
         $facilities = Facility::orderBy('name')->get();
         $programs = Program::orderBy('name')->get();
+        $beneficiaryCategories = \App\Models\BeneficiaryCategory::orderBy('name')->get();
         
         return view('admin.beneficiaries.edit', [
             'beneficiary' => $beneficiary->load(['spouse', 'children', 'facility', 'program']),
             'facilities' => $facilities,
             'programs' => $programs,
+            'beneficiaryCategories' => $beneficiaryCategories,
         ]);
     }
 
@@ -1360,7 +1379,12 @@ class BeneficiaryController extends Controller
     public function generateIdCard(Beneficiary $beneficiary)
     {
         // Load beneficiary with relationships
-        $beneficiary->load(['facility', 'spouse', 'children']);
+        $beneficiary->load(['facility', 'program', 'spouse', 'children']);
+        
+        // Check if the program has dependants - use appropriate card format
+        if ($beneficiary->program && !$beneficiary->program->has_dependant) {
+            return view('admin.beneficiaries.id-card-no-dependants-preview', compact('beneficiary'));
+        }
         
         return view('admin.beneficiaries.id-card-new', compact('beneficiary'));
     }
@@ -1370,65 +1394,20 @@ class BeneficiaryController extends Controller
      */
     public function downloadIdCard(Beneficiary $beneficiary)
 {
+    // Load program to determine card format
+    $beneficiary->load(['facility', 'program', 'spouse', 'children']);
+    
     // Convert all images to base64
-    $logoPath = public_path('assets/img/brand/logo.png');
-    
-    if (file_exists($logoPath)) {
-        $logoData = base64_encode(file_get_contents($logoPath));
-        $logoBase64 = 'data:image/' . pathinfo($logoPath, PATHINFO_EXTENSION) . ';base64,' . $logoData;
-    } else {
-        $logoBase64 = null;
-    }
-
-    $signPath = public_path('assets/img/brand/sign.png');
-    
-    if (file_exists($signPath)) {
-        $signData = base64_encode(file_get_contents($signPath));
-        $signBase64 = 'data:image/' . pathinfo($signPath, PATHINFO_EXTENSION) . ';base64,' . $signData;
-    } else {
-        $signBase64 = null;
-    }
+    $logoBase64 = $this->getAssetBase64(public_path('assets/img/brand/logo.png'));
+    $signBase64 = $this->getAssetBase64(public_path('assets/img/brand/sign.png'));
     
     // Convert beneficiary photo to base64
     $beneficiaryPhotoBase64 = null;
     if ($beneficiary->photo) {
         $photoPath = storage_path('app/public/' . $beneficiary->photo);
-        // Debug: Log the photo path
-        \Log::info('Photo path: ' . $photoPath);
-        \Log::info('Photo exists: ' . (file_exists($photoPath) ? 'YES' : 'NO'));
-        
         if (file_exists($photoPath)) {
             $photoData = base64_encode(file_get_contents($photoPath));
             $beneficiaryPhotoBase64 = 'data:image/' . pathinfo($photoPath, PATHINFO_EXTENSION) . ';base64,' . $photoData;
-            \Log::info('Photo converted to base64 successfully');
-        }
-    } else {
-        \Log::info('No photo path found for beneficiary');
-    }
-    
-    // Convert spouse photo to base64
-    $spousePhotoBase64 = null;
-    if ($beneficiary->spouse && $beneficiary->spouse->photo) {
-        $spousePhotoPath = storage_path('app/public/' . $beneficiary->spouse->photo);
-        if (file_exists($spousePhotoPath)) {
-            $spousePhotoData = base64_encode(file_get_contents($spousePhotoPath));
-            $spousePhotoBase64 = 'data:image/' . pathinfo($spousePhotoPath, PATHINFO_EXTENSION) . ';base64,' . $spousePhotoData;
-        }
-    }
-    
-    // Convert children photos to base64
-    $childrenPhotosBase64 = [];
-    if ($beneficiary->children) {
-        foreach ($beneficiary->children as $child) {
-            $childPhotoBase64 = null;
-            if ($child->photo) {
-                $childPhotoPath = storage_path('app/public/' . $child->photo);
-                if (file_exists($childPhotoPath)) {
-                    $childPhotoData = base64_encode(file_get_contents($childPhotoPath));
-                    $childPhotoBase64 = 'data:image/' . pathinfo($childPhotoPath, PATHINFO_EXTENSION) . ';base64,' . $childPhotoData;
-                }
-            }
-            $childrenPhotosBase64[$child->id] = $childPhotoBase64;
         }
     }
     
@@ -1443,38 +1422,82 @@ class BeneficiaryController extends Controller
         'expires_at' => $beneficiary->created_at->addYears(5)->format('Y-m-d')
     ];
     
-    // Add spouse data if exists
-    if ($beneficiary->spouse) {
-        $beneficiaryData['spouse'] = [
-            'name' => $beneficiary->spouse->name,
-            'boschma_no' => $beneficiary->spouse->boschma_no,
-            'nin' => $beneficiary->spouse->nin,
-            'gender' => $beneficiary->spouse->gender,
-            'dob' => $beneficiary->spouse->dob,
-            'facility' => $beneficiary->spouse->facility->name ?? 'N/A'
-        ];
-    }
+    // Check if program has dependants - use appropriate card template
+    $isNoDependants = $beneficiary->program && !$beneficiary->program->has_dependant;
     
-    // Add children data if exists
-    if ($beneficiary->children && $beneficiary->children->count() > 0) {
-        $beneficiaryData['children'] = [];
-        foreach ($beneficiary->children as $child) {
-            $beneficiaryData['children'][] = [
-                'name' => $child->name,
-                'boschma_no' => $child->boschma_no,
-                'nin' => $child->nin,
-                'gender' => $child->gender,
-                'dob' => $child->dob,
-                'facility' => $child->facility->name ?? 'N/A'
+    if ($isNoDependants) {
+        // No-dependants card - simpler, no spouse/children
+        $qrCodeBase64 = QrCodeService::generateBeneficiaryQrCode($beneficiaryData);
+        
+        // Convert program logo to base64 if available
+        $programLogoBase64 = null;
+        if ($beneficiary->program && $beneficiary->program->logo) {
+            $programLogoBase64 = $this->getAssetBase64(storage_path('app/public/' . $beneficiary->program->logo));
+        }
+        
+        $html = view('admin.beneficiaries.id-card-pdf-no-dependants', compact(
+            'beneficiary', 'logoBase64', 'signBase64', 'beneficiaryPhotoBase64', 'qrCodeBase64', 'programLogoBase64'
+        ))->render();
+    } else {
+        // Dependants card (Formal Sector format) - with spouse/children
+        $spousePhotoBase64 = null;
+        if ($beneficiary->spouse && $beneficiary->spouse->photo) {
+            $spousePhotoPath = storage_path('app/public/' . $beneficiary->spouse->photo);
+            if (file_exists($spousePhotoPath)) {
+                $spousePhotoData = base64_encode(file_get_contents($spousePhotoPath));
+                $spousePhotoBase64 = 'data:image/' . pathinfo($spousePhotoPath, PATHINFO_EXTENSION) . ';base64,' . $spousePhotoData;
+            }
+        }
+        
+        $childrenPhotosBase64 = [];
+        if ($beneficiary->children) {
+            foreach ($beneficiary->children as $child) {
+                $childPhotoBase64 = null;
+                if ($child->photo) {
+                    $childPhotoPath = storage_path('app/public/' . $child->photo);
+                    if (file_exists($childPhotoPath)) {
+                        $childPhotoData = base64_encode(file_get_contents($childPhotoPath));
+                        $childPhotoBase64 = 'data:image/' . pathinfo($childPhotoPath, PATHINFO_EXTENSION) . ';base64,' . $childPhotoData;
+                    }
+                }
+                $childrenPhotosBase64[$child->id] = $childPhotoBase64;
+            }
+        }
+        
+        // Add spouse data to QR if exists
+        if ($beneficiary->spouse) {
+            $beneficiaryData['spouse'] = [
+                'name' => $beneficiary->spouse->name,
+                'boschma_no' => $beneficiary->spouse->boschma_no,
+                'nin' => $beneficiary->spouse->nin,
+                'gender' => $beneficiary->spouse->gender,
+                'dob' => $beneficiary->spouse->dob,
+                'facility' => $beneficiary->spouse->facility->name ?? 'N/A'
             ];
         }
+        
+        // Add children data to QR if exists
+        if ($beneficiary->children && $beneficiary->children->count() > 0) {
+            $beneficiaryData['children'] = [];
+            foreach ($beneficiary->children as $child) {
+                $beneficiaryData['children'][] = [
+                    'name' => $child->name,
+                    'boschma_no' => $child->boschma_no,
+                    'nin' => $child->nin,
+                    'gender' => $child->gender,
+                    'dob' => $child->dob,
+                    'facility' => $child->facility->name ?? 'N/A'
+                ];
+            }
+        }
+        
+        $qrCodeBase64 = QrCodeService::generateBeneficiaryQrCode($beneficiaryData);
+        
+        $html = view('admin.beneficiaries.id-card-pdf-dompdf', compact(
+            'beneficiary', 'logoBase64', 'signBase64', 'beneficiaryPhotoBase64', 
+            'spousePhotoBase64', 'childrenPhotosBase64', 'qrCodeBase64'
+        ))->render();
     }
-    
-    $qrCodeBase64 = QrCodeService::generateBeneficiaryQrCode($beneficiaryData);
-    
-    $beneficiary->load(['facility', 'spouse', 'children']);
-    
-    $html = view('admin.beneficiaries.id-card-pdf-dompdf', compact('beneficiary', 'logoBase64', 'signBase64', 'beneficiaryPhotoBase64', 'spousePhotoBase64', 'childrenPhotosBase64', 'qrCodeBase64'))->render();
     
     $safeBoschmaNo = str_replace(['/', '\\'], '-', $beneficiary->boschma_no);
     $filename = 'id-card-' . $safeBoschmaNo . '.pdf';
@@ -1486,7 +1509,7 @@ class BeneficiaryController extends Controller
     
     // Simplified Browsershot without network dependencies
     $browsershot = Browsershot::html($html)
-        ->timeout(60) // Reduced timeout since no external resources
+        ->timeout(60)
         ->setOption('landscape', false)
         ->paperSize(210, 297, 'mm')
         ->margins(10, 10, 10, 10)
@@ -1530,7 +1553,7 @@ public function generateBulkIdCards(Request $request)
             ], 400);
         }
         
-        $beneficiaries = Beneficiary::with(['facility', 'spouse', 'children'])
+        $beneficiaries = Beneficiary::with(['facility', 'program', 'spouse', 'children'])
             ->whereIn('id', $beneficiaryIds)
             ->get();
         
@@ -1542,25 +1565,8 @@ public function generateBulkIdCards(Request $request)
         }
         
         // Convert all images to base64 once
-        $logoPath = public_path('assets/img/brand/logo.png');
-        $logoBase64 = null;
-        
-        if (file_exists($logoPath)) {
-            $logoData = base64_encode(file_get_contents($logoPath));
-            $logoBase64 = 'data:image/' . pathinfo($logoPath, PATHINFO_EXTENSION) . ';base64,' . $logoData;
-        }
-
-
-
-        // i also have sign.png
-        $signPath = public_path('assets/img/brand/sign.png');
-        $signBase64 = null;
-        
-        if (file_exists($signPath)) {
-            $signData = base64_encode(file_get_contents($signPath));
-            $signBase64 = 'data:image/' . pathinfo($signPath, PATHINFO_EXTENSION) . ';base64,' . $signData;
-        }
-
+        $logoBase64 = $this->getAssetBase64(public_path('assets/img/brand/logo.png'));
+        $signBase64 = $this->getAssetBase64(public_path('assets/img/brand/sign.png'));
         
         // Generate HTML for all beneficiaries with spacing between cards
         $allHtml = '<style>.card-spacing { margin-bottom: 1mm; }</style>';
@@ -1575,43 +1581,72 @@ public function generateBulkIdCards(Request $request)
                 }
             }
             
-            // Convert spouse photo to base64
-            $spousePhotoBase64 = null;
-            if ($beneficiary->spouse && $beneficiary->spouse->photo) {
-                $spousePhotoPath = storage_path('app/public/' . $beneficiary->spouse->photo);
-                if (file_exists($spousePhotoPath)) {
-                    $spousePhotoData = base64_encode(file_get_contents($spousePhotoPath));
-                    $spousePhotoBase64 = 'data:image/' . pathinfo($spousePhotoPath, PATHINFO_EXTENSION) . ';base64,' . $spousePhotoData;
-                }
-            }
+            // Determine card format based on program
+            $isNoDependants = $beneficiary->program && !$beneficiary->program->has_dependant;
             
-            // Convert children photos to base64
-            $childrenPhotosBase64 = [];
-            if ($beneficiary->children) {
-                foreach ($beneficiary->children as $child) {
-                    $childPhotoBase64 = null;
-                    if ($child->photo) {
-                        $childPhotoPath = storage_path('app/public/' . $child->photo);
-                        if (file_exists($childPhotoPath)) {
-                            $childPhotoData = base64_encode(file_get_contents($childPhotoPath));
-                            $childPhotoBase64 = 'data:image/' . pathinfo($childPhotoPath, PATHINFO_EXTENSION) . ';base64,' . $childPhotoData;
-                        }
+            if ($isNoDependants) {
+                // No-dependants card
+                $qrCodeBase64 = QrCodeService::generateBeneficiaryQrCode([
+                    'boschma_no' => $beneficiary->boschma_no,
+                    'fullname' => $beneficiary->fullname,
+                    'facility' => $beneficiary->facility->name ?? 'N/A',
+                ]);
+                
+                // Convert program logo to base64 if available
+                $programLogoBase64 = null;
+                if ($beneficiary->program && $beneficiary->program->logo) {
+                    $programLogoPath = storage_path('app/public/' . $beneficiary->program->logo);
+                    if (file_exists($programLogoPath)) {
+                        $programLogoData = base64_encode(file_get_contents($programLogoPath));
+                        $programLogoBase64 = 'data:image/' . pathinfo($programLogoPath, PATHINFO_EXTENSION) . ';base64,' . $programLogoData;
                     }
-                    $childrenPhotosBase64[$child->id] = $childPhotoBase64;
                 }
+                
+                $html = view('admin.beneficiaries.id-card-pdf-no-dependants', compact(
+                    'beneficiary', 
+                    'logoBase64',
+                    'signBase64',
+                    'beneficiaryPhotoBase64', 
+                    'qrCodeBase64',
+                    'programLogoBase64'
+                ))->render();
+            } else {
+                // Dependants card (Formal Sector format)
+                $spousePhotoBase64 = null;
+                if ($beneficiary->spouse && $beneficiary->spouse->photo) {
+                    $spousePhotoPath = storage_path('app/public/' . $beneficiary->spouse->photo);
+                    if (file_exists($spousePhotoPath)) {
+                        $spousePhotoData = base64_encode(file_get_contents($spousePhotoPath));
+                        $spousePhotoBase64 = 'data:image/' . pathinfo($spousePhotoPath, PATHINFO_EXTENSION) . ';base64,' . $spousePhotoData;
+                    }
+                }
+                
+                $childrenPhotosBase64 = [];
+                if ($beneficiary->children) {
+                    foreach ($beneficiary->children as $child) {
+                        $childPhotoBase64 = null;
+                        if ($child->photo) {
+                            $childPhotoPath = storage_path('app/public/' . $child->photo);
+                            if (file_exists($childPhotoPath)) {
+                                $childPhotoData = base64_encode(file_get_contents($childPhotoPath));
+                                $childPhotoBase64 = 'data:image/' . pathinfo($childPhotoPath, PATHINFO_EXTENSION) . ';base64,' . $childPhotoData;
+                            }
+                        }
+                        $childrenPhotosBase64[$child->id] = $childPhotoBase64;
+                    }
+                }
+                
+                $html = view('admin.beneficiaries.id-card-pdf-dompdf', compact(
+                    'beneficiary', 
+                    'logoBase64',
+                    'signBase64',
+                    'beneficiaryPhotoBase64', 
+                    'spousePhotoBase64', 
+                    'childrenPhotosBase64'
+                ))->render();
             }
             
-            // Generate HTML for this beneficiary
-            $html = view('admin.beneficiaries.id-card-pdf-dompdf', compact(
-                'beneficiary', 
-                'logoBase64',
-                'signBase64',
-                'beneficiaryPhotoBase64', 
-                'spousePhotoBase64', 
-                'childrenPhotosBase64'
-            ))->render();
-            
-            // Add spacing after each card (except last)
+            // Add spacing after each card
             $allHtml .= '<div class="card-spacing">' . $html . '</div>';
         }
         
@@ -1691,7 +1726,7 @@ public function downloadBulkIdCards($filename)
  */
 public function bulkIdCards(Request $request)
 {
-    $query = Beneficiary::with(['facility', 'spouse', 'children']);
+    $query = Beneficiary::with(['facility', 'program', 'spouse', 'children']);
     
     // Apply filters
     if ($request->filled('status')) {
@@ -1700,6 +1735,10 @@ public function bulkIdCards(Request $request)
     
     if ($request->filled('facility_id')) {
         $query->where('facility_id', $request->facility_id);
+    }
+    
+    if ($request->filled('program_id')) {
+        $query->where('program_id', $request->program_id);
     }
     
     if ($request->filled('search')) {
@@ -1714,8 +1753,30 @@ public function bulkIdCards(Request $request)
         $query->where('place_of_work', $request->workplace);
     }
     
-    $beneficiaries = $query->orderBy('created_at', 'desc')->paginate(50);
+    if ($request->filled('category')) {
+        $query->where('category', $request->category);
+    }
+    
+    // Filter by enrollment date range
+    if ($request->filled('enrollment_date_from')) {
+        $query->whereDate('created_at', '>=', $request->enrollment_date_from);
+    }
+    
+    if ($request->filled('enrollment_date_to')) {
+        $query->whereDate('created_at', '<=', $request->enrollment_date_to);
+    }
+    
+    // Filter for beneficiaries with dependants (spouse or children)
+    if ($request->filled('has_dependants') && $request->has_dependants) {
+        $query->where(function($q) {
+            $q->whereHas('spouse')
+              ->orWhereHas('children');
+        });
+    }
+    
+    $beneficiaries = $query->orderBy('created_at', 'desc')->paginate(500);
     $facilities = DB::table('facilities')->orderBy('name')->get();
+    $programs = \App\Models\Program::orderBy('name')->get();
     
     // Get unique workplaces for dropdown
     $workplaces = DB::table('beneficiaries')
@@ -1723,6 +1784,15 @@ public function bulkIdCards(Request $request)
         ->whereNotNull('place_of_work')
         ->distinct()
         ->pluck('place_of_work')
+        ->sort()
+        ->values();
+    
+    // Get unique categories for dropdown
+    $categories = DB::table('beneficiaries')
+        ->where('category', '!=', '')
+        ->whereNotNull('category')
+        ->distinct()
+        ->pluck('category')
         ->sort()
         ->values();
     
@@ -1740,7 +1810,9 @@ public function bulkIdCards(Request $request)
     return view('admin.beneficiaries.bulk-id-cards', compact(
         'beneficiaries', 
         'facilities', 
+        'programs',
         'workplaces',
+        'categories',
         'jobHistory', 
         'activeJobs'
     ));
@@ -1753,7 +1825,7 @@ public function startBulkIdCardGeneration(Request $request)
 {
     try {
         $request->validate([
-            'generation_type' => 'required|in:all,facility,workplace,custom_selection,status',
+            'generation_type' => 'required|in:all,filtered,facility,workplace,custom_selection,status,program',
             'title' => 'required|string|max:255',
         ]);
         
@@ -1765,6 +1837,25 @@ public function startBulkIdCardGeneration(Request $request)
         switch ($generationType) {
             case 'all':
                 $criteria = ['type' => 'all'];
+                break;
+                
+            case 'filtered':
+                $criteria = ['type' => 'filtered'];
+                if ($request->filled('facility_id')) {
+                    $criteria['facility_id'] = $request->facility_id;
+                }
+                if ($request->filled('filter_status')) {
+                    $criteria['status'] = $request->filter_status;
+                }
+                if ($request->filled('workplace')) {
+                    $criteria['workplace'] = $request->workplace;
+                }
+                if ($request->filled('program_id')) {
+                    $criteria['program_id'] = $request->program_id;
+                }
+                if ($request->filled('category')) {
+                    $criteria['category'] = $request->category;
+                }
                 break;
                 
             case 'facility':
@@ -1786,6 +1877,16 @@ public function startBulkIdCardGeneration(Request $request)
                 $criteria = ['workplace' => $request->workplace];
                 break;
                 
+            case 'program':
+                $request->validate(['program_id' => 'required|exists:programs,id']);
+                $program = \App\Models\Program::find($request->program_id);
+                $criteria = [
+                    'program_id' => $request->program_id,
+                    'program_name' => $program->name,
+                    'card_type' => $program->has_dependant ? 'With Dependants' : 'No Dependants',
+                ];
+                break;
+                
             case 'custom_selection':
                 $request->validate(['beneficiary_ids' => 'required|array']);
                 $request->validate(['beneficiary_ids.*' => 'exists:beneficiaries,id']);
@@ -1799,6 +1900,20 @@ public function startBulkIdCardGeneration(Request $request)
         // Add additional filters
         if ($request->filled('search')) {
             $criteria['search'] = $request->search;
+        }
+        
+        // Add enrollment date range filters
+        if ($request->filled('enrollment_date_from')) {
+            $criteria['enrollment_date_from'] = $request->enrollment_date_from;
+        }
+        
+        if ($request->filled('enrollment_date_to')) {
+            $criteria['enrollment_date_to'] = $request->enrollment_date_to;
+        }
+        
+        // Add dependants filter
+        if ($request->filled('has_dependants') && $request->has_dependants) {
+            $criteria['has_dependants'] = true;
         }
         
         // Create bulk job record
@@ -1872,7 +1987,7 @@ public function getBulkIdCardJobStatus($jobId)
 }
 
 /**
- * Download generated bulk ID cards file
+ * Download generated bulk ID cards file (handles both single PDF and multiple PDFs as ZIP)
  */
 public function downloadBulkIdCardFile($jobId)
 {
@@ -1890,9 +2005,48 @@ public function downloadBulkIdCardFile($jobId)
         abort(404, 'File not found');
     }
     
-    return response()->download($filePath, $job->file_name, [
-        'Content-Type' => 'application/pdf',
-    ]);
+    // Check if it's a directory (multiple PDFs) or a single file
+    if (is_dir($filePath)) {
+        // Multiple PDFs - create ZIP file for download
+        $zipFileName = 'bulk-id-cards-' . $job->job_id . '.zip';
+        $zipPath = storage_path('app/temp/' . $zipFileName);
+        
+        // Ensure temp directory exists
+        if (!file_exists(storage_path('app/temp'))) {
+            mkdir(storage_path('app/temp'), 0755, true);
+        }
+        
+        // Only create ZIP if it doesn't already exist
+        if (!file_exists($zipPath)) {
+            $zip = new \ZipArchive();
+            if ($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) === true) {
+                $pdfFiles = glob($filePath . '/*.pdf');
+                foreach ($pdfFiles as $pdfFile) {
+                    $zip->addFile($pdfFile, basename($pdfFile));
+                }
+                $zip->close();
+            } else {
+                abort(500, 'Failed to create ZIP file');
+            }
+        }
+        
+        // Use Nginx X-Accel-Redirect to serve file directly (frees PHP worker instantly)
+        return response('', 200, [
+            'Content-Type' => 'application/zip',
+            'Content-Disposition' => 'attachment; filename="' . $zipFileName . '"',
+            'X-Accel-Redirect' => '/protected-files/temp/' . $zipFileName,
+        ]);
+    } else {
+        // Single PDF file
+        $fileName = $job->file_name ?? basename($filePath);
+        
+        // Use Nginx X-Accel-Redirect to serve file directly (frees PHP worker instantly)
+        return response('', 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
+            'X-Accel-Redirect' => '/protected-files/' . $job->file_path,
+        ]);
+    }
 }
 
 /**
@@ -1917,6 +2071,46 @@ public function cancelBulkIdCardJob($jobId)
     return response()->json([
         'success' => true,
         'message' => 'Job cancelled successfully',
+    ]);
+}
+
+/**
+ * Delete a bulk ID card job and its associated files
+ */
+public function deleteBulkIdCardJob($jobId)
+{
+    $job = BulkIdCardJob::where('job_id', $jobId)
+        ->where('user_id', Auth::id())
+        ->first();
+    
+    if (!$job) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Job not found',
+        ], 404);
+    }
+    
+    // Delete associated files
+    if ($job->file_path) {
+        $fullPath = storage_path('app/' . $job->file_path);
+        
+        if (is_dir($fullPath)) {
+            // Delete all PDFs in directory
+            foreach (glob($fullPath . '/*.pdf') as $file) {
+                @unlink($file);
+            }
+            @rmdir($fullPath);
+        } elseif (file_exists($fullPath)) {
+            @unlink($fullPath);
+        }
+    }
+    
+    // Delete the DB record
+    $job->delete();
+    
+    return response()->json([
+        'success' => true,
+        'message' => 'Job and associated files deleted successfully',
     ]);
 }
 
@@ -2034,6 +2228,19 @@ public function getBulkIdCardJobs(Request $request)
     }
     
     /**
+     * Convert a file asset to base64 data URI
+     */
+    protected function getAssetBase64(string $path): ?string
+    {
+        if (!file_exists($path)) {
+            return null;
+        }
+        
+        $data = base64_encode(file_get_contents($path));
+        return 'data:image/' . pathinfo($path, PATHINFO_EXTENSION) . ';base64,' . $data;
+    }
+
+    /**
      * Check if running in local/development environment
      */
     protected function isLocalEnvironment(): bool
@@ -2092,5 +2299,187 @@ public function getBulkIdCardJobs(Request $request)
         }
         
         return false;
+    }
+
+    /**
+     * Show the beneficiary upload form.
+     */
+    public function uploadForm()
+    {
+        $programs = Program::active()->get();
+        $states = ['Borno']; // For now, only Borno state
+        $beneficiaryCategories = \App\Models\BeneficiaryCategory::orderBy('name')->get();
+        
+        return view('admin.beneficiaries.upload', compact('programs', 'states', 'beneficiaryCategories'));
+    }
+
+    /**
+     * Handle Excel file upload and import beneficiaries.
+     */
+    public function uploadExcel(Request $request)
+    {
+        $request->validate([
+            'program_id' => 'required|exists:programs,id',
+            'state' => 'required|string',
+            'lga' => 'required|string',
+            'facility_id' => 'required|exists:facilities,id',
+            'excel_file' => 'required|mimes:xlsx,xls,csv|max:10240', // 10MB max
+        ]);
+
+        try {
+            $import = new BeneficiariesImport(
+                $request->program_id,
+                $request->facility_id,
+                $request->state,
+                $request->lga
+            );
+            
+            Excel::import($import, $request->file('excel_file'));
+            
+            $importedCount = $import->getImportedCount();
+            $skippedCount = $import->getSkippedCount();
+            $errors = $import->getErrors();
+
+            $message = "Import completed: {$importedCount} beneficiaries imported";
+            
+            if ($skippedCount > 0) {
+                $message .= ", {$skippedCount} skipped";
+            }
+
+            return redirect()->route('beneficiaries.upload.form')
+                ->with('success', $message)
+                ->with('import_results', [
+                    'imported' => $importedCount,
+                    'skipped' => $skippedCount,
+                    'total' => $importedCount + $skippedCount,
+                    'errors' => array_slice($errors, 0, 20), // Limit errors shown
+                ]);
+                
+        } catch (\Exception $e) {
+            Log::error('Beneficiary import failed: ' . $e->getMessage());
+            
+            return redirect()->back()
+                ->with('error', 'Failed to import Excel file: ' . $e->getMessage())
+                ->withInput();
+        }
+    }
+
+    /**
+     * Download beneficiary import template.
+     */
+    public function downloadTemplate()
+    {
+        return Excel::download(new BeneficiariesTemplateExport, 'beneficiaries_import_template.xlsx');
+    }
+
+    /**
+     * Convert beneficiary to a different program.
+     * Updates BOSCHMA numbers for beneficiary, spouse, and children.
+     */
+    public function convertProgram(Request $request, Beneficiary $beneficiary)
+    {
+        $request->validate([
+            'new_program_id' => 'required|exists:programs,id|different:current_program_id',
+        ], [
+            'new_program_id.different' => 'Please select a different program to convert to.',
+        ]);
+
+        // Don't allow conversion if no BOSCHMA number exists
+        if (!$beneficiary->boschma_no) {
+            return redirect()->back()->with('error', 'Cannot convert: Beneficiary does not have a valid BOSCHMA number.');
+        }
+
+        // Get the new program
+        $newProgram = Program::findOrFail($request->new_program_id);
+        $newProgramFormat = $newProgram->format ?? 'BOSCHMA';
+
+        // Check if user wants to generate a new BOSCHMA number
+        $generateNew = $request->has('generate_new_boschma_no');
+        
+        if ($generateNew) {
+            // Get the last sequence number and use next one
+            $lastSequence = Beneficiary::lockForUpdate()->max('sequence_number') ?? 0;
+            $sequenceNumber = $lastSequence + 1;
+        } else {
+            // Keep the same sequence number; if missing, try to extract from boschma_no
+            $sequenceNumber = $beneficiary->sequence_number;
+            if (!$sequenceNumber) {
+                // Extract trailing digits from current boschma_no
+                if (preg_match('/(\d+)$/', $beneficiary->boschma_no, $m)) {
+                    $sequenceNumber = (int) $m[1];
+                }
+            }
+            if (!$sequenceNumber) {
+                return redirect()->back()->with('error', 'Cannot convert: Beneficiary does not have a valid sequence number. Please check "Generate New Boschma No" to assign a new one.');
+            }
+        }
+        
+        $paddedNumber = str_pad($sequenceNumber, 6, '0', STR_PAD_LEFT);
+        
+        // Generate new BOSCHMA number with new program format
+        $newBoschmaNo = $newProgramFormat . $paddedNumber;
+
+        // Store old values for logging
+        $oldBoschmaNo = $beneficiary->boschma_no;
+        $oldProgramId = $beneficiary->program_id;
+        $oldSequenceNumber = $beneficiary->sequence_number;
+
+        try {
+            DB::beginTransaction();
+
+            // Update beneficiary
+            $updateData = [
+                'program_id' => $request->new_program_id,
+                'boschma_no' => $newBoschmaNo,
+                'updated_by' => auth('staff')->id(),
+            ];
+            
+            // Update sequence number if generating new BOSCHMA number
+            if ($generateNew) {
+                $updateData['sequence_number'] = $sequenceNumber;
+            }
+            
+            $beneficiary->update($updateData);
+
+            // Update spouse if exists
+            if ($beneficiary->spouse) {
+                $beneficiary->spouse->update([
+                    'boschma_no' => $newBoschmaNo . 'A',
+                ]);
+            }
+
+            // Update children if any
+            $suffixes = ['B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
+            foreach ($beneficiary->children as $index => $child) {
+                if (isset($suffixes[$index])) {
+                    $child->update([
+                        'boschma_no' => $newBoschmaNo . $suffixes[$index],
+                    ]);
+                }
+            }
+
+            DB::commit();
+
+            // Log the conversion
+            Log::info("Beneficiary program converted", [
+                'beneficiary_id' => $beneficiary->id,
+                'old_program_id' => $oldProgramId,
+                'new_program_id' => $request->new_program_id,
+                'old_boschma_no' => $oldBoschmaNo,
+                'new_boschma_no' => $newBoschmaNo,
+                'old_sequence' => $oldSequenceNumber,
+                'new_sequence' => $sequenceNumber,
+                'generate_new' => $generateNew,
+                'converted_by' => auth('staff')->id(),
+            ]);
+
+            return redirect()->route('beneficiaries.show', $beneficiary->id)
+                ->with('success', "Program converted successfully. BOSCHMA ID changed from {$oldBoschmaNo} to {$newBoschmaNo}");
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error("Failed to convert beneficiary program: " . $e->getMessage());
+            return redirect()->back()->with('error', 'Failed to convert program: ' . $e->getMessage());
+        }
     }
 }

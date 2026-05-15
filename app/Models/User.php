@@ -29,9 +29,13 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'email',
+        'phone',
         'password',
-        'civil_servant_id',
-        'uuid',
+        'staff_position_id',
+        'role_id',
+        'facility_id',
+        'passport',
+        'email_verified_at',
     ];
 
     /**
@@ -52,9 +56,37 @@ class User extends Authenticatable
     protected function casts(): array
     {
         return [
+            'id' => 'string',
+            'staff_position_id' => 'string',
+            'role_id' => 'string',
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'created_at' => 'datetime',
+            'updated_at' => 'datetime',
         ];
+    }
+
+    public $incrementing = false;
+    protected $keyType = 'string';
+
+    /**
+     * Get the staff position for this user.
+     */
+    public function staffPosition()
+    {
+        return $this->belongsTo(StaffPosition::class, 'staff_position_id');
+    }
+    public function role()
+    {
+        return $this->belongsTo(Role::class, 'role_id');
+    }
+
+    /**
+     * Get the facility for this user.
+     */
+    public function facility()
+    {
+        return $this->belongsTo(Facility::class, 'facility_id');
     }
 
     /**
@@ -77,22 +109,28 @@ class User extends Authenticatable
     {
         parent::boot();
 
-        static::creating(function ($model) {
+        static::creating(function ($user) {
             // Generate UUID if not already set
-            if (empty($model->uuid)) {
-                $model->uuid = (string) Str::uuid();
+            if (empty($user->id) || $user->id === '0') {
+                $user->id = (string) Str::uuid();
+                \Log::info('Generated UUID for user: ' . $user->id);
+            }
+
+            // Set email_verified_at to current time if not provided
+            if (empty($user->email_verified_at)) {
+                $user->email_verified_at = now();
             }
         });
     }
     
     /**
      * Get the route key for the model.
-     * Using uuid for routing when available
+     * Using id for routing
      *
      * @return string
      */
     public function getRouteKeyName()
     {
-        return 'uuid';
+        return 'id';
     }
 }

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    @include('css')
+    @stack('styles')
+</head>
+
+<body class="ltr main-body leftmenu">
+    <!-- Loader -->
+    <div id="global-loader">
+        <img src="{{ url('assets/img/loader.svg') }}" class="loader-img" alt="Loader">
+    </div>
+    <!-- End Loader -->
+
+    <!-- Page -->
+    <div class="page">
+        <!-- Main Header-->
+        <div class="main-header side-header sticky">
+            @include('facility.header')
+        </div>
+        <!-- End Main Header-->
+
+        <!-- Sidemenu -->
+        <div style="z-index: 1000" class="sticky">
+            @include('facility.sidebar')
+        </div>
+        <!-- End Sidemenu -->
+
+        <!-- Main Content-->
+        <div style="padding-top: 125px" class="main-content side-content pt-8 pb-8">
+            @yield('content')
+        </div>
+        <!-- End Main Content-->
+
+        <!-- Main Footer-->
+        <div class="main-footer text-center">
+            @include('footer')
+        </div>
+        <!--End Footer-->
+    </div>
+    <!-- End Page -->
+
+    <a href="#top" id="back-to-top"><i class="fe fe-arrow-up"></i></a>
+
+    @include('script')
+    @stack('scripts')
+</body>
+
+</html>

@@ -7,15 +7,22 @@ use App\Models\Facility;
 use App\Models\Staff;
 use App\Models\Spouse;
 use App\Models\Child;
+use App\Models\Ticket;
+use App\Models\TicketCategory;
 use App\Exports\EnumeratorsExport;
 use App\Exports\EnumeratorEnrollmentsExport;
 use App\Exports\FacilitiesExport;
 use App\Exports\FacilityEnrollmentsExport;
 use App\Exports\DashboardExport;
+use App\Exports\CrmExport;
+use App\Exports\MonthlyEnrollmentsExport;
+use App\Exports\CategoryEnrollmentsExport;
+use App\Exports\StatusEnrollmentsExport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use Maatwebsite\Excel\Facades\Excel;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class ReportsController extends Controller
 {
@@ -39,21 +46,48 @@ class ReportsController extends Controller
         return view('reports.index', compact('stats', 'recent_enrollments'));
     }
 
-    public function enumerators()
+    public function enumerators(Request $request)
     {
-        // Get all enumerators with their enrollment counts
+        $programId = $request->get('program_id');
+        $dateFrom = $request->get('date_from');
+        $dateTo = $request->get('date_to');
+        $programs = \App\Models\Program::orderBy('name')->get();
+
+        // Build date range filter
+        $dateFromSql = $dateFrom ? $dateFrom . ' 00:00:00' : null;
+        $dateToSql = $dateTo ? $dateTo . ' 23:59:59' : null;
+
+        // Get all enumerators with their enrollment counts, filtered by program and date range if specified
         $enumerators = Staff::role('Enumerator')
-            ->withCount(['beneficiaries' => function($query) {
+            ->withCount(['beneficiaries' => function($query) use ($programId, $dateFromSql, $dateToSql) {
                 $query->where('status', '!=', 'draft');
+                if ($programId) {
+                    $query->where('program_id', $programId);
+                }
+                if ($dateFromSql && $dateToSql) {
+                    $query->whereBetween('beneficiaries.created_at', [$dateFromSql, $dateToSql]);
+                }
             }])
-            ->withCount(['beneficiaries as main_facility_enrollments' => function($query) {
+            ->withCount(['beneficiaries as main_facility_enrollments' => function($query) use ($programId, $dateFromSql, $dateToSql) {
                 $query->where('status', '!=', 'draft')
                       ->whereNotNull('facility_id');
+                if ($programId) {
+                    $query->where('program_id', $programId);
+                }
+                if ($dateFromSql && $dateToSql) {
+                    $query->whereBetween('beneficiaries.created_at', [$dateFromSql, $dateToSql]);
+                }
             }])
-            ->withCount(['beneficiaries as unique_facilities_count' => function($query) {
+            ->withCount(['beneficiaries as unique_facilities_count' => function($query) use ($programId, $dateFromSql, $dateToSql) {
                 $query->where('status', '!=', 'draft')
                       ->whereNotNull('facility_id')
                       ->select(DB::raw('COUNT(DISTINCT facility_id)'));
+                if ($programId) {
+                    $query->where('program_id', $programId);
+                }
+                if ($dateFromSql && $dateToSql) {
+                    $query->whereBetween('beneficiaries.created_at', [$dateFromSql, $dateToSql]);
+                }
             }])
             ->orderBy('beneficiaries_count', 'desc')
             ->get(); // Get all results first to calculate unique facilities properly
@@ -61,24 +95,42 @@ class ReportsController extends Controller
         // Calculate unique facilities including spouses and children for each enumerator
         foreach ($enumerators as $enumerator) {
             // Get all facility IDs from beneficiaries for this enumerator
-            $beneficiaryFacilities = $enumerator->beneficiaries()
+            $beneficiaryQuery = $enumerator->beneficiaries()
                 ->where('status', '!=', 'draft')
-                ->whereNotNull('facility_id')
-                ->pluck('facility_id');
+                ->whereNotNull('facility_id');
+            if ($programId) {
+                $beneficiaryQuery->where('program_id', $programId);
+            }
+            if ($dateFromSql && $dateToSql) {
+                $beneficiaryQuery->whereBetween('beneficiaries.created_at', [$dateFromSql, $dateToSql]);
+            }
+            $beneficiaryFacilities = $beneficiaryQuery->pluck('facility_id');
             
             // Get spouses for beneficiaries created by this enumerator
-            $spouseFacilities = DB::table('spouses')
+            $spouseQuery = DB::table('spouses')
                 ->join('beneficiaries', 'spouses.beneficiary_id', '=', 'beneficiaries.id')
                 ->where('beneficiaries.created_by', $enumerator->id)
-                ->whereNotNull('spouses.facility_id')
-                ->pluck('spouses.facility_id');
+                ->whereNotNull('spouses.facility_id');
+            if ($programId) {
+                $spouseQuery->where('beneficiaries.program_id', $programId);
+            }
+            if ($dateFromSql && $dateToSql) {
+                $spouseQuery->whereBetween('beneficiaries.created_at', [$dateFromSql, $dateToSql]);
+            }
+            $spouseFacilities = $spouseQuery->pluck('spouses.facility_id');
             
             // Get children for beneficiaries created by this enumerator
-            $childrenFacilities = DB::table('children')
+            $childrenQuery = DB::table('children')
                 ->join('beneficiaries', 'children.beneficiary_id', '=', 'beneficiaries.id')
                 ->where('beneficiaries.created_by', $enumerator->id)
-                ->whereNotNull('children.facility_id')
-                ->pluck('children.facility_id');
+                ->whereNotNull('children.facility_id');
+            if ($programId) {
+                $childrenQuery->where('beneficiaries.program_id', $programId);
+            }
+            if ($dateFromSql && $dateToSql) {
+                $childrenQuery->whereBetween('beneficiaries.created_at', [$dateFromSql, $dateToSql]);
+            }
+            $childrenFacilities = $childrenQuery->pluck('children.facility_id');
             
             // Combine all facility IDs and get unique count
             $allFacilities = $beneficiaryFacilities
@@ -94,6 +146,10 @@ class ReportsController extends Controller
         $currentPage = request()->get('page', 1);
         $perPage = 20;
         $currentPageItems = $enumerators->slice(($currentPage - 1) * $perPage, $perPage);
+        $query = [];
+        if ($programId) $query['program_id'] = $programId;
+        if ($dateFrom) $query['date_from'] = $dateFrom;
+        if ($dateTo) $query['date_to'] = $dateTo;
         $paginatedEnumerators = new \Illuminate\Pagination\LengthAwarePaginator(
             $currentPageItems,
             $enumerators->count(),
@@ -102,20 +158,37 @@ class ReportsController extends Controller
             [
                 'path' => request()->url(),
                 'pageName' => 'page',
+                'query' => $query,
             ]
         );
 
-        return view('reports.enumerators', ['enumerators' => $paginatedEnumerators]);
+        $selectedProgram = $programId ? \App\Models\Program::find($programId) : null;
+
+        return view('reports.enumerators', [
+            'enumerators' => $paginatedEnumerators,
+            'programs' => $programs,
+            'programId' => $programId,
+            'selectedProgram' => $selectedProgram,
+        ]);
     }
 
     public function exportEnumerators(Request $request)
     {
         // Check if exporting specific enumerator or all
         $enumeratorId = $request->get('enumerator_id');
+        $programId = $request->get('program_id');
+        $dateFrom = $request->get('date_from');
+        $dateTo = $request->get('date_to');
+        $program = $programId ? \App\Models\Program::find($programId) : null;
+        $programSuffix = $program ? '_' . str_replace(' ', '_', $program->name) : '';
+        $dateSuffix = '';
+        if ($dateFrom || $dateTo) {
+            $dateSuffix = '_' . ($dateFrom ?: 'start') . '_to_' . ($dateTo ?: 'end');
+        }
         
-        $filename = 'enumerator_performance_' . date('Y-m-d_H-i-s') . '.xlsx';
+        $filename = 'enumerator_performance' . $programSuffix . $dateSuffix . '_' . date('Y-m-d_H-i-s') . '.xlsx';
         
-        return Excel::download(new EnumeratorsExport($enumeratorId), $filename);
+        return Excel::download(new EnumeratorsExport($enumeratorId, $programId, $dateFrom, $dateTo), $filename);
     }
 
     public function enumeratorEnrollments($id)
@@ -248,44 +321,118 @@ class ReportsController extends Controller
     {
         // Check if exporting specific facility or all
         $facilityId = $request->get('facility_id');
+        $programId = $request->get('program_id');
+        $lga = $request->get('lga');
+        $dateFrom = $request->get('date_from');
+        $dateTo = $request->get('date_to');
+        $program = $programId ? \App\Models\Program::find($programId) : null;
+        $programSuffix = $program ? '_' . str_replace(' ', '_', $program->name) : '';
+        $lgaSuffix = $lga ? '_' . str_replace(' ', '_', $lga) : '';
+        $dateSuffix = '';
+        if ($dateFrom || $dateTo) {
+            $dateSuffix = '_' . ($dateFrom ?: 'start') . '_to_' . ($dateTo ?: 'end');
+        }
         
         if ($facilityId) {
             // Export specific facility enrollments (detailed records)
             $facility = Facility::findOrFail($facilityId);
-            $filename = $facility->name . '_enrollments_' . date('Y-m-d_H-i-s') . '.xlsx';
-            return Excel::download(new FacilityEnrollmentsExport($facilityId, $facility->name), $filename);
+            $filename = $facility->name . $programSuffix . $lgaSuffix . $dateSuffix . '_enrollments_' . date('Y-m_d_H-i-s') . '.xlsx';
+            return Excel::download(new FacilityEnrollmentsExport($facilityId, $facility->name, $programId, $dateFrom, $dateTo), $filename);
         } else {
             // Export all facilities (summary data)
-            $filename = 'facility_performance_' . date('Y-m-d_H-i-s') . '.xlsx';
-            return Excel::download(new FacilitiesExport(), $filename);
+            $filename = 'facility_performance' . $programSuffix . $lgaSuffix . $dateSuffix . '_' . date('Y-m_d_H-i-s') . '.xlsx';
+            return Excel::download(new FacilitiesExport($programId, $lga, $dateFrom, $dateTo), $filename);
         }
     }
 
-    public function facilities()
+    public function facilities(Request $request)
     {
-        // Get all facilities with their enrollment counts
-        $facilities = Facility::withCount(['beneficiaries' => function($query) {
+        $programId = $request->get('program_id');
+        $lga = $request->get('lga');
+        $dateFrom = $request->get('date_from');
+        $dateTo = $request->get('date_to');
+        $programs = \App\Models\Program::orderBy('name')->get();
+
+        // Get unique LGAs from facilities
+        $lgas = Facility::whereNotNull('lga')->distinct()->pluck('lga')->sort();
+
+        // Build date range filter
+        $dateFromSql = $dateFrom ? $dateFrom . ' 00:00:00' : null;
+        $dateToSql = $dateTo ? $dateTo . ' 23:59:59' : null;
+
+        // Start with facilities query
+        $facilitiesQuery = Facility::query();
+
+        // Apply LGA filter if specified
+        if ($lga) {
+            $facilitiesQuery->where('lga', $lga);
+        }
+
+        // Get all facilities with their enrollment counts, filtered by program and date range if specified
+        $facilities = $facilitiesQuery->withCount(['beneficiaries' => function($query) use ($programId, $dateFromSql, $dateToSql) {
                 $query->where('status', '!=', 'draft');
+                if ($programId) {
+                    $query->where('program_id', $programId);
+                }
+                if ($dateFromSql && $dateToSql) {
+                    $query->whereBetween('beneficiaries.created_at', [$dateFromSql, $dateToSql]);
+                }
             }])
-            ->withCount(['beneficiaries as main_facility_enrollments' => function($query) {
+            ->withCount(['beneficiaries as main_facility_enrollments' => function($query) use ($programId, $dateFromSql, $dateToSql) {
                 $query->where('status', '!=', 'draft')
                       ->whereColumn('facility_id', 'facilities.id');
+                if ($programId) {
+                    $query->where('program_id', $programId);
+                }
+                if ($dateFromSql && $dateToSql) {
+                    $query->whereBetween('beneficiaries.created_at', [$dateFromSql, $dateToSql]);
+                }
             }])
-            ->withCount(['spouses' => function($query) {
+            ->withCount(['spouses' => function($query) use ($programId, $dateFromSql, $dateToSql) {
                 $query->whereColumn('facility_id', 'facilities.id');
+                if ($programId) {
+                    $query->whereHas('beneficiary', function($q) use ($programId) {
+                        $q->where('program_id', $programId);
+                    });
+                }
+                if ($dateFromSql && $dateToSql) {
+                    $query->whereHas('beneficiary', function($q) use ($dateFromSql, $dateToSql) {
+                        $q->whereBetween('created_at', [$dateFromSql, $dateToSql]);
+                    });
+                }
             }])
-            ->withCount(['children' => function($query) {
+            ->withCount(['children' => function($query) use ($programId, $dateFromSql, $dateToSql) {
                 $query->whereColumn('facility_id', 'facilities.id');
+                if ($programId) {
+                    $query->whereHas('beneficiary', function($q) use ($programId) {
+                        $q->where('program_id', $programId);
+                    });
+                }
+                if ($dateFromSql && $dateToSql) {
+                    $query->whereHas('beneficiary', function($q) use ($dateFromSql, $dateToSql) {
+                        $q->whereBetween('created_at', [$dateFromSql, $dateToSql]);
+                    });
+                }
             }])
             ->orderBy('beneficiaries_count', 'desc')
             ->paginate(20);
+
+        // Append query parameters to pagination links
+        $query = [];
+        if ($programId) $query['program_id'] = $programId;
+        if ($lga) $query['lga'] = $lga;
+        if ($dateFrom) $query['date_from'] = $dateFrom;
+        if ($dateTo) $query['date_to'] = $dateTo;
+        $facilities->appends($query);
 
         // Calculate total enrollments for each facility (beneficiaries + spouses + children)
         foreach ($facilities as $facility) {
             $facility->total_enrollments = $facility->beneficiaries_count + $facility->spouses_count + $facility->children_count;
         }
 
-        return view('reports.facilities', compact('facilities'));
+        $selectedProgram = $programId ? \App\Models\Program::find($programId) : null;
+
+        return view('reports.facilities', compact('facilities', 'programs', 'lgas', 'programId', 'selectedProgram'));
     }
 
     public function enrollments()
@@ -462,6 +609,30 @@ class ReportsController extends Controller
         ));
     }
 
+    public function exportEnrollments()
+    {
+        $filename = 'all_enrollments_' . date('Y-m-d_H-i-s') . '.xlsx';
+        return Excel::download(new CategoryEnrollmentsExport('all'), $filename);
+    }
+
+    public function exportMonthlyEnrollments($month)
+    {
+        $filename = 'enrollments_' . $month . '_' . date('Y-m-d_H-i-s') . '.xlsx';
+        return Excel::download(new MonthlyEnrollmentsExport($month), $filename);
+    }
+
+    public function exportCategoryEnrollments($category)
+    {
+        $filename = $category . '_enrollments_' . date('Y-m-d_H-i-s') . '.xlsx';
+        return Excel::download(new CategoryEnrollmentsExport($category), $filename);
+    }
+
+    public function exportStatusEnrollments($status)
+    {
+        $filename = $status . '_enrollments_' . date('Y-m-d_H-i-s') . '.xlsx';
+        return Excel::download(new StatusEnrollmentsExport($status), $filename);
+    }
+
     public function exportDashboard()
     {
         // Get comprehensive dashboard statistics
@@ -477,5 +648,473 @@ class ReportsController extends Controller
         $filename = 'dashboard_summary_' . date('Y-m-d_H-i-s') . '.xlsx';
         
         return Excel::download(new DashboardExport($stats), $filename);
+    }
+
+    public function crm(Request $request)
+    {
+        // Build query with filters
+        $query = Ticket::with(['category', 'assignedUser', 'facility', 'createdBy', 'replies']);
+
+        // Date range filter
+        if ($request->filled('date_range')) {
+            switch ($request->date_range) {
+                case 'today':
+                    $query->whereDate('created_at', today());
+                    break;
+                case 'week':
+                    $query->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()]);
+                    break;
+                case 'month':
+                    $query->whereMonth('created_at', now()->month)
+                          ->whereYear('created_at', now()->year);
+                    break;
+                case 'quarter':
+                    $query->whereBetween('created_at', [now()->startOfQuarter(), now()->endOfQuarter()]);
+                    break;
+                case 'year':
+                    $query->whereYear('created_at', now()->year);
+                    break;
+            }
+        }
+
+        // Status filter
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        // Category filter
+        if ($request->filled('category')) {
+            $query->where('ticket_category_id', $request->category);
+        }
+
+        // Priority filter
+        if ($request->filled('priority')) {
+            $query->where('priority', $request->priority);
+        }
+
+        // Department filter
+        if ($request->filled('department')) {
+            $query->where('department', $request->department);
+        }
+
+        // Date range filters
+        if ($request->filled('assigned_date_from')) {
+            $query->whereDate('created_at', '>=', $request->assigned_date_from);
+        }
+
+        if ($request->filled('assigned_date_to')) {
+            $query->whereDate('created_at', '<=', $request->assigned_date_to);
+        }
+
+        if ($request->filled('resolved_date_from')) {
+            $query->whereDate('resolved_at', '>=', $request->resolved_date_from);
+        }
+
+        if ($request->filled('resolved_date_to')) {
+            $query->whereDate('resolved_at', '<=', $request->resolved_date_to);
+        }
+
+        $tickets = $query->orderBy('created_at', 'desc')->get();
+
+        // Calculate statistics
+        $stats = [
+            'total_tickets' => $tickets->count(),
+            'resolved_tickets' => $tickets->where('status', 'completed')->count(),
+            'pending_tickets' => $tickets->where('status', 'pending')->count(),
+            'avg_resolution_time' => $tickets->where('status', 'completed')
+                ->whereNotNull('resolved_at')
+                ->avg(function($ticket) {
+                    return $ticket->created_at->diffInHours($ticket->resolved_at);
+                })
+        ];
+
+        // Format average resolution time
+        if ($stats['avg_resolution_time']) {
+            $stats['avg_resolution_time'] = round($stats['avg_resolution_time'], 1) . 'h';
+        } else {
+            $stats['avg_resolution_time'] = 'N/A';
+        }
+
+        // Category statistics
+        $categoryStats = Ticket::join('ticket_categories', 'tickets.ticket_category_id', '=', 'ticket_categories.id')
+            ->select('ticket_categories.name', DB::raw('count(*) as count'))
+            ->groupBy('ticket_categories.name')
+            ->orderBy('count', 'desc')
+            ->get();
+
+        // Status statistics
+        $statusStats = $tickets->groupBy('status')
+            ->map(function($group, $status) {
+                return [
+                    'status' => ucfirst(str_replace('_', ' ', $status)),
+                    'count' => $group->count()
+                ];
+            })->values();
+
+        // Department statistics
+        $departmentStats = $tickets->groupBy('department')
+            ->map(function($group, $department) {
+                return [
+                    'department' => $department ?: 'N/A',
+                    'count' => $group->count()
+                ];
+            })->sortByDesc('count')->values();
+
+        // Get all categories for filter dropdown
+        $categories = TicketCategory::orderBy('name')->get();
+
+        return view('reports.crm', compact(
+            'tickets',
+            'stats',
+            'categoryStats',
+            'statusStats',
+            'departmentStats',
+            'categories'
+        ));
+    }
+
+    public function crmExport(Request $request)
+    {
+        // Collect all filters for the export
+        $filters = [
+            'date_range' => $request->get('date_range'),
+            'status' => $request->get('status'),
+            'category' => $request->get('category'),
+            'priority' => $request->get('priority'),
+            'department' => $request->get('department'),
+            'assigned_date_from' => $request->get('assigned_date_from'),
+            'assigned_date_to' => $request->get('assigned_date_to'),
+            'resolved_date_from' => $request->get('resolved_date_from'),
+            'resolved_date_to' => $request->get('resolved_date_to'),
+        ];
+
+        // Remove empty values
+        $filters = array_filter($filters, function($value) {
+            return $value !== null && $value !== '';
+        });
+
+        $filename = 'crm_report_' . date('Y-m-d_H-i-s') . '.xlsx';
+        
+        return Excel::download(new CrmExport($filters), $filename);
+    }
+
+    public function crmTicketDetail($ticket)
+    {
+        // Get ticket with all relationships and replies
+        $ticket = Ticket::with([
+            'category', 
+            'assignedUser', 
+            'facility', 
+            'createdBy',
+            'replies' => function($query) {
+                $query->with('user')->orderBy('created_at', 'desc');
+            }
+        ])->findOrFail($ticket);
+
+        return view('reports.crm-ticket-detail', compact('ticket'));
+    }
+
+    public function crmCategoryBreakdown(Request $request)
+    {
+        $query = Ticket::with(['category', 'assignedUser', 'facility', 'replies']);
+        
+        // Apply category filter
+        if ($request->filled('category')) {
+            $query->where('ticket_category_id', $request->category);
+        }
+        
+        // Apply other filters
+        if ($request->filled('date_range')) {
+            switch ($request->date_range) {
+                case 'today':
+                    $query->whereDate('created_at', today());
+                    break;
+                case 'week':
+                    $query->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()]);
+                    break;
+                case 'month':
+                    $query->whereMonth('created_at', now()->month)
+                          ->whereYear('created_at', now()->year);
+                    break;
+                case 'quarter':
+                    $query->whereBetween('created_at', [now()->startOfQuarter(), now()->endOfQuarter()]);
+                    break;
+                case 'year':
+                    $query->whereYear('created_at', now()->year);
+                    break;
+            }
+        }
+        
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+        
+        if ($request->filled('priority')) {
+            $query->where('priority', $request->priority);
+        }
+        
+        if ($request->filled('department')) {
+            $query->where('department', $request->department);
+        }
+        
+        $tickets = $query->orderBy('created_at', 'desc')->get();
+        $category = TicketCategory::find($request->category);
+        
+        return view('reports.crm-category-breakdown', compact('tickets', 'category'));
+    }
+
+    public function crmStatusBreakdown(Request $request)
+    {
+        $query = Ticket::with(['category', 'assignedUser', 'facility', 'replies']);
+        
+        // Apply status filter
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+        
+        // Apply other filters
+        if ($request->filled('date_range')) {
+            switch ($request->date_range) {
+                case 'today':
+                    $query->whereDate('created_at', today());
+                    break;
+                case 'week':
+                    $query->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()]);
+                    break;
+                case 'month':
+                    $query->whereMonth('created_at', now()->month)
+                          ->whereYear('created_at', now()->year);
+                    break;
+                case 'quarter':
+                    $query->whereBetween('created_at', [now()->startOfQuarter(), now()->endOfQuarter()]);
+                    break;
+                case 'year':
+                    $query->whereYear('created_at', now()->year);
+                    break;
+            }
+        }
+        
+        if ($request->filled('category')) {
+            $query->where('ticket_category_id', $request->category);
+        }
+        
+        if ($request->filled('priority')) {
+            $query->where('priority', $request->priority);
+        }
+        
+        if ($request->filled('department')) {
+            $query->where('department', $request->department);
+        }
+        
+        $tickets = $query->orderBy('created_at', 'desc')->get();
+        $status = $request->status ? ucfirst(str_replace('_', ' ', $request->status)) : 'All Status';
+        
+        return view('reports.crm-status-breakdown', compact('tickets', 'status'));
+    }
+
+    public function crmDepartmentBreakdown(Request $request)
+    {
+        $query = Ticket::with(['category', 'assignedUser', 'facility', 'replies']);
+        
+        // Apply department filter
+        if ($request->filled('department')) {
+            $query->where('department', $request->department);
+        }
+        
+        // Apply other filters
+        if ($request->filled('date_range')) {
+            switch ($request->date_range) {
+                case 'today':
+                    $query->whereDate('created_at', today());
+                    break;
+                case 'week':
+                    $query->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()]);
+                    break;
+                case 'month':
+                    $query->whereMonth('created_at', now()->month)
+                          ->whereYear('created_at', now()->year);
+                    break;
+                case 'quarter':
+                    $query->whereBetween('created_at', [now()->startOfQuarter(), now()->endOfQuarter()]);
+                    break;
+                case 'year':
+                    $query->whereYear('created_at', now()->year);
+                    break;
+            }
+        }
+        
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+        
+        if ($request->filled('category')) {
+            $query->where('ticket_category_id', $request->category);
+        }
+        
+        if ($request->filled('priority')) {
+            $query->where('priority', $request->priority);
+        }
+        
+        $tickets = $query->orderBy('created_at', 'desc')->get();
+        $department = $request->department;
+        
+        return view('reports.crm-department-breakdown', compact('tickets', 'department'));
+    }
+
+    public function crmPrint(Request $request)
+    {
+        // Check if this is individual ticket print
+        if ($request->filled('ticket_id')) {
+            return $this->crmPrintTicket($request);
+        }
+
+        // Build query with filters (same as crm method)
+        $query = Ticket::with(['category', 'assignedUser', 'facility', 'createdBy', 'replies']);
+
+        // Date range filter
+        if ($request->filled('date_range')) {
+            switch ($request->date_range) {
+                case 'today':
+                    $query->whereDate('created_at', today());
+                    break;
+                case 'week':
+                    $query->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()]);
+                    break;
+                case 'month':
+                    $query->whereMonth('created_at', now()->month)
+                          ->whereYear('created_at', now()->year);
+                    break;
+                case 'quarter':
+                    $query->whereBetween('created_at', [now()->startOfQuarter(), now()->endOfQuarter()]);
+                    break;
+                case 'year':
+                    $query->whereYear('created_at', now()->year);
+                    break;
+            }
+        }
+
+        // Assigned date range filter
+        if ($request->filled('assigned_date_from')) {
+            $query->whereDate('assigned_date', '>=', $request->assigned_date_from);
+        }
+        if ($request->filled('assigned_date_to')) {
+            $query->whereDate('assigned_date', '<=', $request->assigned_date_to);
+        }
+
+        // Resolved date range filter
+        if ($request->filled('resolved_date_from')) {
+            $query->whereDate('resolved_at', '>=', $request->resolved_date_from);
+        }
+        if ($request->filled('resolved_date_to')) {
+            $query->whereDate('resolved_at', '<=', $request->resolved_date_to);
+        }
+
+        // Other filters
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+        
+        if ($request->filled('category')) {
+            $query->where('ticket_category_id', $request->category);
+        }
+        
+        if ($request->filled('priority')) {
+            $query->where('priority', $request->priority);
+        }
+        
+        if ($request->filled('department')) {
+            $query->where('department', $request->department);
+        }
+
+        $tickets = $query->orderBy('created_at', 'desc')->get();
+
+        // Calculate stats
+        $stats = [
+            'total_tickets' => $tickets->count(),
+            'completed_tickets' => $tickets->where('status', 'completed')->count(),
+            'in_progress_tickets' => $tickets->where('status', 'in_progress')->count(),
+            'pending_tickets' => $tickets->where('status', 'pending')->count(),
+            'high_priority_tickets' => $tickets->where('priority', 'high')->count(),
+            'assigned_tickets' => $tickets->whereNotNull('assigned_to')->count(),
+            'avg_resolution_time' => $tickets->where('status', 'completed')->whereNotNull('resolved_at')->avg(function($ticket) {
+                return $ticket->created_at->diffInHours($ticket->resolved_at);
+            })
+        ];
+
+        // Category stats
+        $categoryStats = $tickets->groupBy('category.name')->map(function($categoryTickets) {
+            return $categoryTickets->count();
+        })->sortDesc();
+
+        // Status stats
+        $statusStats = $tickets->groupBy('status')->map(function($statusTickets) {
+            return $statusTickets->count();
+        });
+
+        // Department stats
+        $departmentStats = $tickets->groupBy('department')->map(function($deptTickets) {
+            return $deptTickets->count();
+        })->sortDesc();
+
+        // Determine view based on filters
+        if ($request->filled('status')) {
+            $view = 'reports.prints.crm-status-print';
+            $title = 'CRM Status Report - ' . ucfirst(str_replace('_', ' ', $request->status));
+        } elseif ($request->filled('category')) {
+            $view = 'reports.prints.crm-category-print';
+            $category = \App\Models\TicketCategory::find($request->category);
+            $title = 'CRM Category Report - ' . ($category->name ?? 'Unknown Category');
+        } elseif ($request->filled('department')) {
+            $view = 'reports.prints.crm-department-print';
+            $title = 'CRM Department Report - ' . $request->department;
+        } else {
+            $view = 'reports.prints.crm-print';
+            $title = 'CRM Report';
+        }
+
+        // Generate PDF
+        $pdf = PDF::loadView($view, compact(
+            'tickets', 
+            'stats', 
+            'categoryStats', 
+            'statusStats', 
+            'departmentStats',
+            'request'
+        ));
+
+        // Set paper size and orientation
+        $pdf->setPaper('A4', 'landscape');
+        
+        // Set filename based on filters
+        $filename = str_replace(' ', '_', strtolower($title)) . '_' . date('Y-m-d_H-i-s') . '.pdf';
+        
+        // Download PDF
+        return $pdf->stream($filename);
+    }
+
+    private function crmPrintTicket(Request $request)
+    {
+        // Get individual ticket with replies
+        $ticket = Ticket::with([
+            'category', 
+            'assignedUser', 
+            'facility', 
+            'createdBy',
+            'replies' => function($query) {
+                $query->with('user')->orderBy('created_at', 'desc');
+            }
+        ])->findOrFail($request->ticket_id);
+
+        // Generate PDF
+        $pdf = PDF::loadView('reports.prints.crm-ticket-print', compact('ticket'));
+
+        // Set paper size and orientation
+        $pdf->setPaper('A4', 'portrait');
+        
+        // Set filename
+        $filename = 'crm_ticket_' . $ticket->ticket_id . '_' . date('Y-m-d_H-i-s') . '.pdf';
+        
+        // Download PDF
+        return $pdf->stream($filename);
     }
 }

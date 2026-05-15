@@ -39,6 +39,7 @@ class EnumeratorEnrollmentsExport implements FromCollection, WithHeadings, WithT
                 'Date of Birth' => $enrollment->date_of_birth ?? 'N/A',
                 'Phone' => $enrollment->phone_no ?? 'N/A',
                 'Email' => $enrollment->email ?? 'N/A',
+                'address' => $enrollment->contact_address ?? 'N/A',
                 'Facility' => $enrollment->facility->name ?? 'N/A',
                 'Status' => ucfirst($enrollment->status ?? 'N/A'),
                 'Enrollment Date' => $enrollment->created_at->format('Y-m-d H:i:s')
@@ -55,6 +56,7 @@ class EnumeratorEnrollmentsExport implements FromCollection, WithHeadings, WithT
             'Date of Birth',
             'Phone',
             'Email',
+            'address',
             'Facility',
             'Status',
             'Enrollment Date'

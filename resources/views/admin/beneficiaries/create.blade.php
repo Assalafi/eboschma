@@ -40,17 +40,20 @@
                             <!-- Tabs Navigation -->
                             <ul class="nav nav-tabs nav-tabs-line" role="tablist">
                                 <li class="nav-item">
-                                    <a class="nav-link active" id="beneficiary-tab" data-bs-toggle="tab" href="#beneficiary-section" role="tab">
+                                    <a class="nav-link active" id="beneficiary-tab" data-bs-toggle="tab"
+                                        href="#beneficiary-section" role="tab">
                                         <i class="fe fe-user"></i> Beneficiary Information
                                     </a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link" id="spouse-tab" data-bs-toggle="tab" href="#spouse-section" role="tab">
+                                    <a class="nav-link" id="spouse-tab" data-bs-toggle="tab" href="#spouse-section"
+                                        role="tab">
                                         <i class="fe fe-users"></i> Spouse Information
                                     </a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link" id="children-tab" data-bs-toggle="tab" href="#children-section" role="tab">
+                                    <a class="nav-link" id="children-tab" data-bs-toggle="tab" href="#children-section"
+                                        role="tab">
                                         <i class="fe fe-users"></i> Children Information
                                     </a>
                                 </li>
@@ -65,607 +68,672 @@
                                             <h5 class="mb-0">Beneficiary Information</h5>
                                         </div>
                                         <div class="card-body">
-                                    <!-- BOSCHMA ID Alert -->
-                                    <div class="row mb-3">
-                                        <div class="col-12">
-                                            <div class="alert alert-info py-2 px-3"
-                                                style="background-color: #e8f5e9; border-left: 4px solid #006734;">
-                                                <i class="fe fe-info"></i> <strong>BOSCHMA ID:</strong> Auto-Generated - Will be automatically assigned upon submission
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- Hidden Program ID from Verification -->
-                                    <input type="hidden" name="program_id" id="program_id" value="{{ old('program_id') }}">
-
-                                    <!-- Beneficiary Sub-Tabs -->
-                                    <ul class="nav nav-pills mb-3" role="tablist">
-                                        <li class="nav-item">
-                                            <a class="nav-link active" id="basic-info-tab" data-bs-toggle="pill" href="#basic-info" role="tab">Basic Info</a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a class="nav-link" id="location-tab" data-bs-toggle="pill" href="#location-info" role="tab">Location</a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a class="nav-link" id="demographic-tab" data-bs-toggle="pill" href="#demographic-info" role="tab">Demographic</a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a class="nav-link" id="other-tab" data-bs-toggle="pill" href="#other-info" role="tab">Other Info</a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a class="nav-link" id="photo-tab" data-bs-toggle="pill" href="#photo-info" role="tab">Photo</a>
-                                        </li>
-                                    </ul>
-
-                                    <!-- Sub-Tab Content -->
-                                    <div class="tab-content">
-                                        <!-- Basic Information Tab -->
-                                        <div class="tab-pane fade show active" id="basic-info" role="tabpanel">
-                                    
-                                    <div class="row">
-                                        <!-- Left Column -->
-                                        <div class="col-md-6">
+                                            <!-- BOSCHMA ID Alert -->
                                             <div class="row mb-3">
-                                                <label class="col-md-4 form-label">Facility: <span class="text-danger">*</span></label>
-                                                <div class="col-md-8">
-                                                    <select class="form-select" name="facility_id" required>
-                                                        <option value="">Select Facility</option>
-                                                        @foreach ($facilities as $facility)
-                                                            <option value="{{ $facility->id }}"
-                                                                {{ old('facility_id') == $facility->id ? 'selected' : '' }}>
-                                                                {{ $facility->name }} - {{ $facility->lga }},
-                                                                {{ $facility->ward }}
-                                                            </option>
-                                                        @endforeach
-                                                    </select>
-                                                </div>
-                                            </div>
-
-                                            <div class="row mb-3">
-                                                <label class="col-md-4 form-label">Full Name: <span class="text-danger">*</span></label>
-                                                <div class="col-md-8">
-                                                    <input type="text" class="form-control" name="fullname"
-                                                        value="{{ old('fullname') }}" required placeholder="Enter full name">
-                                                </div>
-                                            </div>
-
-                                            <div class="row mb-3">
-                                                <label class="col-md-4 form-label">Gender: <span class="text-danger">*</span></label>
-                                                <div class="col-md-8">
-                                                    <div class="form-check form-check-inline mt-2">
-                                                        <input class="form-check-input" type="radio" name="gender"
-                                                            id="male" value="Male"
-                                                            {{ old('gender') == 'Male' ? 'checked' : '' }} required>
-                                                        <label class="form-check-label" for="male">Male</label>
-                                                    </div>
-                                                    <div class="form-check form-check-inline">
-                                                        <input class="form-check-input" type="radio" name="gender"
-                                                            id="female" value="Female"
-                                                            {{ old('gender') == 'Female' ? 'checked' : '' }}>
-                                                        <label class="form-check-label" for="female">Female</label>
+                                                <div class="col-12">
+                                                    <div class="alert alert-info py-2 px-3"
+                                                        style="background-color: #e8f5e9; border-left: 4px solid #006734;">
+                                                        <i class="fe fe-info"></i> <strong>BOSCHMA ID:</strong>
+                                                        Auto-Generated - Will be automatically assigned upon submission
                                                     </div>
                                                 </div>
                                             </div>
 
-                                            <div class="row mb-3">
-                                                <label class="col-md-4 form-label">Date of Birth: <span class="text-danger">*</span></label>
-                                                <div class="col-md-8">
-                                                    <input type="date" class="form-control" name="date_of_birth"
-                                                        value="{{ old('date_of_birth') }}" required>
-                                                </div>
-                                            </div>
+                                            <!-- Hidden Program ID from Verification -->
+                                            <input type="hidden" name="program_id" id="program_id"
+                                                value="{{ old('program_id') }}">
 
-                                            <div class="row mb-3">
-                                                <label class="col-md-4 form-label">Place of Birth:</label>
-                                                <div class="col-md-8">
-                                                    <input type="text" class="form-control" name="place_of_birth"
-                                                        value="{{ old('place_of_birth') }}">
-                                                </div>
-                                            </div>
-                                        </div>
+                                            <!-- Beneficiary Sub-Tabs -->
+                                            <ul class="nav nav-pills mb-3" role="tablist">
+                                                <li class="nav-item">
+                                                    <a class="nav-link active" id="basic-info-tab" data-bs-toggle="pill"
+                                                        href="#basic-info" role="tab">Basic Info</a>
+                                                </li>
+                                                <li class="nav-item">
+                                                    <a class="nav-link" id="location-tab" data-bs-toggle="pill"
+                                                        href="#location-info" role="tab">Location</a>
+                                                </li>
+                                                <li class="nav-item">
+                                                    <a class="nav-link" id="demographic-tab" data-bs-toggle="pill"
+                                                        href="#demographic-info" role="tab">Demographic</a>
+                                                </li>
+                                                <li class="nav-item">
+                                                    <a class="nav-link" id="other-tab" data-bs-toggle="pill"
+                                                        href="#other-info" role="tab">Other Info</a>
+                                                </li>
+                                                <li class="nav-item">
+                                                    <a class="nav-link" id="photo-tab" data-bs-toggle="pill"
+                                                        href="#photo-info" role="tab">Photo</a>
+                                                </li>
+                                            </ul>
 
-                                        <!-- Right Column -->
-                                        <div class="col-md-6">
-                                            <div class="row mb-3 alt-facility-section" style="display: none;">
-                                                <label class="col-md-4 form-label">Alternative Facility:</label>
-                                                <div class="col-md-8">
-                                                    <select class="form-select" name="alt_facility_id" id="alt_facility_id">
-                                                        <option value="">Select Alternative Facility</option>
-                                                        @foreach ($facilities as $facility)
-                                                            <option value="{{ $facility->id }}"
-                                                                {{ old('alt_facility_id') == $facility->id ? 'selected' : '' }}>
-                                                                {{ $facility->name }} - {{ $facility->lga }},
-                                                                {{ $facility->ward }}
-                                                            </option>
-                                                        @endforeach
-                                                    </select>
-                                                </div>
-                                            </div>
+                                            <!-- Sub-Tab Content -->
+                                            <div class="tab-content">
+                                                <!-- Basic Information Tab -->
+                                                <div class="tab-pane fade show active" id="basic-info" role="tabpanel">
 
-                                            <div class="row mb-3">
-                                                <label class="col-md-4 form-label">Phone Number: <span class="text-danger">*</span></label>
-                                                <div class="col-md-8">
-                                                    <input type="tel" class="form-control" name="phone_no"
-                                                        value="{{ old('phone_no') }}" required>
-                                                </div>
-                                            </div>
+                                                    <div class="row">
+                                                        <!-- Left Column -->
+                                                        <div class="col-md-6">
+                                                            <div class="row mb-3">
+                                                                <label class="col-md-4 form-label">Facility: <span
+                                                                        class="text-danger">*</span></label>
+                                                                <div class="col-md-8">
+                                                                    <select class="form-select" name="facility_id"
+                                                                        required>
+                                                                        <option value="">Select Facility</option>
+                                                                        @foreach ($facilities as $facility)
+                                                                            <option value="{{ $facility->id }}"
+                                                                                {{ old('facility_id') == $facility->id ? 'selected' : '' }}>
+                                                                                {{ $facility->name }} -
+                                                                                {{ $facility->lga }},
+                                                                                {{ $facility->ward }}
+                                                                            </option>
+                                                                        @endforeach
+                                                                    </select>
+                                                                </div>
+                                                            </div>
 
-                                            <div class="row mb-3">
-                                                <label class="col-md-4 form-label">Email:</label>
-                                                <div class="col-md-8">
-                                                    <input type="email" class="form-control" name="email"
-                                                        value="{{ old('email') }}">
-                                                </div>
-                                            </div>
+                                                            <div class="row mb-3">
+                                                                <label class="col-md-4 form-label">Full Name: <span
+                                                                        class="text-danger">*</span></label>
+                                                                <div class="col-md-8">
+                                                                    <input type="text" class="form-control"
+                                                                        name="fullname" value="{{ old('fullname') }}"
+                                                                        required placeholder="Enter full name">
+                                                                </div>
+                                                            </div>
 
-                                            <div class="row mb-3">
-                                                <label class="col-md-4 form-label">Contact Address: <span class="text-danger">*</span></label>
-                                                <div class="col-md-8">
-                                                    <textarea class="form-control" name="contact_address" rows="2" required>{{ old('contact_address') }}</textarea>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                        </div>
-                                        <!-- End Basic Info Tab -->
+                                                            <div class="row mb-3">
+                                                                <label class="col-md-4 form-label">Gender: <span
+                                                                        class="text-danger">*</span></label>
+                                                                <div class="col-md-8">
+                                                                    <div class="form-check form-check-inline mt-2">
+                                                                        <input class="form-check-input" type="radio"
+                                                                            name="gender" id="male" value="Male"
+                                                                            {{ old('gender') == 'Male' ? 'checked' : '' }}
+                                                                            required>
+                                                                        <label class="form-check-label"
+                                                                            for="male">Male</label>
+                                                                    </div>
+                                                                    <div class="form-check form-check-inline">
+                                                                        <input class="form-check-input" type="radio"
+                                                                            name="gender" id="female" value="Female"
+                                                                            {{ old('gender') == 'Female' ? 'checked' : '' }}>
+                                                                        <label class="form-check-label"
+                                                                            for="female">Female</label>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
 
-                                        <!-- Location Information Tab -->
-                                        <div class="tab-pane fade" id="location-info" role="tabpanel">
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <div class="row mb-3">
-                                                <label class="col-md-4 form-label">LGA: <span class="text-danger">*</span></label>
-                                                <div class="col-md-8">
-                                                    <select class="form-select" name="lga" required>
-                                                        <option value="">Select LGA</option>
-                                                        <option value="Abadam"
-                                                            {{ old('lga') == 'Abadam' ? 'selected' : '' }}>Abadam</option>
-                                                        <option value="Askira/Uba"
-                                                            {{ old('lga') == 'Askira/Uba' ? 'selected' : '' }}>Askira/Uba
-                                                        </option>
-                                                        <option value="Bama"
-                                                            {{ old('lga') == 'Bama' ? 'selected' : '' }}>Bama</option>
-                                                        <option value="Bayo"
-                                                            {{ old('lga') == 'Bayo' ? 'selected' : '' }}>Bayo</option>
-                                                        <option value="Biu"
-                                                            {{ old('lga') == 'Biu' ? 'selected' : '' }}>
-                                                            Biu</option>
-                                                        <option value="Chibok"
-                                                            {{ old('lga') == 'Chibok' ? 'selected' : '' }}>Chibok</option>
-                                                        <option value="Damboa"
-                                                            {{ old('lga') == 'Damboa' ? 'selected' : '' }}>Damboa</option>
-                                                        <option value="Dikwa"
-                                                            {{ old('lga') == 'Dikwa' ? 'selected' : '' }}>Dikwa</option>
-                                                        <option value="Gubio"
-                                                            {{ old('lga') == 'Gubio' ? 'selected' : '' }}>Gubio</option>
-                                                        <option value="Guzamala"
-                                                            {{ old('lga') == 'Guzamala' ? 'selected' : '' }}>Guzamala
-                                                        </option>
-                                                        <option value="Gwoza"
-                                                            {{ old('lga') == 'Gwoza' ? 'selected' : '' }}>Gwoza</option>
-                                                        <option value="Hawul"
-                                                            {{ old('lga') == 'Hawul' ? 'selected' : '' }}>Hawul</option>
-                                                        <option value="Jere"
-                                                            {{ old('lga') == 'Jere' ? 'selected' : '' }}>Jere</option>
-                                                        <option value="Kaga"
-                                                            {{ old('lga') == 'Kaga' ? 'selected' : '' }}>Kaga</option>
-                                                        <option value="Kala/Balge"
-                                                            {{ old('lga') == 'Kala/Balge' ? 'selected' : '' }}>Kala/Balge
-                                                        </option>
-                                                        <option value="Konduga"
-                                                            {{ old('lga') == 'Konduga' ? 'selected' : '' }}>Konduga
-                                                        </option>
-                                                        <option value="Kukawa"
-                                                            {{ old('lga') == 'Kukawa' ? 'selected' : '' }}>Kukawa</option>
-                                                        <option value="Kwaya Kusar"
-                                                            {{ old('lga') == 'Kwaya Kusar' ? 'selected' : '' }}>Kwaya Kusar
-                                                        </option>
-                                                        <option value="Mafa"
-                                                            {{ old('lga') == 'Mafa' ? 'selected' : '' }}>Mafa</option>
-                                                        <option value="Magumeri"
-                                                            {{ old('lga') == 'Magumeri' ? 'selected' : '' }}>Magumeri
-                                                        </option>
-                                                        <option value="Maiduguri"
-                                                            {{ old('lga') == 'Maiduguri' ? 'selected' : '' }}>Maiduguri
-                                                        </option>
-                                                        <option value="Marte"
-                                                            {{ old('lga') == 'Marte' ? 'selected' : '' }}>Marte</option>
-                                                        <option value="Mobbar"
-                                                            {{ old('lga') == 'Mobbar' ? 'selected' : '' }}>Mobbar</option>
-                                                        <option value="Monguno"
-                                                            {{ old('lga') == 'Monguno' ? 'selected' : '' }}>Monguno
-                                                        </option>
-                                                        <option value="Ngala"
-                                                            {{ old('lga') == 'Ngala' ? 'selected' : '' }}>Ngala</option>
-                                                        <option value="Nganzai"
-                                                            {{ old('lga') == 'Nganzai' ? 'selected' : '' }}>Nganzai
-                                                        </option>
-                                                        <option value="Shani"
-                                                            {{ old('lga') == 'Shani' ? 'selected' : '' }}>Shani</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                        </div>
+                                                            <div class="row mb-3">
+                                                                <label class="col-md-4 form-label">Date of Birth: <span
+                                                                        class="text-danger">*</span></label>
+                                                                <div class="col-md-8">
+                                                                    <input type="date" class="form-control"
+                                                                        name="date_of_birth"
+                                                                        value="{{ old('date_of_birth') }}" required>
+                                                                </div>
+                                                            </div>
 
-                                        <div class="col-md-6">
-                                            <div class="row mb-3">
-                                                <label class="col-md-4 form-label">State: <span class="text-danger">*</span></label>
-                                                <div class="col-md-8">
-                                                    <select class="form-select" name="state" required>
-                                                        <option value="">Select State</option>
-                                                        <option value="Abia"
-                                                            {{ old('state') == 'Abia' ? 'selected' : '' }}>Abia</option>
-                                                        <option value="Adamawa"
-                                                            {{ old('state') == 'Adamawa' ? 'selected' : '' }}>Adamawa
-                                                        </option>
-                                                        <option value="Akwa Ibom"
-                                                            {{ old('state') == 'Akwa Ibom' ? 'selected' : '' }}>Akwa Ibom
-                                                        </option>
-                                                        <option value="Anambra"
-                                                            {{ old('state') == 'Anambra' ? 'selected' : '' }}>Anambra
-                                                        </option>
-                                                        <option value="Bauchi"
-                                                            {{ old('state') == 'Bauchi' ? 'selected' : '' }}>Bauchi
-                                                        </option>
-                                                        <option value="Bayelsa"
-                                                            {{ old('state') == 'Bayelsa' ? 'selected' : '' }}>Bayelsa
-                                                        </option>
-                                                        <option value="Benue"
-                                                            {{ old('state') == 'Benue' ? 'selected' : '' }}>Benue</option>
-                                                        <option value="Borno"
-                                                            {{ old('state') == 'Borno' ? 'selected' : '' }}>Borno</option>
-                                                        <option value="Cross River"
-                                                            {{ old('state') == 'Cross River' ? 'selected' : '' }}>Cross
-                                                            River</option>
-                                                        <option value="Delta"
-                                                            {{ old('state') == 'Delta' ? 'selected' : '' }}>Delta</option>
-                                                        <option value="Ebonyi"
-                                                            {{ old('state') == 'Ebonyi' ? 'selected' : '' }}>Ebonyi
-                                                        </option>
-                                                        <option value="Edo"
-                                                            {{ old('state') == 'Edo' ? 'selected' : '' }}>Edo</option>
-                                                        <option value="Ekiti"
-                                                            {{ old('state') == 'Ekiti' ? 'selected' : '' }}>Ekiti</option>
-                                                        <option value="Enugu"
-                                                            {{ old('state') == 'Enugu' ? 'selected' : '' }}>Enugu</option>
-                                                        <option value="FCT"
-                                                            {{ old('state') == 'FCT' ? 'selected' : '' }}>FCT</option>
-                                                        <option value="Gombe"
-                                                            {{ old('state') == 'Gombe' ? 'selected' : '' }}>Gombe</option>
-                                                        <option value="Imo"
-                                                            {{ old('state') == 'Imo' ? 'selected' : '' }}>Imo</option>
-                                                        <option value="Jigawa"
-                                                            {{ old('state') == 'Jigawa' ? 'selected' : '' }}>Jigawa
-                                                        </option>
-                                                        <option value="Kaduna"
-                                                            {{ old('state') == 'Kaduna' ? 'selected' : '' }}>Kaduna
-                                                        </option>
-                                                        <option value="Kano"
-                                                            {{ old('state') == 'Kano' ? 'selected' : '' }}>Kano</option>
-                                                        <option value="Katsina"
-                                                            {{ old('state') == 'Katsina' ? 'selected' : '' }}>Katsina
-                                                        </option>
-                                                        <option value="Kebbi"
-                                                            {{ old('state') == 'Kebbi' ? 'selected' : '' }}>Kebbi</option>
-                                                        <option value="Kogi"
-                                                            {{ old('state') == 'Kogi' ? 'selected' : '' }}>Kogi</option>
-                                                        <option value="Kwara"
-                                                            {{ old('state') == 'Kwara' ? 'selected' : '' }}>Kwara</option>
-                                                        <option value="Lagos"
-                                                            {{ old('state') == 'Lagos' ? 'selected' : '' }}>Lagos</option>
-                                                        <option value="Nasarawa"
-                                                            {{ old('state') == 'Nasarawa' ? 'selected' : '' }}>Nasarawa
-                                                        </option>
-                                                        <option value="Niger"
-                                                            {{ old('state') == 'Niger' ? 'selected' : '' }}>Niger</option>
-                                                        <option value="Ogun"
-                                                            {{ old('state') == 'Ogun' ? 'selected' : '' }}>Ogun</option>
-                                                        <option value="Ondo"
-                                                            {{ old('state') == 'Ondo' ? 'selected' : '' }}>Ondo</option>
-                                                        <option value="Osun"
-                                                            {{ old('state') == 'Osun' ? 'selected' : '' }}>Osun</option>
-                                                        <option value="Oyo"
-                                                            {{ old('state') == 'Oyo' ? 'selected' : '' }}>Oyo</option>
-                                                        <option value="Plateau"
-                                                            {{ old('state') == 'Plateau' ? 'selected' : '' }}>Plateau
-                                                        </option>
-                                                        <option value="Rivers"
-                                                            {{ old('state') == 'Rivers' ? 'selected' : '' }}>Rivers
-                                                        </option>
-                                                        <option value="Sokoto"
-                                                            {{ old('state') == 'Sokoto' ? 'selected' : '' }}>Sokoto
-                                                        </option>
-                                                        <option value="Taraba"
-                                                            {{ old('state') == 'Taraba' ? 'selected' : '' }}>Taraba
-                                                        </option>
-                                                        <option value="Yobe"
-                                                            {{ old('state') == 'Yobe' ? 'selected' : '' }}>Yobe</option>
-                                                        <option value="Zamfara"
-                                                            {{ old('state') == 'Zamfara' ? 'selected' : '' }}>Zamfara
-                                                        </option>
-                                                    </select>
-                                                </div>
-                                            </div>
+                                                            <div class="row mb-3">
+                                                                <label class="col-md-4 form-label">Place of Birth:</label>
+                                                                <div class="col-md-8">
+                                                                    <input type="text" class="form-control"
+                                                                        name="place_of_birth"
+                                                                        value="{{ old('place_of_birth') }}">
+                                                                </div>
+                                                            </div>
+                                                        </div>
 
-                                            <div class="row mb-3">
-                                                <label class="col-md-4 form-label">Nationality: <span class="text-danger">*</span></label>
-                                                <div class="col-md-8">
-                                                    <select class="form-select" name="nationality" required>
-                                                        <option value="">Select Nationality</option>
-                                                        <option value="Nigerian"
-                                                            {{ old('nationality') == 'Nigerian' ? 'selected' : '' }}>
-                                                            Nigerian</option>
-                                                        <option value="Others"
-                                                            {{ old('nationality') == 'Others' ? 'selected' : '' }}>Others
-                                                        </option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                        </div>
-                                        <!-- End Location Tab -->
+                                                        <!-- Right Column -->
+                                                        <div class="col-md-6">
+                                                            <div class="row mb-3 alt-facility-section"
+                                                                style="display: none;">
+                                                                <label class="col-md-4 form-label">Alternative
+                                                                    Facility:</label>
+                                                                <div class="col-md-8">
+                                                                    <select class="form-select" name="alt_facility_id"
+                                                                        id="alt_facility_id">
+                                                                        <option value="">Select Alternative Facility
+                                                                        </option>
+                                                                        @foreach ($facilities as $facility)
+                                                                            <option value="{{ $facility->id }}"
+                                                                                {{ old('alt_facility_id') == $facility->id ? 'selected' : '' }}>
+                                                                                {{ $facility->name }} -
+                                                                                {{ $facility->lga }},
+                                                                                {{ $facility->ward }}
+                                                                            </option>
+                                                                        @endforeach
+                                                                    </select>
+                                                                </div>
+                                                            </div>
 
-                                        <!-- Demographic Information Tab -->
-                                        <div class="tab-pane fade" id="demographic-info" role="tabpanel">
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <div class="row mb-3">
-                                                <label class="col-md-4 form-label">Marital Status: <span class="text-danger">*</span></label>
-                                                <div class="col-md-8">
-                                                    <select class="form-select" name="marital_status" required>
-                                                        <option value="">Select status</option>
-                                                        <option value="Single"
-                                                            {{ old('marital_status') == 'Single' ? 'selected' : '' }}>
-                                                            Single</option>
-                                                        <option value="Married"
-                                                            {{ old('marital_status') == 'Married' ? 'selected' : '' }}>
-                                                            Married</option>
-                                                        <option value="Widow"
-                                                            {{ old('marital_status') == 'Widow' ? 'selected' : '' }}>Widow
-                                                        </option>
-                                                        <option value="Divorce"
-                                                            {{ old('marital_status') == 'Divorce' ? 'selected' : '' }}>
-                                                            Divorce</option>
-                                                        <option value="Others"
-                                                            {{ old('marital_status') == 'Others' ? 'selected' : '' }}>
-                                                            Others</option>
-                                                    </select>
-                                                </div>
-                                            </div>
+                                                            <div class="row mb-3">
+                                                                <label class="col-md-4 form-label">Phone Number: <span
+                                                                        class="text-danger">*</span></label>
+                                                                <div class="col-md-8">
+                                                                    <input type="tel" class="form-control"
+                                                                        name="phone_no" value="{{ old('phone_no') }}"
+                                                                        required>
+                                                                </div>
+                                                            </div>
 
-                                            <div class="row mb-3">
-                                                <label class="col-md-4 form-label">Ethnicity:</label>
-                                                <div class="col-md-8">
-                                                    <select class="form-select" name="ethnicity" required>
-                                                        <option value="">Select Ethnicity</option>
-                                                        <option value="Hausa"
-                                                            {{ old('ethnicity') == 'Hausa' ? 'selected' : '' }}>Hausa
-                                                        </option>
-                                                        <option value="Yoruba"
-                                                            {{ old('ethnicity') == 'Yoruba' ? 'selected' : '' }}>Yoruba
-                                                        </option>
-                                                        <option value="Igbo"
-                                                            {{ old('ethnicity') == 'Igbo' ? 'selected' : '' }}>Igbo
-                                                        </option>
-                                                        <option value="Fulani"
-                                                            {{ old('ethnicity') == 'Fulani' ? 'selected' : '' }}>Fulani
-                                                        </option>
-                                                        <option value="Kanuri"
-                                                            {{ old('ethnicity') == 'Kanuri' ? 'selected' : '' }}>Kanuri
-                                                        </option>
-                                                        <option value="Ibibio"
-                                                            {{ old('ethnicity') == 'Ibibio' ? 'selected' : '' }}>Ibibio
-                                                        </option>
-                                                        <option value="Tiv"
-                                                            {{ old('ethnicity') == 'Tiv' ? 'selected' : '' }}>Tiv</option>
-                                                        <option value="Ijaw"
-                                                            {{ old('ethnicity') == 'Ijaw' ? 'selected' : '' }}>Ijaw
-                                                        </option>
-                                                        <option value="Edo"
-                                                            {{ old('ethnicity') == 'Edo' ? 'selected' : '' }}>Edo</option>
-                                                        <option value="Nupe"
-                                                            {{ old('ethnicity') == 'Nupe' ? 'selected' : '' }}>Nupe
-                                                        </option>
-                                                        <option value="Gbagyi"
-                                                            {{ old('ethnicity') == 'Gbagyi' ? 'selected' : '' }}>Gbagyi
-                                                        </option>
-                                                        <option value="Jukun"
-                                                            {{ old('ethnicity') == 'Jukun' ? 'selected' : '' }}>Jukun
-                                                        </option>
-                                                        <option value="Urhobo"
-                                                            {{ old('ethnicity') == 'Urhobo' ? 'selected' : '' }}>Urhobo
-                                                        </option>
-                                                        <option value="Igala"
-                                                            {{ old('ethnicity') == 'Igala' ? 'selected' : '' }}>Igala
-                                                        </option>
-                                                        <option value="Idoma"
-                                                            {{ old('ethnicity') == 'Idoma' ? 'selected' : '' }}>Idoma
-                                                        </option>
-                                                        <option value="Others"
-                                                            {{ old('ethnicity') == 'Others' ? 'selected' : '' }}>Others
-                                                        </option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                        </div>
+                                                            <div class="row mb-3">
+                                                                <label class="col-md-4 form-label">Email:</label>
+                                                                <div class="col-md-8">
+                                                                    <input type="email" class="form-control"
+                                                                        name="email" value="{{ old('email') }}">
+                                                                </div>
+                                                            </div>
 
-                                        <div class="col-md-6">
-                                            <div class="row mb-3">
-                                                <label class="col-md-4 form-label">Religion: <span class="text-danger">*</span></label>
-                                                <div class="col-md-8">
-                                                    <select class="form-select" name="religion" required>
-                                                        <option value="">Select Religion</option>
-                                                        <option value="Christianity"
-                                                            {{ old('religion') == 'Christianity' ? 'selected' : '' }}>
-                                                            Christianity</option>
-                                                        <option value="Islam"
-                                                            {{ old('religion') == 'Islam' ? 'selected' : '' }}>Islam
-                                                        </option>
-                                                        <option value="Traditional"
-                                                            {{ old('religion') == 'Traditional' ? 'selected' : '' }}>
-                                                            Traditional</option>
-                                                        <option value="Others"
-                                                            {{ old('religion') == 'Others' ? 'selected' : '' }}>Others
-                                                        </option>
-                                                    </select>
-                                                </div>
-                                            </div>
-
-                                            <div class="row mb-3">
-                                                <label class="col-md-4 form-label">Category: <span class="text-danger">*</span></label>
-                                                <div class="col-md-8">
-                                                    <div class="form-check">
-                                                        <input class="form-check-input" type="radio" name="category"
-                                                            id="civil_servant" value="Civil Servant"
-                                                            {{ old('category') == 'Civil Servant' ? 'checked' : '' }}>
-                                                        <label class="form-check-label" for="civil_servant">Civil Servant</label>
-                                                    </div>
-                                                    <div class="form-check">
-                                                        <input class="form-check-input" type="radio" name="category"
-                                                            id="private" value="Organized Private Sector"
-                                                            {{ old('category') == 'Organized Private Sector' ? 'checked' : '' }}>
-                                                        <label class="form-check-label" for="private">Organized Private Sector</label>
-                                                    </div>
-                                                    <div class="form-check">
-                                                        <input class="form-check-input" type="radio" name="category"
-                                                            id="others" value="Others"
-                                                            {{ old('category') == 'Others' ? 'checked' : '' }}>
-                                                        <label class="form-check-label" for="others">Others</label>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                        </div>
-                                        <!-- End Demographic Tab -->
-
-                                        <!-- Other Information Tab -->
-                                        <div class="tab-pane fade" id="other-info" role="tabpanel">
-
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <div class="row mb-3">
-                                                <label class="col-md-4 form-label">Occupation:</label>
-                                                <div class="col-md-8">
-                                                    <input type="text" class="form-control" name="occupation"
-                                                        value="{{ old('occupation') }}">
-                                                </div>
-                                            </div>
-
-                                            <div class="row mb-3">
-                                                <label class="col-md-4 form-label">D.P No:</label>
-                                                <div class="col-md-8">
-                                                    <input type="text" class="form-control" name="dp_no"
-                                                        value="{{ old('dp_no') }}">
-                                                </div>
-                                            </div>
-
-                                            <div class="row mb-3">
-                                                <label class="col-md-4 form-label">ID Type:</label>
-                                                <div class="col-md-8">
-                                                    <select class="form-select" name="id_type">
-                                                        <option value="">Select ID Type</option>
-                                                        <option value="Driver License"
-                                                            {{ old('id_type') == 'Driver License' ? 'selected' : '' }}>
-                                                            Driver License</option>
-                                                        <option value="NIMC"
-                                                            {{ old('id_type') == 'NIMC' ? 'selected' : '' }}>NIMC</option>
-                                                        <option value="Voters Card"
-                                                            {{ old('id_type') == 'Voters Card' ? 'selected' : '' }}>Voters
-                                                            Card</option>
-                                                        <option value="International Passport"
-                                                            {{ old('id_type') == 'International Passport' ? 'selected' : '' }}>
-                                                            International Passport</option>
-                                                        <option value="Others"
-                                                            {{ old('id_type') == 'Others' ? 'selected' : '' }}>Others
-                                                        </option>
-                                                    </select>
-                                                </div>
-                                            </div>
-
-                                            <div class="row mb-3">
-                                                <label class="col-md-4 form-label">ID No:</label>
-                                                <div class="col-md-8">
-                                                    <input type="text" class="form-control" name="id_no"
-                                                        value="{{ old('id_no') }}">
-                                                </div>
-                                            </div>
-
-                                            <div class="row mb-3">
-                                                <label class="col-md-4 form-label">NIN:</label>
-                                                <div class="col-md-8">
-                                                    <input type="text" class="form-control" name="nin"
-                                                        value="{{ old('nin') }}" maxlength="11"
-                                                        placeholder="Enter 11-digit NIN">
-                                                    <small class="text-muted">National Identification Number (11
-                                                        digits)</small>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div class="col-md-6">
-                                            <div class="row mb-3">
-                                                <label class="col-md-4 form-label">Place of Work:</label>
-                                                <div class="col-md-8">
-                                                    <input type="text" class="form-control" name="place_of_work"
-                                                        value="{{ old('place_of_work') }}">
-                                                </div>
-                                            </div>
-
-                                            <div class="row mb-3">
-                                                <label class="col-md-4 form-label">Employment Date:</label>
-                                                <div class="col-md-8">
-                                                    <input type="date" class="form-control" name="date_of_employment"
-                                                        value="{{ old('date_of_employment') }}">
-                                                </div>
-                                            </div>
-
-                                            <div class="row mb-3">
-                                                <label class="col-md-4 form-label">Retirement Date:</label>
-                                                <div class="col-md-8">
-                                                    <input type="date" class="form-control" name="date_of_retirement"
-                                                        value="{{ old('date_of_retirement') }}">
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                        </div>
-                                        <!-- End Other Info Tab -->
-
-                                        <!-- Photo Tab -->
-                                        <div class="tab-pane fade" id="photo-info" role="tabpanel">
-                                            <div class="row">
-                                                <div class="col-md-4">
-                                                    <div class="card">
-                                                        <div class="card-body text-center">
-                                                            <h6>Beneficiary Photo</h6>
-                                                            <div class="mb-3 mt-3">
-                                                                <input type="file" class="dropify-create"
-                                                                    name="beneficiary_photo" data-height="200"
-                                                                    data-allowed-file-extensions="jpg jpeg png"
-                                                                    data-max-file-size="2M">
+                                                            <div class="row mb-3">
+                                                                <label class="col-md-4 form-label">Contact Address: <span
+                                                                        class="text-danger">*</span></label>
+                                                                <div class="col-md-8">
+                                                                    <textarea class="form-control" name="contact_address" rows="2" required>{{ old('contact_address') }}</textarea>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     </div>
                                                 </div>
+                                                <!-- End Basic Info Tab -->
+
+                                                <!-- Location Information Tab -->
+                                                <div class="tab-pane fade" id="location-info" role="tabpanel">
+                                                    <div class="row">
+                                                        <div class="col-md-6">
+                                                            <div class="row mb-3">
+                                                                <label class="col-md-4 form-label">LGA: <span
+                                                                        class="text-danger">*</span></label>
+                                                                <div class="col-md-8">
+                                                                    <select class="form-select" name="lga" required>
+                                                                        <option value="">Select LGA</option>
+                                                                        <option value="Abadam"
+                                                                            {{ old('lga') == 'Abadam' ? 'selected' : '' }}>
+                                                                            Abadam</option>
+                                                                        <option value="Askira/Uba"
+                                                                            {{ old('lga') == 'Askira/Uba' ? 'selected' : '' }}>
+                                                                            Askira/Uba
+                                                                        </option>
+                                                                        <option value="Bama"
+                                                                            {{ old('lga') == 'Bama' ? 'selected' : '' }}>
+                                                                            Bama</option>
+                                                                        <option value="Bayo"
+                                                                            {{ old('lga') == 'Bayo' ? 'selected' : '' }}>
+                                                                            Bayo</option>
+                                                                        <option value="Biu"
+                                                                            {{ old('lga') == 'Biu' ? 'selected' : '' }}>
+                                                                            Biu</option>
+                                                                        <option value="Chibok"
+                                                                            {{ old('lga') == 'Chibok' ? 'selected' : '' }}>
+                                                                            Chibok</option>
+                                                                        <option value="Damboa"
+                                                                            {{ old('lga') == 'Damboa' ? 'selected' : '' }}>
+                                                                            Damboa</option>
+                                                                        <option value="Dikwa"
+                                                                            {{ old('lga') == 'Dikwa' ? 'selected' : '' }}>
+                                                                            Dikwa</option>
+                                                                        <option value="Gubio"
+                                                                            {{ old('lga') == 'Gubio' ? 'selected' : '' }}>
+                                                                            Gubio</option>
+                                                                        <option value="Guzamala"
+                                                                            {{ old('lga') == 'Guzamala' ? 'selected' : '' }}>
+                                                                            Guzamala
+                                                                        </option>
+                                                                        <option value="Gwoza"
+                                                                            {{ old('lga') == 'Gwoza' ? 'selected' : '' }}>
+                                                                            Gwoza</option>
+                                                                        <option value="Hawul"
+                                                                            {{ old('lga') == 'Hawul' ? 'selected' : '' }}>
+                                                                            Hawul</option>
+                                                                        <option value="Jere"
+                                                                            {{ old('lga') == 'Jere' ? 'selected' : '' }}>
+                                                                            Jere</option>
+                                                                        <option value="Kaga"
+                                                                            {{ old('lga') == 'Kaga' ? 'selected' : '' }}>
+                                                                            Kaga</option>
+                                                                        <option value="Kala/Balge"
+                                                                            {{ old('lga') == 'Kala/Balge' ? 'selected' : '' }}>
+                                                                            Kala/Balge
+                                                                        </option>
+                                                                        <option value="Konduga"
+                                                                            {{ old('lga') == 'Konduga' ? 'selected' : '' }}>
+                                                                            Konduga
+                                                                        </option>
+                                                                        <option value="Kukawa"
+                                                                            {{ old('lga') == 'Kukawa' ? 'selected' : '' }}>
+                                                                            Kukawa</option>
+                                                                        <option value="Kwaya Kusar"
+                                                                            {{ old('lga') == 'Kwaya Kusar' ? 'selected' : '' }}>
+                                                                            Kwaya Kusar
+                                                                        </option>
+                                                                        <option value="Mafa"
+                                                                            {{ old('lga') == 'Mafa' ? 'selected' : '' }}>
+                                                                            Mafa</option>
+                                                                        <option value="Magumeri"
+                                                                            {{ old('lga') == 'Magumeri' ? 'selected' : '' }}>
+                                                                            Magumeri
+                                                                        </option>
+                                                                        <option value="Maiduguri"
+                                                                            {{ old('lga') == 'Maiduguri' ? 'selected' : '' }}>
+                                                                            Maiduguri
+                                                                        </option>
+                                                                        <option value="Marte"
+                                                                            {{ old('lga') == 'Marte' ? 'selected' : '' }}>
+                                                                            Marte</option>
+                                                                        <option value="Mobbar"
+                                                                            {{ old('lga') == 'Mobbar' ? 'selected' : '' }}>
+                                                                            Mobbar</option>
+                                                                        <option value="Monguno"
+                                                                            {{ old('lga') == 'Monguno' ? 'selected' : '' }}>
+                                                                            Monguno
+                                                                        </option>
+                                                                        <option value="Ngala"
+                                                                            {{ old('lga') == 'Ngala' ? 'selected' : '' }}>
+                                                                            Ngala</option>
+                                                                        <option value="Nganzai"
+                                                                            {{ old('lga') == 'Nganzai' ? 'selected' : '' }}>
+                                                                            Nganzai
+                                                                        </option>
+                                                                        <option value="Shani"
+                                                                            {{ old('lga') == 'Shani' ? 'selected' : '' }}>
+                                                                            Shani</option>
+                                                                    </select>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div class="col-md-6">
+                                                            <div class="row mb-3">
+                                                                <label class="col-md-4 form-label">State: <span
+                                                                        class="text-danger">*</span></label>
+                                                                <div class="col-md-8">
+                                                                    <select class="form-select" name="state" required>
+                                                                        <option value="">Select State</option>
+                                                                        <option value="Abia"
+                                                                            {{ old('state') == 'Abia' ? 'selected' : '' }}>
+                                                                            Abia</option>
+                                                                        <option value="Adamawa"
+                                                                            {{ old('state') == 'Adamawa' ? 'selected' : '' }}>
+                                                                            Adamawa
+                                                                        </option>
+                                                                        <option value="Akwa Ibom"
+                                                                            {{ old('state') == 'Akwa Ibom' ? 'selected' : '' }}>
+                                                                            Akwa Ibom
+                                                                        </option>
+                                                                        <option value="Anambra"
+                                                                            {{ old('state') == 'Anambra' ? 'selected' : '' }}>
+                                                                            Anambra
+                                                                        </option>
+                                                                        <option value="Bauchi"
+                                                                            {{ old('state') == 'Bauchi' ? 'selected' : '' }}>
+                                                                            Bauchi
+                                                                        </option>
+                                                                        <option value="Bayelsa"
+                                                                            {{ old('state') == 'Bayelsa' ? 'selected' : '' }}>
+                                                                            Bayelsa
+                                                                        </option>
+                                                                        <option value="Benue"
+                                                                            {{ old('state') == 'Benue' ? 'selected' : '' }}>
+                                                                            Benue</option>
+                                                                        <option value="Borno"
+                                                                            {{ old('state') == 'Borno' ? 'selected' : '' }}>
+                                                                            Borno</option>
+                                                                        <option value="Cross River"
+                                                                            {{ old('state') == 'Cross River' ? 'selected' : '' }}>
+                                                                            Cross
+                                                                            River</option>
+                                                                        <option value="Delta"
+                                                                            {{ old('state') == 'Delta' ? 'selected' : '' }}>
+                                                                            Delta</option>
+                                                                        <option value="Ebonyi"
+                                                                            {{ old('state') == 'Ebonyi' ? 'selected' : '' }}>
+                                                                            Ebonyi
+                                                                        </option>
+                                                                        <option value="Edo"
+                                                                            {{ old('state') == 'Edo' ? 'selected' : '' }}>
+                                                                            Edo</option>
+                                                                        <option value="Ekiti"
+                                                                            {{ old('state') == 'Ekiti' ? 'selected' : '' }}>
+                                                                            Ekiti</option>
+                                                                        <option value="Enugu"
+                                                                            {{ old('state') == 'Enugu' ? 'selected' : '' }}>
+                                                                            Enugu</option>
+                                                                        <option value="FCT"
+                                                                            {{ old('state') == 'FCT' ? 'selected' : '' }}>
+                                                                            FCT</option>
+                                                                        <option value="Gombe"
+                                                                            {{ old('state') == 'Gombe' ? 'selected' : '' }}>
+                                                                            Gombe</option>
+                                                                        <option value="Imo"
+                                                                            {{ old('state') == 'Imo' ? 'selected' : '' }}>
+                                                                            Imo</option>
+                                                                        <option value="Jigawa"
+                                                                            {{ old('state') == 'Jigawa' ? 'selected' : '' }}>
+                                                                            Jigawa
+                                                                        </option>
+                                                                        <option value="Kaduna"
+                                                                            {{ old('state') == 'Kaduna' ? 'selected' : '' }}>
+                                                                            Kaduna
+                                                                        </option>
+                                                                        <option value="Kano"
+                                                                            {{ old('state') == 'Kano' ? 'selected' : '' }}>
+                                                                            Kano</option>
+                                                                        <option value="Katsina"
+                                                                            {{ old('state') == 'Katsina' ? 'selected' : '' }}>
+                                                                            Katsina
+                                                                        </option>
+                                                                        <option value="Kebbi"
+                                                                            {{ old('state') == 'Kebbi' ? 'selected' : '' }}>
+                                                                            Kebbi</option>
+                                                                        <option value="Kogi"
+                                                                            {{ old('state') == 'Kogi' ? 'selected' : '' }}>
+                                                                            Kogi</option>
+                                                                        <option value="Kwara"
+                                                                            {{ old('state') == 'Kwara' ? 'selected' : '' }}>
+                                                                            Kwara</option>
+                                                                        <option value="Lagos"
+                                                                            {{ old('state') == 'Lagos' ? 'selected' : '' }}>
+                                                                            Lagos</option>
+                                                                        <option value="Nasarawa"
+                                                                            {{ old('state') == 'Nasarawa' ? 'selected' : '' }}>
+                                                                            Nasarawa
+                                                                        </option>
+                                                                        <option value="Niger"
+                                                                            {{ old('state') == 'Niger' ? 'selected' : '' }}>
+                                                                            Niger</option>
+                                                                        <option value="Ogun"
+                                                                            {{ old('state') == 'Ogun' ? 'selected' : '' }}>
+                                                                            Ogun</option>
+                                                                        <option value="Ondo"
+                                                                            {{ old('state') == 'Ondo' ? 'selected' : '' }}>
+                                                                            Ondo</option>
+                                                                        <option value="Osun"
+                                                                            {{ old('state') == 'Osun' ? 'selected' : '' }}>
+                                                                            Osun</option>
+                                                                        <option value="Oyo"
+                                                                            {{ old('state') == 'Oyo' ? 'selected' : '' }}>
+                                                                            Oyo</option>
+                                                                        <option value="Plateau"
+                                                                            {{ old('state') == 'Plateau' ? 'selected' : '' }}>
+                                                                            Plateau
+                                                                        </option>
+                                                                        <option value="Rivers"
+                                                                            {{ old('state') == 'Rivers' ? 'selected' : '' }}>
+                                                                            Rivers
+                                                                        </option>
+                                                                        <option value="Sokoto"
+                                                                            {{ old('state') == 'Sokoto' ? 'selected' : '' }}>
+                                                                            Sokoto
+                                                                        </option>
+                                                                        <option value="Taraba"
+                                                                            {{ old('state') == 'Taraba' ? 'selected' : '' }}>
+                                                                            Taraba
+                                                                        </option>
+                                                                        <option value="Yobe"
+                                                                            {{ old('state') == 'Yobe' ? 'selected' : '' }}>
+                                                                            Yobe</option>
+                                                                        <option value="Zamfara"
+                                                                            {{ old('state') == 'Zamfara' ? 'selected' : '' }}>
+                                                                            Zamfara
+                                                                        </option>
+                                                                    </select>
+                                                                </div>
+                                                            </div>
+
+                                                            <div class="row mb-3">
+                                                                <label class="col-md-4 form-label">Nationality: <span
+                                                                        class="text-danger">*</span></label>
+                                                                <div class="col-md-8">
+                                                                    <select class="form-select" name="nationality"
+                                                                        required>
+                                                                        <option value="">Select Nationality</option>
+                                                                        <option value="Nigerian"
+                                                                            {{ old('nationality') == 'Nigerian' ? 'selected' : '' }}>
+                                                                            Nigerian</option>
+                                                                        <option value="Others"
+                                                                            {{ old('nationality') == 'Others' ? 'selected' : '' }}>
+                                                                            Others
+                                                                        </option>
+                                                                    </select>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <!-- End Location Tab -->
+
+                                                <!-- Demographic Information Tab -->
+                                                <div class="tab-pane fade" id="demographic-info" role="tabpanel">
+                                                    <div class="row">
+                                                        <div class="col-md-6">
+                                                            <div class="row mb-3">
+                                                                <label class="col-md-4 form-label">Marital Status: <span
+                                                                        class="text-danger">*</span></label>
+                                                                <div class="col-md-8">
+                                                                    <select class="form-select" name="marital_status"
+                                                                        required>
+                                                                        <option value="">Select status</option>
+                                                                        <option value="Single"
+                                                                            {{ old('marital_status') == 'Single' ? 'selected' : '' }}>
+                                                                            Single</option>
+                                                                        <option value="Married"
+                                                                            {{ old('marital_status') == 'Married' ? 'selected' : '' }}>
+                                                                            Married</option>
+                                                                        <option value="Widow"
+                                                                            {{ old('marital_status') == 'Widow' ? 'selected' : '' }}>
+                                                                            Widow
+                                                                        </option>
+                                                                        <option value="Divorce"
+                                                                            {{ old('marital_status') == 'Divorce' ? 'selected' : '' }}>
+                                                                            Divorce</option>
+                                                                        <option value="Others"
+                                                                            {{ old('marital_status') == 'Others' ? 'selected' : '' }}>
+                                                                            Others</option>
+                                                                    </select>
+                                                                </div>
+                                                            </div>
+
+                                                            <div class="row mb-3">
+                                                                <label class="col-md-4 form-label">Ethnicity:</label>
+                                                                <div class="col-md-8">
+                                                                    <select class="form-select" name="ethnicity" required>
+                                                                        <option value="">Select Ethnicity</option>
+                                                                        @foreach (\App\Models\Beneficiary::getEthnicityOptions() as $value => $label)
+                                                                            <option value="{{ $value }}"
+                                                                                {{ old('ethnicity') == $value ? 'selected' : '' }}>
+                                                                                {{ $label }}
+                                                                            </option>
+                                                                        @endforeach
+                                                                    </select>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div class="col-md-6">
+                                                            <div class="row mb-3">
+                                                                <label class="col-md-4 form-label">Religion: <span
+                                                                        class="text-danger">*</span></label>
+                                                                <div class="col-md-8">
+                                                                    <select class="form-select" name="religion" required>
+                                                                        <option value="">Select Religion</option>
+                                                                        <option value="Christianity"
+                                                                            {{ old('religion') == 'Christianity' ? 'selected' : '' }}>
+                                                                            Christianity</option>
+                                                                        <option value="Islam"
+                                                                            {{ old('religion') == 'Islam' ? 'selected' : '' }}>
+                                                                            Islam
+                                                                        </option>
+                                                                        <option value="Traditional"
+                                                                            {{ old('religion') == 'Traditional' ? 'selected' : '' }}>
+                                                                            Traditional</option>
+                                                                        <option value="Others"
+                                                                            {{ old('religion') == 'Others' ? 'selected' : '' }}>
+                                                                            Others
+                                                                        </option>
+                                                                    </select>
+                                                                </div>
+                                                            </div>
+
+                                                            <div class="row mb-3">
+                                                                <label class="col-md-4 form-label">Category: <span
+                                                                        class="text-danger">*</span></label>
+                                                                <div class="col-md-8">
+                                                                    @foreach ($beneficiaryCategories as $cat)
+                                                                        <div class="form-check">
+                                                                            <input class="form-check-input" type="radio"
+                                                                                name="category"
+                                                                                id="cat_{{ $loop->index }}"
+                                                                                value="{{ $cat->name }}"
+                                                                                {{ old('category') == $cat->name ? 'checked' : '' }}>
+                                                                            <label class="form-check-label"
+                                                                                for="cat_{{ $loop->index }}">{{ $cat->name }}</label>
+                                                                        </div>
+                                                                    @endforeach
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <!-- End Demographic Tab -->
+
+                                                <!-- Other Information Tab -->
+                                                <div class="tab-pane fade" id="other-info" role="tabpanel">
+
+                                                    <div class="row">
+                                                        <div class="col-md-6">
+                                                            <div class="row mb-3">
+                                                                <label class="col-md-4 form-label">Occupation:</label>
+                                                                <div class="col-md-8">
+                                                                    <input type="text" class="form-control"
+                                                                        name="occupation"
+                                                                        value="{{ old('occupation') }}">
+                                                                </div>
+                                                            </div>
+
+                                                            <div class="row mb-3">
+                                                                <label class="col-md-4 form-label">D.P No:</label>
+                                                                <div class="col-md-8">
+                                                                    <input type="text" class="form-control"
+                                                                        name="dp_no" value="{{ old('dp_no') }}">
+                                                                </div>
+                                                            </div>
+
+                                                            <div class="row mb-3">
+                                                                <label class="col-md-4 form-label">ID Type:</label>
+                                                                <div class="col-md-8">
+                                                                    <select class="form-select" name="id_type">
+                                                                        <option value="">Select ID Type</option>
+                                                                        <option value="Driver License"
+                                                                            {{ old('id_type') == 'Driver License' ? 'selected' : '' }}>
+                                                                            Driver License</option>
+                                                                        <option value="NIMC"
+                                                                            {{ old('id_type') == 'NIMC' ? 'selected' : '' }}>
+                                                                            NIMC</option>
+                                                                        <option value="Voters Card"
+                                                                            {{ old('id_type') == 'Voters Card' ? 'selected' : '' }}>
+                                                                            Voters
+                                                                            Card</option>
+                                                                        <option value="International Passport"
+                                                                            {{ old('id_type') == 'International Passport' ? 'selected' : '' }}>
+                                                                            International Passport</option>
+                                                                        <option value="Others"
+                                                                            {{ old('id_type') == 'Others' ? 'selected' : '' }}>
+                                                                            Others
+                                                                        </option>
+                                                                    </select>
+                                                                </div>
+                                                            </div>
+
+                                                            <div class="row mb-3">
+                                                                <label class="col-md-4 form-label">ID No:</label>
+                                                                <div class="col-md-8">
+                                                                    <input type="text" class="form-control"
+                                                                        name="id_no" value="{{ old('id_no') }}">
+                                                                </div>
+                                                            </div>
+
+                                                            <div class="row mb-3">
+                                                                <label class="col-md-4 form-label">NIN:</label>
+                                                                <div class="col-md-8">
+                                                                    <input type="text" class="form-control"
+                                                                        name="nin" value="{{ old('nin') }}"
+                                                                        maxlength="11" placeholder="Enter 11-digit NIN">
+                                                                    <small class="text-muted">National Identification
+                                                                        Number (11
+                                                                        digits)</small>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div class="col-md-6">
+                                                            <div class="row mb-3">
+                                                                <label class="col-md-4 form-label">Place of Work:</label>
+                                                                <div class="col-md-8">
+                                                                    <input type="text" class="form-control"
+                                                                        name="place_of_work"
+                                                                        value="{{ old('place_of_work') }}">
+                                                                </div>
+                                                            </div>
+
+                                                            <div class="row mb-3">
+                                                                <label class="col-md-4 form-label">Employment Date:</label>
+                                                                <div class="col-md-8">
+                                                                    <input type="date" class="form-control"
+                                                                        name="date_of_employment"
+                                                                        value="{{ old('date_of_employment') }}">
+                                                                </div>
+                                                            </div>
+
+                                                            <div class="row mb-3">
+                                                                <label class="col-md-4 form-label">Retirement Date:</label>
+                                                                <div class="col-md-8">
+                                                                    <input type="date" class="form-control"
+                                                                        name="date_of_retirement"
+                                                                        value="{{ old('date_of_retirement') }}">
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <!-- End Other Info Tab -->
+
+                                                <!-- Photo Tab -->
+                                                <div class="tab-pane fade" id="photo-info" role="tabpanel">
+                                                    <div class="row">
+                                                        <div class="col-md-4">
+                                                            <div class="card">
+                                                                <div class="card-body text-center">
+                                                                    <h6>Beneficiary Photo</h6>
+                                                                    <div class="mb-3 mt-3">
+                                                                        <input type="file" class="dropify-create"
+                                                                            name="beneficiary_photo" data-height="200"
+                                                                            data-allowed-file-extensions="jpg jpeg png"
+                                                                            data-max-file-size="2M">
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <!-- End Photo Tab -->
+                                            </div>
+                                            <!-- End Sub-Tab Content -->
+
+                                            <!-- Save Button for Beneficiary Info -->
+                                            <div class="card-footer bg-light mt-3">
+                                                <button type="button" class="btn btn-success" id="saveBeneficiaryInfo"
+                                                    style="background-color: #006734; border-color: #006734;">
+                                                    <i class="fe fe-save"></i> Save Beneficiary Information
+                                                </button>
+                                                <span class="ms-2 text-success" id="beneficiaryInfoSaved"
+                                                    style="display: none;">
+                                                    <i class="fe fe-check-circle"></i> Saved
+                                                </span>
                                             </div>
                                         </div>
-                                        <!-- End Photo Tab -->
                                     </div>
-                                    <!-- End Sub-Tab Content -->
-
-                                    <!-- Save Button for Beneficiary Info -->
-                                    <div class="card-footer bg-light mt-3">
-                                        <button type="button" class="btn btn-success" id="saveBeneficiaryInfo" style="background-color: #006734; border-color: #006734;">
-                                            <i class="fe fe-save"></i> Save Beneficiary Information
-                                        </button>
-                                        <span class="ms-2 text-success" id="beneficiaryInfoSaved" style="display: none;">
-                                            <i class="fe fe-check-circle"></i> Saved
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
                                 </div>
                                 <!-- End Beneficiary Tab -->
 
@@ -674,142 +742,157 @@
                                     <div class="card dependant-section">
                                         <div class="card-header bg-light">
                                             <div class="custom-control custom-checkbox">
-                                        <input type="checkbox" class="custom-control-input" id="hasSpouse"
-                                            name="has_spouse" value="1" {{ old('has_spouse') ? 'checked' : '' }}>
-                                        <label class="custom-control-label" for="hasSpouse">
-                                            <h5 class="mb-0">Dependents: Spouse</h5>
-                                        </label>
-                                    </div>
-                                </div>
-                                <div id="spouseSection" class="card shadow-none border mb-4" style="display: none;">
-                                    <div class="row">
-                                        <div class="col-md-8">
-                                            <div class="row mb-3">
-                                                <label class="col-md-3 form-label">BOSCHMA ID:</label>
-                                                <div class="col-md-9">
-                                                    <div class="alert alert-info py-2 px-3 mb-0 small"
-                                                        style="background-color: #e8f5e9; border-left: 3px solid #006734;">
-                                                        <i class="fe fe-info"></i> <strong>Auto-Generated (Suffix:
-                                                            A)</strong>
-                                                        <p class="mb-0 small">Will be Primary ID + 'A'</p>
-                                                    </div>
-                                                </div>
+                                                <input type="checkbox" class="custom-control-input" id="hasSpouse"
+                                                    name="has_spouse" value="1"
+                                                    {{ old('has_spouse') ? 'checked' : '' }}>
+                                                <label class="custom-control-label" for="hasSpouse">
+                                                    <h5 class="mb-0">Dependents: Spouse</h5>
+                                                </label>
                                             </div>
-
-                                            <div class="row mb-3 spouse-facility-checkbox" style="display: none;">
-                                                <label class="col-md-3 form-label">Facility:</label>
-                                                <div class="col-md-9">
-                                                    <div class="custom-control custom-checkbox mt-2">
-                                                        <input type="checkbox" class="custom-control-input spouse-field"
-                                                            id="use_alt_facility_spouse" name="use_alt_facility_spouse"
-                                                            value="1">
-                                                        <label class="custom-control-label" for="use_alt_facility_spouse">
-                                                            Use Alternative Facility
-                                                        </label>
-                                                    </div>
-                                                    <small class="text-muted">Check to use alternative facility, otherwise
-                                                        main facility will be used</small>
-                                                </div>
-                                            </div>
-
-                                            <div class="row mb-3">
-                                                <label class="col-md-3 form-label">Spouse Name:</label>
-                                                <div class="col-md-9">
-                                                    <input type="text" class="form-control spouse-field"
-                                                        name="spouse_name" value="{{ old('spouse_name') }}">
-                                                </div>
-                                            </div>
-
-                                            <div class="row mb-3">
-                                                <label class="col-md-3 form-label">Gender:</label>
-                                                <div class="col-md-9">
-                                                    <div class="form-check form-check-inline mt-2">
-                                                        <input class="form-check-input spouse-field" type="radio"
-                                                            name="spouse_gender" id="spouse_male" value="Male"
-                                                            {{ old('spouse_gender') == 'Male' ? 'checked' : '' }}>
-                                                        <label class="form-check-label" for="spouse_male">Male</label>
-                                                    </div>
-                                                    <div class="form-check form-check-inline">
-                                                        <input class="form-check-input spouse-field" type="radio"
-                                                            name="spouse_gender" id="spouse_female" value="Female"
-                                                            {{ old('spouse_gender') == 'Female' ? 'checked' : '' }}>
-                                                        <label class="form-check-label" for="spouse_female">Female</label>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div class="row mb-3">
-                                                <label class="col-md-3 form-label">Date of Birth:</label>
-                                                <div class="col-md-9">
-                                                    <input type="date" class="form-control spouse-field"
-                                                        name="spouse_dob" value="{{ old('spouse_dob') }}">
-                                                    <small class="text-muted">Format: dd-mm-yyyy</small>
-                                                </div>
-                                            </div>
-
-                                            <div class="row mb-3">
-                                                <label class="col-md-3 form-label">Phone No:</label>
-                                                <div class="col-md-9">
-                                                    <input type="text" class="form-control spouse-field"
-                                                        name="spouse_phone" value="{{ old('spouse_phone') }}">
-                                                </div>
-                                            </div>
-
-                                            <div class="row mb-3">
-                                                <label class="col-md-3 form-label">Email:</label>
-                                                <div class="col-md-9">
-                                                    <input type="email" class="form-control spouse-field"
-                                                        name="spouse_email" value="{{ old('spouse_email') }}">
-                                                </div>
-                                            </div>
-
-                                            <div class="row mb-3">
-                                                <label class="col-md-3 form-label">NIN:</label>
-                                                <div class="col-md-9">
-                                                    <div class="input-group">
-                                                        <input type="text" class="form-control spouse-field nin-input"
-                                                            id="spouse_nin" name="spouse_nin"
-                                                            value="{{ old('spouse_nin') }}" maxlength="11"
-                                                            placeholder="Enter 11-digit NIN" data-person-type="spouse">
-                                                        <div class="input-group-append">
-                                                            <button class="btn btn-outline-secondary verify-nin-btn"
-                                                                type="button" data-target="spouse_nin" disabled>
-                                                                <i class="fe fe-search"></i>
-                                                            </button>
+                                        </div>
+                                        <div id="spouseSection" class="card shadow-none border mb-4"
+                                            style="display: none;">
+                                            <div class="row">
+                                                <div class="col-md-8">
+                                                    <div class="row mb-3">
+                                                        <label class="col-md-3 form-label">BOSCHMA ID:</label>
+                                                        <div class="col-md-9">
+                                                            <div class="alert alert-info py-2 px-3 mb-0 small"
+                                                                style="background-color: #e8f5e9; border-left: 3px solid #006734;">
+                                                                <i class="fe fe-info"></i> <strong>Auto-Generated (Suffix:
+                                                                    A)</strong>
+                                                                <p class="mb-0 small">Will be Primary ID + 'A'</p>
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                    <small class="text-muted">National Identification Number</small>
-                                                    <div id="spouse_nin_feedback" class="mt-1"></div>
-                                                </div>
-                                            </div>
-                                        </div>
 
-                                        <div class="col-md-4">
-                                            <div class="card">
-                                                <div class="card-body text-center">
-                                                    <h6>Spouse Photo</h6>
-                                                    <div class="mb-3 mt-3">
-                                                        <input type="file" class="dropify-create spouse-field"
-                                                            name="spouse_photo" data-height="200"
-                                                            data-allowed-file-extensions="jpg jpeg png"
-                                                            data-max-file-size="2M">
+                                                    <div class="row mb-3 spouse-facility-checkbox" style="display: none;">
+                                                        <label class="col-md-3 form-label">Facility:</label>
+                                                        <div class="col-md-9">
+                                                            <div class="custom-control custom-checkbox mt-2">
+                                                                <input type="checkbox"
+                                                                    class="custom-control-input spouse-field"
+                                                                    id="use_alt_facility_spouse"
+                                                                    name="use_alt_facility_spouse" value="1">
+                                                                <label class="custom-control-label"
+                                                                    for="use_alt_facility_spouse">
+                                                                    Use Alternative Facility
+                                                                </label>
+                                                            </div>
+                                                            <small class="text-muted">Check to use alternative facility,
+                                                                otherwise
+                                                                main facility will be used</small>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="row mb-3">
+                                                        <label class="col-md-3 form-label">Spouse Name:</label>
+                                                        <div class="col-md-9">
+                                                            <input type="text" class="form-control spouse-field"
+                                                                name="spouse_name" value="{{ old('spouse_name') }}">
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="row mb-3">
+                                                        <label class="col-md-3 form-label">Gender:</label>
+                                                        <div class="col-md-9">
+                                                            <div class="form-check form-check-inline mt-2">
+                                                                <input class="form-check-input spouse-field"
+                                                                    type="radio" name="spouse_gender" id="spouse_male"
+                                                                    value="Male"
+                                                                    {{ old('spouse_gender') == 'Male' ? 'checked' : '' }}>
+                                                                <label class="form-check-label"
+                                                                    for="spouse_male">Male</label>
+                                                            </div>
+                                                            <div class="form-check form-check-inline">
+                                                                <input class="form-check-input spouse-field"
+                                                                    type="radio" name="spouse_gender"
+                                                                    id="spouse_female" value="Female"
+                                                                    {{ old('spouse_gender') == 'Female' ? 'checked' : '' }}>
+                                                                <label class="form-check-label"
+                                                                    for="spouse_female">Female</label>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="row mb-3">
+                                                        <label class="col-md-3 form-label">Date of Birth:</label>
+                                                        <div class="col-md-9">
+                                                            <input type="date" class="form-control spouse-field"
+                                                                name="spouse_dob" value="{{ old('spouse_dob') }}">
+                                                            <small class="text-muted">Format: dd-mm-yyyy</small>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="row mb-3">
+                                                        <label class="col-md-3 form-label">Phone No:</label>
+                                                        <div class="col-md-9">
+                                                            <input type="text" class="form-control spouse-field"
+                                                                name="spouse_phone" value="{{ old('spouse_phone') }}">
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="row mb-3">
+                                                        <label class="col-md-3 form-label">Email:</label>
+                                                        <div class="col-md-9">
+                                                            <input type="email" class="form-control spouse-field"
+                                                                name="spouse_email" value="{{ old('spouse_email') }}">
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="row mb-3">
+                                                        <label class="col-md-3 form-label">NIN:</label>
+                                                        <div class="col-md-9">
+                                                            <div class="input-group">
+                                                                <input type="text"
+                                                                    class="form-control spouse-field nin-input"
+                                                                    id="spouse_nin" name="spouse_nin"
+                                                                    value="{{ old('spouse_nin') }}" maxlength="11"
+                                                                    placeholder="Enter 11-digit NIN"
+                                                                    data-person-type="spouse">
+                                                                <div class="input-group-append">
+                                                                    <button
+                                                                        class="btn btn-outline-secondary verify-nin-btn"
+                                                                        type="button" data-target="spouse_nin" disabled>
+                                                                        <i class="fe fe-search"></i>
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                            <small class="text-muted">National Identification
+                                                                Number</small>
+                                                            <div id="spouse_nin_feedback" class="mt-1"></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div class="col-md-4">
+                                                    <div class="card">
+                                                        <div class="card-body text-center">
+                                                            <h6>Spouse Photo</h6>
+                                                            <div class="mb-3 mt-3">
+                                                                <input type="file" class="dropify-create spouse-field"
+                                                                    name="spouse_photo" data-height="200"
+                                                                    data-allowed-file-extensions="jpg jpeg png"
+                                                                    data-max-file-size="2M">
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
+
+                                            <!-- Save Button for Spouse Info -->
+                                            <div class="card-footer bg-light">
+                                                <button type="button" class="btn btn-success" id="saveSpouseInfo"
+                                                    style="background-color: #006734; border-color: #006734;">
+                                                    <i class="fe fe-save"></i> Save Spouse Information
+                                                </button>
+                                                <span class="ms-2 text-success" id="spouseInfoSaved"
+                                                    style="display: none;">
+                                                    <i class="fe fe-check-circle"></i> Saved
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
-
-                                    <!-- Save Button for Spouse Info -->
-                                    <div class="card-footer bg-light">
-                                        <button type="button" class="btn btn-success" id="saveSpouseInfo" style="background-color: #006734; border-color: #006734;">
-                                            <i class="fe fe-save"></i> Save Spouse Information
-                                        </button>
-                                        <span class="ms-2 text-success" id="spouseInfoSaved" style="display: none;">
-                                            <i class="fe fe-check-circle"></i> Saved
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
                                 </div>
                                 <!-- End Spouse Tab -->
 
@@ -818,45 +901,50 @@
                                     <div class="card dependant-section">
                                         <div class="card-header bg-light">
                                             <div class="custom-control custom-checkbox">
-                                        <input type="checkbox" class="custom-control-input" id="hasChildren"
-                                            name="has_children" value="1"
-                                            {{ old('has_children') ? 'checked' : '' }}>
-                                        <label class="custom-control-label" for="hasChildren">
-                                            <h5 class="mb-0">Dependents: Children</h5>
-                                        </label>
-                                    </div>
-                                </div>
-                                <div id="childrenSection" class="card shadow-none border mb-4" style="display: none;">
-                                    <div class="card-body">
-                                        <p class="text-muted">You can add up to 4 children. For children below the age of
-                                            18 years, attach a photocopy of National Population Commission Birth
-                                            Certificate.</p>
-
-                                        <div id="childrenContainer">
-                                            <!-- Child records will be added dynamically here -->
+                                                <input type="checkbox" class="custom-control-input" id="hasChildren"
+                                                    name="has_children" value="1"
+                                                    {{ old('has_children') ? 'checked' : '' }}>
+                                                <label class="custom-control-label" for="hasChildren">
+                                                    <h5 class="mb-0">Dependents: Children</h5>
+                                                </label>
+                                            </div>
                                         </div>
+                                        <div id="childrenSection" class="card shadow-none border mb-4"
+                                            style="display: none;">
+                                            <div class="card-body">
+                                                <p class="text-muted">You can add up to 4 children. For children below the
+                                                    age of
+                                                    18 years, attach a photocopy of National Population Commission Birth
+                                                    Certificate.</p>
 
-                                        <div class="mt-3">
-                                            <button type="button" class="btn btn-outline-primary" id="addChildBtn">
-                                                <i class="fe fe-plus-circle"></i> Add Child
-                                            </button>
-                                            <small class="text-muted ms-2">
-                                                <span id="childCount">0</span>/4 children added
-                                            </small>
+                                                <div id="childrenContainer">
+                                                    <!-- Child records will be added dynamically here -->
+                                                </div>
+
+                                                <div class="mt-3">
+                                                    <button type="button" class="btn btn-outline-primary"
+                                                        id="addChildBtn">
+                                                        <i class="fe fe-plus-circle"></i> Add Child
+                                                    </button>
+                                                    <small class="text-muted ms-2">
+                                                        <span id="childCount">0</span>/4 children added
+                                                    </small>
+                                                </div>
+                                            </div>
+
+                                            <!-- Save Button for Children Info -->
+                                            <div class="card-footer bg-light">
+                                                <button type="button" class="btn btn-success" id="saveChildrenInfo"
+                                                    style="background-color: #006734; border-color: #006734;">
+                                                    <i class="fe fe-save"></i> Save Children Information
+                                                </button>
+                                                <span class="ms-2 text-success" id="childrenInfoSaved"
+                                                    style="display: none;">
+                                                    <i class="fe fe-check-circle"></i> Saved
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
-
-                                    <!-- Save Button for Children Info -->
-                                    <div class="card-footer bg-light">
-                                        <button type="button" class="btn btn-success" id="saveChildrenInfo" style="background-color: #006734; border-color: #006734;">
-                                            <i class="fe fe-save"></i> Save Children Information
-                                        </button>
-                                        <span class="ms-2 text-success" id="childrenInfoSaved" style="display: none;">
-                                            <i class="fe fe-check-circle"></i> Saved
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
                                 </div>
                                 <!-- End Children Tab -->
                             </div>
@@ -869,7 +957,8 @@
                                     Enrollment" will finalize the registration and generate the BOSCHMA ID. Make sure all
                                     sections are saved before proceeding.
                                 </div>
-                                <button type="submit" class="btn btn-primary btn-lg" id="finalSubmitBtn" style="background-color: #006734; border-color: #006734;">
+                                <button type="submit" class="btn btn-primary btn-lg" id="finalSubmitBtn"
+                                    style="background-color: #006734; border-color: #006734;">
                                     <i class="fe fe-check-circle"></i> Complete Enrollment & Generate BOSCHMA ID
                                 </button>
                                 <a href="{{ route('beneficiaries.index') }}" class="btn btn-light btn-lg">
@@ -1341,7 +1430,7 @@
 
                 if (unverifiedFields.length > 0) {
                     e.preventDefault();
-                    
+
                     Swal.fire({
                         icon: 'error',
                         title: 'NIN Verification Required',
@@ -1352,7 +1441,7 @@
                         confirmButtonColor: '#006734',
                         confirmButtonText: 'OK'
                     });
-                    
+
                     return false;
                 }
             });
@@ -1436,7 +1525,8 @@
                                     Swal.fire({
                                         icon: 'error',
                                         title: 'Loading Failed',
-                                        text: 'Error loading existing data: ' + (response.message ||
+                                        text: 'Error loading existing data: ' + (response
+                                            .message ||
                                             'Unknown error'),
                                         confirmButtonColor: '#006734'
                                     });
@@ -1659,13 +1749,13 @@
                 // IMPORTANT: Mark beneficiary NIN as verified (it was verified when originally saved)
                 if (beneficiary.nin && beneficiary.nin.length === 11) {
                     ninVerificationStatus['nin'] = true;
-                    
+
                     // Update UI to show verified
                     $('#nin').css('border-color', '#28a745');
                     $('#nin_feedback').html(
                         '<small class="text-success"><i class="fe fe-check-circle"></i> Previously verified</small>'
                     );
-                    
+
                     console.log('Beneficiary NIN marked as verified:', beneficiary.nin);
                 }
 
@@ -1696,13 +1786,13 @@
                     // IMPORTANT: Mark spouse NIN as verified (it was verified when originally saved)
                     if (spouse.nin && spouse.nin.length === 11) {
                         ninVerificationStatus['spouse_nin'] = true;
-                        
+
                         // Update UI to show verified
                         $('#spouse_nin').css('border-color', '#28a745');
                         $('#spouse_nin_feedback').html(
                             '<small class="text-success"><i class="fe fe-check-circle"></i> Previously verified</small>'
                         );
-                        
+
                         console.log('Spouse NIN marked as verified:', spouse.nin);
                     }
 
@@ -1738,7 +1828,7 @@
                             }
 
                             $(`input[name="child_date_of_birth_[${index}]"]`).val(child
-                            .dob);
+                                .dob);
                             $(`input[name="child_birth_certificate_no_[${index}]"]`).val(
                                 child
                                 .birth_certificate_no);
@@ -1748,14 +1838,15 @@
                             if (child.nin && child.nin.length === 11) {
                                 const childNinId = `child_nin_${index}`;
                                 ninVerificationStatus[childNinId] = true;
-                                
+
                                 // Update UI to show verified
                                 $(`#${childNinId}`).css('border-color', '#28a745');
                                 $(`#${childNinId}_feedback`).html(
                                     '<small class="text-success"><i class="fe fe-check-circle"></i> Previously verified</small>'
                                 );
-                                
-                                console.log(`Child ${index} NIN marked as verified:`, child.nin);
+
+                                console.log(`Child ${index} NIN marked as verified:`, child
+                                    .nin);
                             }
 
                             console.log(`Child ${index} data populated`);
@@ -1776,7 +1867,7 @@
                 // NOTE: NIN verification is NOT required for section saves
                 // Users can save progress even without NIN verification
                 // NIN verification is only enforced during final submission
-                
+
                 const btn = $(this);
                 const originalHtml = btn.html();
 
@@ -1798,7 +1889,7 @@
                             // Store beneficiary ID for future saves
                             $('#beneficiary_id').val(response.beneficiary_id);
                             $('#beneficiaryInfoSaved').fadeIn();
-                            
+
                             Swal.fire({
                                 icon: 'success',
                                 title: 'Saved!',
@@ -1851,7 +1942,7 @@
                         });
                         return false;
                     }
-                    
+
                     // Check if spouse NIN is duplicate with any child
                     let duplicateWithChild = false;
                     $('input[name^="child_nin_"]').each(function() {
@@ -1861,7 +1952,7 @@
                             return false; // break
                         }
                     });
-                    
+
                     if (duplicateWithChild) {
                         Swal.fire({
                             icon: 'error',
@@ -1892,7 +1983,7 @@
                     success: function(response) {
                         if (response.success) {
                             $('#spouseInfoSaved').fadeIn();
-                            
+
                             Swal.fire({
                                 icon: 'success',
                                 title: 'Saved!',
@@ -1937,37 +2028,41 @@
                 const childNins = [];
                 let hasDuplicate = false;
                 let duplicateMessage = '';
-                
+
                 $('input[name^="child_nin_"]').each(function(index) {
                     const childNin = $(this).val();
                     const childName = $(`input[name="child_name_[${index}]"]`).val();
-                    
-                    if (childNin && childNin.length === 11 && childName && childName.trim() !== '') {
+
+                    if (childNin && childNin.length === 11 && childName && childName.trim() !==
+                        '') {
                         // Check duplicate with beneficiary
                         if (childNin === beneficiaryNin) {
                             hasDuplicate = true;
-                            duplicateMessage = `Child ${index + 1} (${childName}) NIN cannot be the same as Beneficiary NIN!`;
+                            duplicateMessage =
+                                `Child ${index + 1} (${childName}) NIN cannot be the same as Beneficiary NIN!`;
                             return false; // break loop
                         }
-                        
+
                         // Check duplicate with spouse
                         if (childNin === spouseNin) {
                             hasDuplicate = true;
-                            duplicateMessage = `Child ${index + 1} (${childName}) NIN cannot be the same as Spouse NIN!`;
+                            duplicateMessage =
+                                `Child ${index + 1} (${childName}) NIN cannot be the same as Spouse NIN!`;
                             return false; // break loop
                         }
-                        
+
                         // Check duplicate with other children
                         if (childNins.includes(childNin)) {
                             hasDuplicate = true;
-                            duplicateMessage = `Child ${index + 1} (${childName}) NIN is already used by another child!`;
+                            duplicateMessage =
+                                `Child ${index + 1} (${childName}) NIN is already used by another child!`;
                             return false; // break loop
                         }
-                        
+
                         childNins.push(childNin);
                     }
                 });
-                
+
                 // If duplicate found, show error and stop
                 if (hasDuplicate) {
                     Swal.fire({
@@ -2003,7 +2098,7 @@
                     success: function(response) {
                         if (response.success) {
                             $('#childrenInfoSaved').fadeIn();
-                            
+
                             Swal.fire({
                                 icon: 'success',
                                 title: 'Saved!',
@@ -2069,7 +2164,7 @@
                 // Check beneficiary fields
                 for (const [fieldName, fieldLabel] of Object.entries(requiredBeneficiaryFields)) {
                     let value;
-                    
+
                     if (fieldName === 'gender' || fieldName === 'category') {
                         // Radio buttons
                         value = form.find(`input[name="${fieldName}"]:checked`).val();
@@ -2077,7 +2172,7 @@
                         // Text inputs and selects
                         value = form.find(`[name="${fieldName}"]`).val();
                     }
-                    
+
                     if (!value || value.trim() === '') {
                         missingFields.push(`Beneficiary: ${fieldLabel}`);
                     }
@@ -2096,13 +2191,13 @@
 
                     for (const [fieldName, fieldLabel] of Object.entries(requiredSpouseFields)) {
                         let value;
-                        
+
                         if (fieldName === 'spouse_gender') {
                             value = $(`input[name="${fieldName}"]:checked`).val();
                         } else {
                             value = $(`[name="${fieldName}"]`).val();
                         }
-                        
+
                         if (!value || value.trim() === '') {
                             missingFields.push(fieldLabel);
                         }
@@ -2113,62 +2208,67 @@
                 const hasChildren = $('#hasChildren').is(':checked');
                 if (hasChildren) {
                     const childNames = $('input[name^="child_name_"]');
-                    
+
                     childNames.each(function(index) {
                         const childName = $(this).val();
-                        
+
                         if (childName && childName.trim() !== '') {
                             const childNum = index + 1;
-                            
+
                             // Check gender
                             const gender = $(`input[name="child_gender_[${index}]"]:checked`).val();
                             if (!gender) {
                                 missingFields.push(`Child ${childNum}: Gender`);
                             }
-                            
+
                             // Check DOB
                             const dob = $(`input[name="child_date_of_birth_[${index}]"]`).val();
                             if (!dob || dob.trim() === '') {
                                 missingFields.push(`Child ${childNum}: Date of Birth`);
                             }
-                            
+
                             // CRITICAL: Check for photo
                             const photoInput = $(`input[name="child_photo_${index}"]`);
-                            const hasNewPhoto = photoInput[0] && photoInput[0].files && photoInput[0].files.length > 0;
-                            
+                            const hasNewPhoto = photoInput[0] && photoInput[0].files && photoInput[0].files
+                                .length > 0;
+
                             // Check if Dropify has existing file (for edit mode)
                             const dropifyPhoto = photoInput.data('dropify');
-                            const hasExistingPhoto = dropifyPhoto && dropifyPhoto.settings && dropifyPhoto.settings.defaultFile;
-                            
+                            const hasExistingPhoto = dropifyPhoto && dropifyPhoto.settings && dropifyPhoto
+                                .settings.defaultFile;
+
                             // Check if the wrapper has a preview (Dropify loaded state)
                             const hasPhotoPreview = photoInput.parent().find('.dropify-preview').length > 0;
-                            
+
                             if (!hasNewPhoto && !hasExistingPhoto && !hasPhotoPreview) {
                                 missingFields.push(`Child ${childNum}: Photo`);
                             }
-                            
+
                             // CRITICAL: Check for birth certificate
                             const birthCertInput = $(`input[name="child_birth_certificate_file_${index}"]`);
-                            const hasNewBirthCert = birthCertInput[0] && birthCertInput[0].files && birthCertInput[0].files.length > 0;
-                            
+                            const hasNewBirthCert = birthCertInput[0] && birthCertInput[0].files &&
+                                birthCertInput[0].files.length > 0;
+
                             // Check if Dropify has existing file (for edit mode)
                             const dropifyBirthCert = birthCertInput.data('dropify');
-                            const hasExistingBirthCert = dropifyBirthCert && dropifyBirthCert.settings && dropifyBirthCert.settings.defaultFile;
-                            
+                            const hasExistingBirthCert = dropifyBirthCert && dropifyBirthCert.settings &&
+                                dropifyBirthCert.settings.defaultFile;
+
                             // Check if the wrapper has a preview (Dropify loaded state)
-                            const hasBirthCertPreview = birthCertInput.parent().find('.dropify-preview').length > 0;
-                            
+                            const hasBirthCertPreview = birthCertInput.parent().find('.dropify-preview')
+                                .length > 0;
+
                             if (!hasNewBirthCert && !hasExistingBirthCert && !hasBirthCertPreview) {
                                 missingFields.push(`Child ${childNum}: Birth Certificate`);
                             }
                         }
                     });
-                    
+
                     // Check if at least one child is entered
-                    const hasAtLeastOneChild = Array.from(childNames).some(input => 
+                    const hasAtLeastOneChild = Array.from(childNames).some(input =>
                         $(input).val() && $(input).val().trim() !== ''
                     );
-                    
+
                     if (!hasAtLeastOneChild) {
                         missingFields.push('At least one child is required when "Has Children" is checked');
                     }

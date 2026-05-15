@@ -26,10 +26,11 @@
                                 <i class="ti ti-printer me-2"></i>
                                 Print
                             </button>
-                            <button onclick="exportAllData()" class="btn btn-success d-none d-sm-inline-block">
+                            <a href="{{ route('reports.enrollments.export') }}"
+                                class="btn btn-success d-none d-sm-inline-block">
                                 <i class="ti ti-download me-2"></i>
-                                Export
-                            </button>
+                                Export All
+                            </a>
                         </div>
                     </div>
                 </div>
@@ -65,7 +66,8 @@
                                 <div class="d-flex align-items-center">
                                     <div class="subheader text-muted fs-6">Active Enrollments</div>
                                 </div>
-                                <div class="h3 mb-2 text-green">{{ $enrollments_by_status->where('status', 'active')->sum('count') }}</div>
+                                <div class="h3 mb-2 text-green">
+                                    {{ $enrollments_by_status->where('status', 'active')->sum('count') }}</div>
                                 <div class="d-flex align-items-center">
                                     <div class="text-muted small">Currently active</div>
                                     <div class="ms-auto">
@@ -84,7 +86,8 @@
                                 <div class="d-flex align-items-center">
                                     <div class="subheader text-muted fs-6">Pending Review</div>
                                 </div>
-                                <div class="h3 mb-2 text-yellow">{{ $enrollments_by_status->where('status', 'pending')->sum('count') }}</div>
+                                <div class="h3 mb-2 text-yellow">
+                                    {{ $enrollments_by_status->where('status', 'pending')->sum('count') }}</div>
                                 <div class="d-flex align-items-center">
                                     <div class="text-muted small">Awaiting approval</div>
                                     <div class="ms-auto">
@@ -129,7 +132,8 @@
                                     <div class="text-muted">
                                         Show
                                         <div class="mx-2 d-inline-block">
-                                            <select class="form-select form-select-sm" onchange="updateTableDisplay(this.value)">
+                                            <select class="form-select form-select-sm"
+                                                onchange="updateTableDisplay(this.value)">
                                                 <option value="6">6 months</option>
                                                 <option value="12" selected>12 months</option>
                                                 <option value="24">24 months</option>
@@ -167,85 +171,100 @@
                                             $previousCount = 0;
                                         @endphp
                                         @forelse ($enrollments_by_month as $enrollment)
-                                        @php
-                                            $cumulative += $enrollment->count;
-                                            $growth = $previousCount > 0 ? (($enrollment->count - $previousCount) / $previousCount) * 100 : 0;
-                                            $previousCount = $enrollment->count;
-                                        @endphp
-                                        <tr>
-                                            <td>
-                                                <div class="d-flex py-1 align-items-center">
-                                                    <span class="avatar me-2 bg-primary text-white">
-                                                        {{ \Carbon\Carbon::createFromFormat('Y-m', $enrollment->month)->format('M') }}
-                                                    </span>
-                                                    <div class="flex-fill">
-                                                        <div class="font-weight-medium">{{ \Carbon\Carbon::createFromFormat('Y-m', $enrollment->month)->format('F Y') }}</div>
-                                                        <div class="text-muted">{{ $enrollment->month }}</div>
+                                            @php
+                                                $cumulative += $enrollment->count;
+                                                $growth =
+                                                    $previousCount > 0
+                                                        ? (($enrollment->count - $previousCount) / $previousCount) * 100
+                                                        : 0;
+                                                $previousCount = $enrollment->count;
+                                            @endphp
+                                            <tr>
+                                                <td>
+                                                    <div class="d-flex py-1 align-items-center">
+                                                        <span class="avatar me-2 bg-primary text-white">
+                                                            {{ \Carbon\Carbon::createFromFormat('Y-m', $enrollment->month)->format('M') }}
+                                                        </span>
+                                                        <div class="flex-fill">
+                                                            <div class="font-weight-medium">
+                                                                {{ \Carbon\Carbon::createFromFormat('Y-m', $enrollment->month)->format('F Y') }}
+                                                            </div>
+                                                            <div class="text-muted">{{ $enrollment->month }}</div>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <div class="d-flex align-items-center">
-                                                    <span class="text-green fw-bold">{{ number_format($enrollment->count) }}</span>
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <span class="text-blue fw-bold">{{ number_format($enrollment->beneficiaries ?? 0) }}</span>
-                                            </td>
-                                            <td>
-                                                <span class="text-purple fw-bold">{{ number_format($enrollment->spouses ?? 0) }}</span>
-                                            </td>
-                                            <td>
-                                                <span class="text-orange fw-bold">{{ number_format($enrollment->children ?? 0) }}</span>
-                                            </td>
-                                            <td>
-                                                @if ($growth > 10)
-                                                    <span class="badge bg-success text-white">
-                                                        <i class="ti ti-arrow-up me-1"></i>{{ number_format($growth, 1) }}%
-                                                    </span>
-                                                @elseif ($growth > 0)
-                                                    <span class="badge bg-primary text-white">
-                                                        <i class="ti ti-arrow-up me-1"></i>{{ number_format($growth, 1) }}%
-                                                    </span>
-                                                @elseif ($growth < -10)
-                                                    <span class="badge bg-danger text-white">
-                                                        <i class="ti ti-arrow-down me-1"></i>{{ number_format(abs($growth), 1) }}%
-                                                    </span>
-                                                @elseif ($growth < 0)
-                                                    <span class="badge bg-secondary text-white">
-                                                        <i class="ti ti-arrow-down me-1"></i>{{ number_format(abs($growth), 1) }}%
-                                                    </span>
-                                                @else
-                                                    <span class="badge bg-secondary text-white">
-                                                        <i class="ti ti-minus me-1"></i>0%
-                                                    </span>
-                                                @endif
-                                            </td>
-                                            <td>
-                                                <span class="text-primary fw-bold">{{ number_format($cumulative) }}</span>
-                                            </td>
-                                            <td>
-                                                @if ($enrollment->count > 50)
-                                                    <span class="badge bg-success text-white">
-                                                        {{ $enrollment->count }} : High</span>
-                                                @elseif ($enrollment->count > 25)
-                                                    <span class="badge bg-primary text-white">
-                                                        {{ $enrollment->count }} : Medium</span>
-                                                @elseif ($enrollment->count > 0)
-                                                    <span class="badge bg-warning text-dark">
-                                                        {{ $enrollment->count }} : Low</span>
-                                                @else
-                                                    <span class="badge bg-secondary text-white">Inactive</span>
-                                                @endif
-                                            </td>
-                                            <td>
-                                                <div class="btn-list flex-nowrap">
-                                                    <button onclick="exportMonthData('{{ $enrollment->month }}')" class="btn" title="Export Month Data">
-                                                        <i class="ti ti-download"></i>
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
+                                                </td>
+                                                <td>
+                                                    <div class="d-flex align-items-center">
+                                                        <span
+                                                            class="text-green fw-bold">{{ number_format($enrollment->count) }}</span>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <span
+                                                        class="text-blue fw-bold">{{ number_format($enrollment->beneficiaries ?? 0) }}</span>
+                                                </td>
+                                                <td>
+                                                    <span
+                                                        class="text-purple fw-bold">{{ number_format($enrollment->spouses ?? 0) }}</span>
+                                                </td>
+                                                <td>
+                                                    <span
+                                                        class="text-orange fw-bold">{{ number_format($enrollment->children ?? 0) }}</span>
+                                                </td>
+                                                <td>
+                                                    @if ($growth > 10)
+                                                        <span class="badge bg-success text-white">
+                                                            <i
+                                                                class="ti ti-arrow-up me-1"></i>{{ number_format($growth, 1) }}%
+                                                        </span>
+                                                    @elseif ($growth > 0)
+                                                        <span class="badge bg-primary text-white">
+                                                            <i
+                                                                class="ti ti-arrow-up me-1"></i>{{ number_format($growth, 1) }}%
+                                                        </span>
+                                                    @elseif ($growth < -10)
+                                                        <span class="badge bg-danger text-white">
+                                                            <i
+                                                                class="ti ti-arrow-down me-1"></i>{{ number_format(abs($growth), 1) }}%
+                                                        </span>
+                                                    @elseif ($growth < 0)
+                                                        <span class="badge bg-secondary text-white">
+                                                            <i
+                                                                class="ti ti-arrow-down me-1"></i>{{ number_format(abs($growth), 1) }}%
+                                                        </span>
+                                                    @else
+                                                        <span class="badge bg-secondary text-white">
+                                                            <i class="ti ti-minus me-1"></i>0%
+                                                        </span>
+                                                    @endif
+                                                </td>
+                                                <td>
+                                                    <span
+                                                        class="text-primary fw-bold">{{ number_format($cumulative) }}</span>
+                                                </td>
+                                                <td>
+                                                    @if ($enrollment->count > 50)
+                                                        <span class="badge bg-success text-white">
+                                                            {{ $enrollment->count }} : High</span>
+                                                    @elseif ($enrollment->count > 25)
+                                                        <span class="badge bg-primary text-white">
+                                                            {{ $enrollment->count }} : Medium</span>
+                                                    @elseif ($enrollment->count > 0)
+                                                        <span class="badge bg-warning text-dark">
+                                                            {{ $enrollment->count }} : Low</span>
+                                                    @else
+                                                        <span class="badge bg-secondary text-white">Inactive</span>
+                                                    @endif
+                                                </td>
+                                                <td>
+                                                    <div class="btn-list flex-nowrap">
+                                                        <a href="{{ route('reports.enrollments.export.month', $enrollment->month) }}"
+                                                            class="btn" title="Export Month Data">
+                                                            <i class="ti ti-download"></i>
+                                                        </a>
+                                                    </div>
+                                                </td>
+                                            </tr>
                                         @empty
                                             <tr>
                                                 <td colspan="9" class="text-center">No enrollment data found</td>
@@ -293,11 +312,13 @@
                                             </td>
                                             <td>
                                                 <div class="d-flex align-items-center">
-                                                    <span class="text-blue fw-bold">{{ number_format($total_beneficiaries) }}</span>
+                                                    <span
+                                                        class="text-blue fw-bold">{{ number_format($total_beneficiaries) }}</span>
                                                 </div>
                                             </td>
                                             <td>
-                                                <span class="text-muted">{{ $total_enrollments > 0 ? round(($total_beneficiaries / $total_enrollments) * 100, 1) : 0 }}%</span>
+                                                <span
+                                                    class="text-muted">{{ $total_enrollments > 0 ? round(($total_beneficiaries / $total_enrollments) * 100, 1) : 0 }}%</span>
                                             </td>
                                             <td>
                                                 <span class="text-green">{{ round($total_beneficiaries * 0.9) }}</span>
@@ -310,9 +331,10 @@
                                             </td>
                                             <td>
                                                 <div class="btn-list flex-nowrap">
-                                                    <button onclick="exportCategoryData('principals')" class="btn" title="Export Category Data">
+                                                    <a href="{{ route('reports.enrollments.export.category', 'principals') }}"
+                                                        class="btn" title="Export Principals Data">
                                                         <i class="ti ti-download"></i>
-                                                    </button>
+                                                    </a>
                                                 </div>
                                             </td>
                                         </tr>
@@ -330,11 +352,13 @@
                                             </td>
                                             <td>
                                                 <div class="d-flex align-items-center">
-                                                    <span class="text-green fw-bold">{{ number_format($total_spouses) }}</span>
+                                                    <span
+                                                        class="text-green fw-bold">{{ number_format($total_spouses) }}</span>
                                                 </div>
                                             </td>
                                             <td>
-                                                <span class="text-muted">{{ $total_enrollments > 0 ? round(($total_spouses / $total_enrollments) * 100, 1) : 0 }}%</span>
+                                                <span
+                                                    class="text-muted">{{ $total_enrollments > 0 ? round(($total_spouses / $total_enrollments) * 100, 1) : 0 }}%</span>
                                             </td>
                                             <td>
                                                 <span class="text-green">{{ round($total_spouses * 0.85) }}</span>
@@ -347,9 +371,10 @@
                                             </td>
                                             <td>
                                                 <div class="btn-list flex-nowrap">
-                                                    <button onclick="exportCategoryData('spouses')" class="btn" title="Export Category Data">
+                                                    <a href="{{ route('reports.enrollments.export.category', 'spouses') }}"
+                                                        class="btn" title="Export Spouses Data">
                                                         <i class="ti ti-download"></i>
-                                                    </button>
+                                                    </a>
                                                 </div>
                                             </td>
                                         </tr>
@@ -367,11 +392,13 @@
                                             </td>
                                             <td>
                                                 <div class="d-flex align-items-center">
-                                                    <span class="text-orange fw-bold">{{ number_format($total_children) }}</span>
+                                                    <span
+                                                        class="text-orange fw-bold">{{ number_format($total_children) }}</span>
                                                 </div>
                                             </td>
                                             <td>
-                                                <span class="text-muted">{{ $total_enrollments > 0 ? round(($total_children / $total_enrollments) * 100, 1) : 0 }}%</span>
+                                                <span
+                                                    class="text-muted">{{ $total_enrollments > 0 ? round(($total_children / $total_enrollments) * 100, 1) : 0 }}%</span>
                                             </td>
                                             <td>
                                                 <span class="text-green">{{ round($total_children * 0.95) }}</span>
@@ -384,9 +411,10 @@
                                             </td>
                                             <td>
                                                 <div class="btn-list flex-nowrap">
-                                                    <button onclick="exportCategoryData('children')" class="btn" title="Export Category Data">
+                                                    <a href="{{ route('reports.enrollments.export.category', 'children') }}"
+                                                        class="btn" title="Export Children Data">
                                                         <i class="ti ti-download"></i>
-                                                    </button>
+                                                    </a>
                                                 </div>
                                             </td>
                                         </tr>
@@ -420,54 +448,63 @@
                                     </thead>
                                     <tbody>
                                         @forelse ($enrollments_by_status as $status)
-                                        <tr>
-                                            <td>
-                                                <div class="d-flex py-1 align-items-center">
-                                                    <span class="avatar me-2 {{ $status->status == 'active' ? 'bg-success' : 'bg-warning' }} text-white">
-                                                        <i class="ti ti-{{ $status->status == 'active' ? 'check' : 'clock' }}"></i>
-                                                    </span>
-                                                    <div class="flex-fill">
-                                                        <div class="font-weight-medium">{{ ucfirst($status->status) }}</div>
-                                                        <div class="text-muted">{{ $status->status == 'active' ? 'Currently enrolled' : 'Awaiting approval' }}</div>
+                                            <tr>
+                                                <td>
+                                                    <div class="d-flex py-1 align-items-center">
+                                                        <span
+                                                            class="avatar me-2 {{ $status->status == 'active' ? 'bg-success' : 'bg-warning' }} text-white">
+                                                            <i
+                                                                class="ti ti-{{ $status->status == 'active' ? 'check' : 'clock' }}"></i>
+                                                        </span>
+                                                        <div class="flex-fill">
+                                                            <div class="font-weight-medium">{{ ucfirst($status->status) }}
+                                                            </div>
+                                                            <div class="text-muted">
+                                                                {{ $status->status == 'active' ? 'Currently enrolled' : 'Awaiting approval' }}
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <div class="d-flex align-items-center">
-                                                    <span class="{{ $status->status == 'active' ? 'text-green' : 'text-yellow' }} fw-bold">{{ number_format($status->count) }}</span>
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <span class="text-muted">{{ $total_enrollments > 0 ? round(($status->count / $total_enrollments) * 100, 1) : 0 }}%</span>
-                                            </td>
-                                            <td>
-                                                <span class="text-blue">{{ round($status->count * 0.6) }}</span>
-                                            </td>
-                                            <td>
-                                                <span class="text-green">{{ round($status->count * 0.25) }}</span>
-                                            </td>
-                                            <td>
-                                                <span class="text-orange">{{ round($status->count * 0.15) }}</span>
-                                            </td>
-                                            <td>
-                                                @if ($status->status == 'active')
-                                                    <span class="badge bg-success text-white">
-                                                        <i class="ti ti-arrow-up me-1"></i>Stable
-                                                    </span>
-                                                @else
-                                                    <span class="badge bg-warning text-dark">
-                                                        <i class="ti ti-clock me-1"></i>Processing
-                                                    </span>
-                                                @endif
-                                            </td>
-                                            <td>
-                                                <div class="btn-list flex-nowrap">
-                                                    <button onclick="exportStatusData('{{ $status->status }}')" class="btn" title="Export Status Data">
-                                                        <i class="ti ti-download"></i>
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
+                                                </td>
+                                                <td>
+                                                    <div class="d-flex align-items-center">
+                                                        <span
+                                                            class="{{ $status->status == 'active' ? 'text-green' : 'text-yellow' }} fw-bold">{{ number_format($status->count) }}</span>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <span
+                                                        class="text-muted">{{ $total_enrollments > 0 ? round(($status->count / $total_enrollments) * 100, 1) : 0 }}%</span>
+                                                </td>
+                                                <td>
+                                                    <span class="text-blue">{{ round($status->count * 0.6) }}</span>
+                                                </td>
+                                                <td>
+                                                    <span class="text-green">{{ round($status->count * 0.25) }}</span>
+                                                </td>
+                                                <td>
+                                                    <span class="text-orange">{{ round($status->count * 0.15) }}</span>
+                                                </td>
+                                                <td>
+                                                    @if ($status->status == 'active')
+                                                        <span class="badge bg-success text-white">
+                                                            <i class="ti ti-arrow-up me-1"></i>Stable
+                                                        </span>
+                                                    @else
+                                                        <span class="badge bg-warning text-dark">
+                                                            <i class="ti ti-clock me-1"></i>Processing
+                                                        </span>
+                                                    @endif
+                                                </td>
+                                                <td>
+                                                    <div class="btn-list flex-nowrap">
+                                                        <a href="{{ route('reports.enrollments.export.status', $status->status) }}"
+                                                            class="btn"
+                                                            title="Export {{ ucfirst($status->status) }} Data">
+                                                            <i class="ti ti-download"></i>
+                                                        </a>
+                                                    </div>
+                                                </td>
+                                            </tr>
                                         @empty
                                             <tr>
                                                 <td colspan="8" class="text-center">No status data found</td>
@@ -489,10 +526,10 @@
             document.addEventListener('DOMContentLoaded', function() {
                 // Initialize search functionality
                 initializeSearch();
-                
+
                 // Initialize tooltips for buttons
                 initializeTooltips();
-                
+
                 // Add loading states to export buttons
                 initializeExportButtons();
             });
@@ -541,7 +578,7 @@
             function updateTableDisplay(months) {
                 const rows = document.querySelectorAll('#monthlyTable tbody tr');
                 let visibleCount = 0;
-                
+
                 rows.forEach((row, index) => {
                     if (index < months) {
                         row.style.display = '';
@@ -587,7 +624,8 @@
                     showNotification(`Exporting ${category} data...`, 'info');
                     const csvContent = generateCategoryCSV(category);
                     downloadCSV(csvContent, `${category}_enrollments.csv`);
-                    showNotification(`${category.charAt(0).toUpperCase() + category.slice(1)} data exported successfully!`, 'success');
+                    showNotification(`${category.charAt(0).toUpperCase() + category.slice(1)} data exported successfully!`,
+                        'success');
                 } catch (error) {
                     showNotification('Error generating category export. Please try again.', 'error');
                     console.error('Category export error:', error);
@@ -600,7 +638,8 @@
                     showNotification(`Exporting ${status} enrollments...`, 'info');
                     const csvContent = generateStatusCSV(status);
                     downloadCSV(csvContent, `${status}_enrollments.csv`);
-                    showNotification(`${status.charAt(0).toUpperCase() + status.slice(1)} enrollments exported successfully!`, 'success');
+                    showNotification(`${status.charAt(0).toUpperCase() + status.slice(1)} enrollments exported successfully!`,
+                        'success');
                 } catch (error) {
                     showNotification('Error generating status export. Please try again.', 'error');
                     console.error('Status export error:', error);
@@ -627,7 +666,7 @@
                         const originalHTML = this.innerHTML;
                         this.innerHTML = '<i class="ti ti-loader-2 fa-spin"></i>';
                         this.disabled = true;
-                        
+
                         // Restore button after a short delay
                         setTimeout(() => {
                             this.innerHTML = originalHTML;
@@ -647,10 +686,10 @@
                     ${message}
                     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 `;
-                
+
                 // Add to page
                 document.body.appendChild(notification);
-                
+
                 // Auto-remove after 3 seconds
                 setTimeout(() => {
                     if (notification.parentNode) {
@@ -663,12 +702,24 @@
             function generateAllDataCSV() {
                 const headers = ['Category', 'Total Count', 'Percentage', 'Active', 'Pending'];
                 const data = [
-                    ['Total Enrollments', {{ $total_enrollments }}, '100%', '{{ $enrollments_by_status->where('status', 'active')->sum('count') }}', '{{ $enrollments_by_status->where('status', 'pending')->sum('count') }}'],
-                    ['Principals', {{ $total_beneficiaries }}, '{{ $total_enrollments > 0 ? round(($total_beneficiaries / $total_enrollments) * 100, 1) : 0 }}%', '{{ round($total_beneficiaries * 0.9) }}', '{{ round($total_beneficiaries * 0.1) }}'],
-                    ['Spouses', {{ $total_spouses }}, '{{ $total_enrollments > 0 ? round(($total_spouses / $total_enrollments) * 100, 1) : 0 }}%', '{{ round($total_spouses * 0.85) }}', '{{ round($total_spouses * 0.15) }}'],
-                    ['Children', {{ $total_children }}, '{{ $total_enrollments > 0 ? round(($total_children / $total_enrollments) * 100, 1) : 0 }}%', '{{ round($total_children * 0.95) }}', '{{ round($total_children * 0.05) }}']
+                    ['Total Enrollments', {{ $total_enrollments }}, '100%',
+                        '{{ $enrollments_by_status->where('status', 'active')->sum('count') }}',
+                        '{{ $enrollments_by_status->where('status', 'pending')->sum('count') }}'
+                    ],
+                    ['Principals', {{ $total_beneficiaries }},
+                        '{{ $total_enrollments > 0 ? round(($total_beneficiaries / $total_enrollments) * 100, 1) : 0 }}%',
+                        '{{ round($total_beneficiaries * 0.9) }}', '{{ round($total_beneficiaries * 0.1) }}'
+                    ],
+                    ['Spouses', {{ $total_spouses }},
+                        '{{ $total_enrollments > 0 ? round(($total_spouses / $total_enrollments) * 100, 1) : 0 }}%',
+                        '{{ round($total_spouses * 0.85) }}', '{{ round($total_spouses * 0.15) }}'
+                    ],
+                    ['Children', {{ $total_children }},
+                        '{{ $total_enrollments > 0 ? round(($total_children / $total_enrollments) * 100, 1) : 0 }}%',
+                        '{{ round($total_children * 0.95) }}', '{{ round($total_children * 0.05) }}'
+                    ]
                 ];
-                
+
                 return [headers, ...data].map(row => row.join(',')).join('\n');
             }
 
@@ -677,14 +728,16 @@
                 const headers = ['Month', 'Total', 'Principals', 'Spouses', 'Children'];
                 // Find the specific month data
                 const monthData = {{ json_encode($enrollments_by_month->toArray()) }}.find(item => item.month === month);
-                
+
                 if (monthData) {
                     const data = [
-                        [month, monthData.count, monthData.beneficiaries || 0, monthData.spouses || 0, monthData.children || 0]
+                        [month, monthData.count, monthData.beneficiaries || 0, monthData.spouses || 0, monthData.children ||
+                            0
+                        ]
                     ];
                     return [headers, ...data].map(row => row.join(',')).join('\n');
                 }
-                
+
                 return headers.join(',') + '\nNo data found';
             }
 
@@ -692,15 +745,27 @@
             function generateCategoryCSV(category) {
                 const headers = ['Category', 'Count', 'Percentage'];
                 let data = [];
-                
+
                 if (category === 'principals') {
-                    data = [['Principals', {{ $total_beneficiaries }}, '{{ $total_enrollments > 0 ? round(($total_beneficiaries / $total_enrollments) * 100, 1) : 0 }}%']];
+                    data = [
+                        ['Principals', {{ $total_beneficiaries }},
+                            '{{ $total_enrollments > 0 ? round(($total_beneficiaries / $total_enrollments) * 100, 1) : 0 }}%'
+                        ]
+                    ];
                 } else if (category === 'spouses') {
-                    data = [['Spouses', {{ $total_spouses }}, '{{ $total_enrollments > 0 ? round(($total_spouses / $total_enrollments) * 100, 1) : 0 }}%']];
+                    data = [
+                        ['Spouses', {{ $total_spouses }},
+                            '{{ $total_enrollments > 0 ? round(($total_spouses / $total_enrollments) * 100, 1) : 0 }}%'
+                        ]
+                    ];
                 } else if (category === 'children') {
-                    data = [['Children', {{ $total_children }}, '{{ $total_enrollments > 0 ? round(($total_children / $total_enrollments) * 100, 1) : 0 }}%']];
+                    data = [
+                        ['Children', {{ $total_children }},
+                            '{{ $total_enrollments > 0 ? round(($total_children / $total_enrollments) * 100, 1) : 0 }}%'
+                        ]
+                    ];
                 }
-                
+
                 return [headers, ...data].map(row => row.join(',')).join('\n');
             }
 
@@ -709,19 +774,24 @@
                 const headers = ['Status', 'Count', 'Percentage'];
                 const statusData = {{ json_encode($enrollments_by_status->toArray()) }}.find(item => item.status === status);
                 const totalEnrollments = {{ $total_enrollments }};
-                
+
                 if (statusData) {
-                    const percentage = totalEnrollments > 0 ? Math.round((statusData.count / totalEnrollments) * 100 * 10) / 10 : 0;
-                    const data = [[status, statusData.count, percentage + '%']];
+                    const percentage = totalEnrollments > 0 ? Math.round((statusData.count / totalEnrollments) * 100 * 10) /
+                        10 : 0;
+                    const data = [
+                        [status, statusData.count, percentage + '%']
+                    ];
                     return [headers, ...data].map(row => row.join(',')).join('\n');
                 }
-                
+
                 return headers.join(',') + '\nNo data found';
             }
 
             // Download CSV file
             function downloadCSV(content, filename) {
-                const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+                const blob = new Blob([content], {
+                    type: 'text/csv;charset=utf-8;'
+                });
                 const link = document.createElement('a');
                 const url = URL.createObjectURL(blob);
                 link.setAttribute('href', url);

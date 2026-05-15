@@ -1,0 +1,814 @@
+@extends('layouts.app')
+
+@section('title', 'View Claim - ' . $claim->authorization_code)
+
+@section('content')
+    <div class="page-header d-print-none">
+        <div class="container-xl">
+            <div class="row g-2 align-items-center">
+                <div class="col">
+                    <div class="d-flex align-items-center mb-2">
+                        <a href="{{ route('claims.index') }}" class="btn btn-sm btn-ghost-secondary me-2">
+                            <i class="ti ti-arrow-left"></i>
+                        </a>
+                        <div>
+                            <h2 class="page-title mb-0">View Claim</h2>
+                            <div class="text-muted small">Authorization code: {{ $claim->authorization_code }}</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-auto ms-auto d-print-none">
+                    <div class="btn-list">
+                        <a href="{{ route('claims.print', $claim->id) }}" class="btn btn-outline-secondary" target="_blank">
+                            <i class="ti ti-printer me-1"></i>Print
+                        </a>
+                        <a href="{{ route('claims.download', $claim->id) }}" class="btn btn-outline-primary"
+                            target="_blank">
+                            <i class="ti ti-download me-1"></i>Download
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="page-body">
+        <div class="container-xl">
+
+            <!-- Beneficiary Information Card -->
+            <div class="card mb-3">
+                <div class="card-header bg-light">
+                    <h3 class="card-title mb-0">Beneficiary Information</h3>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label text-muted small">Healthcare Provider</label>
+                            <div class="fw-semibold">{{ $claim->healthcare_provider }}</div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label text-muted small">Beneficiary Name</label>
+                            <div class="fw-semibold">{{ $claim->beneficiary_name }}</div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label text-muted small">Sex</label>
+                            <div class="fw-semibold">{{ $claim->gender ?? 'N/A' }}</div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label text-muted small">Referred to</label>
+                            <div class="fw-semibold">{{ $claim->referred_to ?? 'N/A' }}</div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label text-muted small">Date of Discharge</label>
+                            <div class="fw-semibold">
+                                {{ $claim->service_date ? $claim->service_date->format('Y-m-d') : 'N/A' }}</div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label text-muted small">Diagnosis</label>
+                            <div class="fw-semibold">{{ $claim->diagnosis ?? 'N/A' }}</div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label text-muted small">Customer Approval</label>
+                            <div class="fw-semibold">
+                                {{ $claim->claim_amount ? '₦' . number_format($claim->claim_amount, 2) : 'N/A' }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Medications Section -->
+            <div class="card mb-3">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h3 class="card-title mb-0">Medications</h3>
+                    <button type="button" class="btn btn-success btn-sm" onclick="addMedication()">
+                        <i class="ti ti-plus me-1"></i>Add Medication
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    @if ($claim->medications && $claim->medications->count() > 0)
+                        <div class="table-responsive">
+                            <table class="table table-vcenter card-table table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Cost</th>
+                                        <th>Frequency</th>
+                                        <th>Days</th>
+                                        <th>Claimed</th>
+                                        <th class="w-1"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach ($claim->medications as $medication)
+                                        <tr>
+                                            <td>{{ $medication->medication_name }}</td>
+                                            <td>₦{{ number_format($medication->cost, 2) }}</td>
+                                            <td>{{ $medication->frequency }}</td>
+                                            <td>{{ $medication->days }}</td>
+                                            <td class="fw-bold">₦{{ number_format($medication->claimed_amount, 2) }}</td>
+                                            <td>
+                                                <div class="btn-list">
+                                                    <button class="btn btn-sm btn-icon btn-success"
+                                                        onclick="editMedication({{ $medication->id }})" title="Edit">
+                                                        <i class="ti ti-edit"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-icon btn-danger"
+                                                        onclick="deleteMedication({{ $medication->id }})" title="Delete">
+                                                        <i class="ti ti-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                                <tfoot>
+                                    <tr class="bg-light">
+                                        <td colspan="4" class="text-end fw-bold">Sum:</td>
+                                        <td class="fw-bold">
+                                            ₦{{ number_format($claim->medications->sum('claimed_amount'), 2) }}</td>
+                                        <td></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    @else
+                        <div class="empty py-5">
+                            <div class="empty-icon">
+                                <i class="ti ti-pills fs-1 text-muted"></i>
+                            </div>
+                            <p class="empty-title">No medications</p>
+                            <p class="empty-subtitle text-muted">Click "Add Medication" to add medication entries</p>
+                        </div>
+                    @endif
+                </div>
+            </div>
+
+            <!-- Laboratory Section -->
+            <div class="card mb-3">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h3 class="card-title mb-0">Laboratory</h3>
+                    <button type="button" class="btn btn-success btn-sm" onclick="addLaboratory()">
+                        <i class="ti ti-plus me-1"></i>Add Laboratory Test
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    @if ($claim->laboratoryTests && $claim->laboratoryTests->count() > 0)
+                        <div class="table-responsive">
+                            <table class="table table-vcenter card-table table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Cost</th>
+                                        <th>Frequency</th>
+                                        <th>Claimed</th>
+                                        <th class="w-1"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach ($claim->laboratoryTests as $test)
+                                        <tr>
+                                            <td>{{ $test->test_name }}</td>
+                                            <td>₦{{ number_format($test->cost, 2) }}</td>
+                                            <td>{{ $test->frequency }}</td>
+                                            <td class="fw-bold">₦{{ number_format($test->claimed_amount, 2) }}</td>
+                                            <td>
+                                                <div class="btn-list">
+                                                    <button class="btn btn-sm btn-icon btn-success"
+                                                        onclick="editLaboratory({{ $test->id }})" title="Edit">
+                                                        <i class="ti ti-edit"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-icon btn-danger"
+                                                        onclick="deleteLaboratory({{ $test->id }})" title="Delete">
+                                                        <i class="ti ti-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                                <tfoot>
+                                    <tr class="bg-light">
+                                        <td colspan="3" class="text-end fw-bold">Sum:</td>
+                                        <td class="fw-bold">
+                                            ₦{{ number_format($claim->laboratoryTests->sum('claimed_amount'), 2) }}</td>
+                                        <td></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    @else
+                        <div class="empty py-5">
+                            <div class="empty-icon">
+                                <i class="ti ti-flask fs-1 text-muted"></i>
+                            </div>
+                            <p class="empty-title">No laboratory tests</p>
+                            <p class="empty-subtitle text-muted">Click "Add Laboratory Test" to add test entries</p>
+                        </div>
+                    @endif
+                </div>
+            </div>
+
+            <!-- Rendered Service Section -->
+            <div class="card mb-3">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h3 class="card-title mb-0">Rendered Service</h3>
+                    <button type="button" class="btn btn-success btn-sm" onclick="addService()">
+                        <i class="ti ti-plus me-1"></i>Add Rendered Service
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    @if ($claim->renderedServices && $claim->renderedServices->count() > 0)
+                        <div class="table-responsive">
+                            <table class="table table-vcenter card-table table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Cost</th>
+                                        <th>Frequency</th>
+                                        <th>Claimed</th>
+                                        <th class="w-1"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach ($claim->renderedServices as $service)
+                                        <tr>
+                                            <td>{{ $service->service_name }}</td>
+                                            <td>₦{{ number_format($service->cost, 2) }}</td>
+                                            <td>{{ $service->frequency }}</td>
+                                            <td class="fw-bold">₦{{ number_format($service->claimed_amount, 2) }}</td>
+                                            <td>
+                                                <div class="btn-list">
+                                                    <button class="btn btn-sm btn-icon btn-success"
+                                                        onclick="editService({{ $service->id }})" title="Edit">
+                                                        <i class="ti ti-edit"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-icon btn-danger"
+                                                        onclick="deleteService({{ $service->id }})" title="Delete">
+                                                        <i class="ti ti-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                                <tfoot>
+                                    <tr class="bg-light">
+                                        <td colspan="3" class="text-end fw-bold">Sum:</td>
+                                        <td class="fw-bold">
+                                            ₦{{ number_format($claim->renderedServices->sum('claimed_amount'), 2) }}</td>
+                                        <td></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    @else
+                        <div class="empty py-5">
+                            <div class="empty-icon">
+                                <i class="ti ti-stethoscope fs-1 text-muted"></i>
+                            </div>
+                            <p class="empty-title">No rendered services</p>
+                            <p class="empty-subtitle text-muted">Click "Add Rendered Service" to add service entries</p>
+                        </div>
+                    @endif
+                </div>
+            </div>
+
+            <!-- Grand Total -->
+            <div class="card mb-3 border-primary">
+                <div class="card-body bg-primary-lt">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <h3 class="mb-0">Grand Total</h3>
+                        </div>
+                        <div class="col-auto">
+                            <h2 class="mb-0 text-primary">₦{{ number_format($claim->calculateTotalAmount(), 2) }}</h2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Operation Sheet Section -->
+            <div class="card mb-3">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h3 class="card-title mb-0">Operation Sheet</h3>
+                    <button type="button" class="btn btn-success btn-sm" onclick="uploadOperationSheet()">
+                        <i class="ti ti-upload me-1"></i>Add Operation Sheet
+                    </button>
+                </div>
+                <div class="card-body">
+                    @if ($claim->documents && $claim->documents->where('document_type', 'operation_sheet')->count() > 0)
+                        <div class="list-group list-group-flush">
+                            @foreach ($claim->documents->where('document_type', 'operation_sheet') as $document)
+                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <i class="ti ti-file-text me-2"></i>
+                                        <strong>{{ $document->document_name }}</strong>
+                                        <span class="text-muted ms-2">({{ $document->formatted_file_size }})</span>
+                                    </div>
+                                    <div class="btn-list">
+                                        <a href="{{ $document->file_url }}" class="btn btn-sm btn-primary"
+                                            target="_blank">
+                                            <i class="ti ti-eye me-1"></i>View
+                                        </a>
+                                        <button class="btn btn-sm btn-danger"
+                                            onclick="deleteDocument({{ $document->id }})">
+                                            <i class="ti ti-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @else
+                        <div class="empty py-4">
+                            <p class="text-center text-muted mb-0">No operation sheets uploaded</p>
+                        </div>
+                    @endif
+                </div>
+            </div>
+
+            <!-- Prescription Sheet Section -->
+            <div class="card mb-3">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h3 class="card-title mb-0">Prescription Sheet</h3>
+                    <button type="button" class="btn btn-success btn-sm" onclick="uploadPrescriptionSheet()">
+                        <i class="ti ti-upload me-1"></i>Add Prescription Sheet
+                    </button>
+                </div>
+                <div class="card-body">
+                    @if ($claim->documents && $claim->documents->where('document_type', 'prescription_sheet')->count() > 0)
+                        <div class="list-group list-group-flush">
+                            @foreach ($claim->documents->where('document_type', 'prescription_sheet') as $document)
+                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <i class="ti ti-file-text me-2"></i>
+                                        <strong>{{ $document->document_name }}</strong>
+                                        <span class="text-muted ms-2">({{ $document->formatted_file_size }})</span>
+                                    </div>
+                                    <div class="btn-list">
+                                        <a href="{{ $document->file_url }}" class="btn btn-sm btn-primary"
+                                            target="_blank">
+                                            <i class="ti ti-eye me-1"></i>View
+                                        </a>
+                                        <button class="btn btn-sm btn-danger"
+                                            onclick="deleteDocument({{ $document->id }})">
+                                            <i class="ti ti-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @else
+                        <div class="empty py-4">
+                            <p class="text-center text-muted mb-0">No prescription sheets uploaded</p>
+                        </div>
+                    @endif
+                </div>
+            </div>
+
+            <!-- Actions Card -->
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <span
+                                class="badge bg-{{ $claim->status === 'pending' ? 'warning' : ($claim->status === 'approved' ? 'success' : ($claim->status === 'rejected' ? 'danger' : 'info')) }} me-2">
+                                {{ ucfirst($claim->status) }}
+                            </span>
+                            @if ($claim->ro_status)
+                                <span class="badge bg-{{ $claim->ro_status === 'approved' ? 'success' : 'danger' }} me-2">
+                                    RO: {{ ucfirst($claim->ro_status) }}
+                                </span>
+                            @endif
+                            @if ($claim->e5_status)
+                                <span class="badge bg-{{ $claim->e5_status === 'approved' ? 'success' : 'danger' }}">
+                                    E5: {{ ucfirst($claim->e5_status) }}
+                                </span>
+                            @endif
+                        </div>
+                        <div class="btn-list">
+                            <button type="button" class="btn btn-success" onclick="verifyClaim()">
+                                <i class="ti ti-check me-1"></i>Verify
+                            </button>
+                            <button type="button" class="btn btn-danger" onclick="rejectClaim()">
+                                <i class="ti ti-x me-1"></i>Reject
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Add/Edit Medication Modal -->
+    <div class="modal modal-blur fade" id="medicationModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form id="medicationForm">
+                    @csrf
+                    <input type="hidden" name="medication_id" id="medication_id">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="medicationModalLabel">Add Medication</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label required">Medication Name</label>
+                            <input type="text" class="form-control" name="medication_name" id="medication_name"
+                                required>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label required">Cost</label>
+                                <input type="number" class="form-control" name="cost" id="medication_cost"
+                                    step="0.01" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label required">Frequency</label>
+                                <input type="number" class="form-control" name="frequency" id="medication_frequency"
+                                    min="1" value="1" required>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label required">Days</label>
+                            <input type="number" class="form-control" name="days" id="medication_days"
+                                min="1" value="1" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Claimed Amount (Auto-calculated)</label>
+                            <input type="text" class="form-control" id="medication_claimed" readonly>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Laboratory Modal -->
+    <div class="modal modal-blur fade" id="laboratoryModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form id="laboratoryForm">
+                    @csrf
+                    <input type="hidden" name="test_id" id="test_id">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="laboratoryModalLabel">Add Laboratory Test</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label required">Test Name</label>
+                            <input type="text" class="form-control" name="test_name" id="test_name" required>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label required">Cost</label>
+                                <input type="number" class="form-control" name="cost" id="test_cost" step="0.01"
+                                    required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label required">Frequency</label>
+                                <input type="number" class="form-control" name="frequency" id="test_frequency"
+                                    min="1" value="1" required>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Claimed Amount (Auto-calculated)</label>
+                            <input type="text" class="form-control" id="test_claimed" readonly>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Service Modal -->
+    <div class="modal modal-blur fade" id="serviceModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form id="serviceForm">
+                    @csrf
+                    <input type="hidden" name="service_id" id="service_id">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="serviceModalLabel">Add Rendered Service</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label required">Service Name</label>
+                            <input type="text" class="form-control" name="service_name" id="service_name" required>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label required">Cost</label>
+                                <input type="number" class="form-control" name="cost" id="service_cost"
+                                    step="0.01" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label required">Frequency</label>
+                                <input type="number" class="form-control" name="frequency" id="service_frequency"
+                                    min="1" value="1" required>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Claimed Amount (Auto-calculated)</label>
+                            <input type="text" class="form-control" id="service_claimed" readonly>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+@endsection
+
+@push('scripts')
+    <script>
+        $(document).ready(function() {
+            // Auto-calculate medication claimed amount
+            $('#medication_cost, #medication_frequency, #medication_days').on('input', function() {
+                const cost = parseFloat($('#medication_cost').val()) || 0;
+                const frequency = parseInt($('#medication_frequency').val()) || 0;
+                const days = parseInt($('#medication_days').val()) || 0;
+                const claimed = cost * frequency * days;
+                $('#medication_claimed').val('₦' + claimed.toFixed(2));
+            });
+
+            // Auto-calculate laboratory claimed amount
+            $('#test_cost, #test_frequency').on('input', function() {
+                const cost = parseFloat($('#test_cost').val()) || 0;
+                const frequency = parseInt($('#test_frequency').val()) || 0;
+                const claimed = cost * frequency;
+                $('#test_claimed').val('₦' + claimed.toFixed(2));
+            });
+
+            // Auto-calculate service claimed amount
+            $('#service_cost, #service_frequency').on('input', function() {
+                const cost = parseFloat($('#service_cost').val()) || 0;
+                const frequency = parseInt($('#service_frequency').val()) || 0;
+                const claimed = cost * frequency;
+                $('#service_claimed').val('₦' + claimed.toFixed(2));
+            });
+
+            // Medication form submission
+            $('#medicationForm').on('submit', function(e) {
+                e.preventDefault();
+                const formData = $(this).serialize();
+                const medicationId = $('#medication_id').val();
+                const url = medicationId ? `/claims/{{ $claim->id }}/medications/${medicationId}` :
+                    '/claims/{{ $claim->id }}/medications';
+                const method = medicationId ? 'PUT' : 'POST';
+
+                $.ajax({
+                    url: url,
+                    method: method,
+                    data: formData,
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    success: function(response) {
+                        $('#medicationModal').modal('hide');
+                        location.reload();
+                    },
+                    error: function(xhr) {
+                        alert('Error: ' + (xhr.responseJSON?.message || 'An error occurred'));
+                    }
+                });
+            });
+
+            // Laboratory form submission
+            $('#laboratoryForm').on('submit', function(e) {
+                e.preventDefault();
+                const formData = $(this).serialize();
+                const testId = $('#test_id').val();
+                const url = testId ? `/claims/{{ $claim->id }}/laboratory/${testId}` :
+                    '/claims/{{ $claim->id }}/laboratory';
+                const method = testId ? 'PUT' : 'POST';
+
+                $.ajax({
+                    url: url,
+                    method: method,
+                    data: formData,
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    success: function(response) {
+                        $('#laboratoryModal').modal('hide');
+                        location.reload();
+                    },
+                    error: function(xhr) {
+                        alert('Error: ' + (xhr.responseJSON?.message || 'An error occurred'));
+                    }
+                });
+            });
+
+            // Service form submission
+            $('#serviceForm').on('submit', function(e) {
+                e.preventDefault();
+                const formData = $(this).serialize();
+                const serviceId = $('#service_id').val();
+                const url = serviceId ? `/claims/{{ $claim->id }}/services/${serviceId}` :
+                    '/claims/{{ $claim->id }}/services';
+                const method = serviceId ? 'PUT' : 'POST';
+
+                $.ajax({
+                    url: url,
+                    method: method,
+                    data: formData,
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    success: function(response) {
+                        $('#serviceModal').modal('hide');
+                        location.reload();
+                    },
+                    error: function(xhr) {
+                        alert('Error: ' + (xhr.responseJSON?.message || 'An error occurred'));
+                    }
+                });
+            });
+        });
+
+        function addMedication() {
+            $('#medicationModalLabel').text('Add Medication');
+            $('#medicationForm')[0].reset();
+            $('#medication_id').val('');
+            $('#medicationModal').modal('show');
+        }
+
+        function editMedication(id) {
+            // Fetch medication data and populate form
+            $.ajax({
+                url: `/claims/{{ $claim->id }}/medications/${id}`,
+                method: 'GET',
+                success: function(data) {
+                    $('#medicationModalLabel').text('Edit Medication');
+                    $('#medication_id').val(data.id);
+                    $('#medication_name').val(data.medication_name);
+                    $('#medication_cost').val(data.cost);
+                    $('#medication_frequency').val(data.frequency);
+                    $('#medication_days').val(data.days);
+                    $('#medication_claimed').val('₦' + parseFloat(data.claimed_amount).toFixed(2));
+                    $('#medicationModal').modal('show');
+                }
+            });
+        }
+
+        function deleteMedication(id) {
+            if (confirm('Are you sure you want to delete this medication?')) {
+                $.ajax({
+                    url: `/claims/{{ $claim->id }}/medications/${id}`,
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    success: function() {
+                        location.reload();
+                    }
+                });
+            }
+        }
+
+        function addLaboratory() {
+            $('#laboratoryModalLabel').text('Add Laboratory Test');
+            $('#laboratoryForm')[0].reset();
+            $('#test_id').val('');
+            $('#laboratoryModal').modal('show');
+        }
+
+        function editLaboratory(id) {
+            $.ajax({
+                url: `/claims/{{ $claim->id }}/laboratory/${id}`,
+                method: 'GET',
+                success: function(data) {
+                    $('#laboratoryModalLabel').text('Edit Laboratory Test');
+                    $('#test_id').val(data.id);
+                    $('#test_name').val(data.test_name);
+                    $('#test_cost').val(data.cost);
+                    $('#test_frequency').val(data.frequency);
+                    $('#test_claimed').val('₦' + parseFloat(data.claimed_amount).toFixed(2));
+                    $('#laboratoryModal').modal('show');
+                }
+            });
+        }
+
+        function deleteLaboratory(id) {
+            if (confirm('Are you sure you want to delete this laboratory test?')) {
+                $.ajax({
+                    url: `/claims/{{ $claim->id }}/laboratory/${id}`,
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    success: function() {
+                        location.reload();
+                    }
+                });
+            }
+        }
+
+        function addService() {
+            $('#serviceModalLabel').text('Add Rendered Service');
+            $('#serviceForm')[0].reset();
+            $('#service_id').val('');
+            $('#serviceModal').modal('show');
+        }
+
+        function editService(id) {
+            $.ajax({
+                url: `/claims/{{ $claim->id }}/services/${id}`,
+                method: 'GET',
+                success: function(data) {
+                    $('#serviceModalLabel').text('Edit Rendered Service');
+                    $('#service_id').val(data.id);
+                    $('#service_name').val(data.service_name);
+                    $('#service_cost').val(data.cost);
+                    $('#service_frequency').val(data.frequency);
+                    $('#service_claimed').val('₦' + parseFloat(data.claimed_amount).toFixed(2));
+                    $('#serviceModal').modal('show');
+                }
+            });
+        }
+
+        function deleteService(id) {
+            if (confirm('Are you sure you want to delete this service?')) {
+                $.ajax({
+                    url: `/claims/{{ $claim->id }}/services/${id}`,
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    success: function() {
+                        location.reload();
+                    }
+                });
+            }
+        }
+
+        function uploadOperationSheet() {
+            // Implement file upload functionality
+            alert('File upload feature will be implemented');
+        }
+
+        function uploadPrescriptionSheet() {
+            // Implement file upload functionality
+            alert('File upload feature will be implemented');
+        }
+
+        function deleteDocument(id) {
+            if (confirm('Are you sure you want to delete this document?')) {
+                $.ajax({
+                    url: `/claims/{{ $claim->id }}/documents/${id}`,
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    success: function() {
+                        location.reload();
+                    }
+                });
+            }
+        }
+
+        function verifyClaim() {
+            if (confirm('Are you sure you want to verify and approve this claim?')) {
+                window.location.href = '{{ route('claims.approve', $claim->id) }}';
+            }
+        }
+
+        function rejectClaim() {
+            const reason = prompt('Please enter rejection reason:');
+            if (reason) {
+                $.ajax({
+                    url: '{{ route('claims.reject', $claim->id) }}',
+                    method: 'POST',
+                    data: {
+                        rejection_reason: reason
+                    },
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    success: function() {
+                        location.reload();
+                    }
+                });
+            }
+        }
+    </script>
+@endpush

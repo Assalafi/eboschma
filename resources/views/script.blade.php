@@ -36,6 +36,13 @@
 <script src="{{ url('assets/plugins/datatable/responsive.bootstrap5.min.js') }}"></script>
 <script src="{{ url('assets/js/table-data.js') }}"></script>
 
+<!-- Bootstrap Datepicker -->
+<script src="{{ url('assets/plugins/bootstrap-datepicker/bootstrap-datepicker.js') }}"></script>
+
+<!-- Date Range Picker -->
+<script src="{{ url('assets/plugins/bootstrap-daterangepicker/moment.min.js') }}"></script>
+<script src="{{ url('assets/plugins/bootstrap-daterangepicker/daterangepicker.js') }}"></script>
+
 <!-- Form elements js -->
 <script src="{{ url('assets/js/advanced-form-elements.js') }}"></script>
 <script src="{{ url('assets/plugins/select2/js/select2.min.js') }}"></script>
@@ -85,10 +92,10 @@
         $('.dropify-create').dropify();
 
         // Reinitialize Dropify for modal forms
-        $('.modal').on('shown.bs.modal', function () {
+        $('.modal').on('shown.bs.modal', function() {
             $(this).find('.dropify-edit').dropify();
         });
-        
+
         // Processing buttons with spinners
         const buttons = document.querySelectorAll('.process-button');
 
@@ -118,18 +125,25 @@
                 }
             });
         });
-        
+
         // Initialize datepickers for enrollment forms
-        $('.enrollment-date').datepicker({
-            format: 'yyyy-mm-dd',
-            autoclose: true
-        });
+        if (typeof $.fn.datepicker === 'function') {
+            $('.enrollment-date').datepicker({
+                format: 'yyyy-mm-dd',
+                autoclose: true
+            });
+        }
+
+        // Initialize daterangepicker
+        if (typeof $.fn.daterangepicker === 'function') {
+            $('#reservation').daterangepicker();
+        }
     });
 
     // Select2 initialization for dropdowns
-    $(document).ready(function () {
+    $(document).ready(function() {
         // Initialize Select2 after modal is shown
-        $('#createModal, #editModal').on('shown.bs.modal', function () {
+        $('#createModal, #editModal').on('shown.bs.modal', function() {
             $('.select2').select2({
                 placeholder: 'Choose one',
                 searchInputPlaceholder: 'Search',
@@ -137,14 +151,14 @@
                 dropdownParent: $(this)
             });
         });
-        
+
         // Initialize Select2 for page load
         $('.select2-page').select2({
             placeholder: 'Choose one',
             searchInputPlaceholder: 'Search',
             width: '100%'
         });
-        
+
         // Initialize datatables with export options
         $('.datatable-export').DataTable({
             dom: 'Bfrtip',
@@ -161,7 +175,7 @@
     <script>
         swal({
             title: 'Success',
-            text: '{{ session('success') }}',
+            text: @json(session('success')),
             type: 'success',
             confirmButtonColor: '#57a94f'
         });
@@ -172,7 +186,7 @@
     <script>
         swal({
             title: 'Error',
-            text: '{{ session('error') }}',
+            text: @json(session('error')),
             type: 'error',
             confirmButtonColor: '#dc3545'
         });

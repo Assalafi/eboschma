@@ -25,7 +25,10 @@ class Child extends Model
         'birth_certificate_no',
         'birth_certificate_file',
         'photo',
-        'remarks'
+        'remarks',
+        'created_by',
+        'updated_by',
+        'submitted_by',
     ];
 
     /**

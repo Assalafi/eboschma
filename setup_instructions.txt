@@ -1,0 +1,37 @@
+Setting Up Portable Git Bash (No Spaces Path)
+
+Step 1: Download Git Portable
+1. Go to: https://git-scm.com/download/win
+2. Download the "Portable" version or use the regular installer
+3. Extract to: C:\git\ (no spaces in path)
+
+Step 2: Alternative - Use Existing Git Installation
+If you already have Git installed, create a symlink:
+Run as Administrator:
+mklink /D C:\git "C:\Program Files\Git"
+
+Step 3: Test the New Bash Path
+C:\git\bin\bash.exe -c "echo 'Bash works!'"
+
+Step 4: Update Upload Scripts
+Use the new path: C:\git\bin\bash.exe instead of the path with spaces
+
+Step 5: Environment Variable (Optional)
+Add to PATH: C:\git\bin
+
+Verification Commands:
+# Test bash
+C:\git\bin\bash.exe -c "pwd"
+
+# Test SSH
+C:\git\bin\bash.exe -c "ssh -V"
+
+# Test SCP
+C:\git\bin\bash.exe -c "scp -V"
+
+File Upload Commands:
+# List remote directory
+C:\git\bin\bash.exe -c "ssh root@67.205.161.212 'ls -la /var/www/BornoStateGovernment/eboschma'"
+
+# Upload single file
+C:\git\bin\bash.exe -c "scp 'C:/xampp/htdocs/Boschma/admin.enrolment.boschma/routes/web.php' root@67.205.161.212:/var/www/BornoStateGovernment/eboschma/routes/"

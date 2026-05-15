@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Program;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 
 class ProgramController extends Controller
@@ -20,6 +21,7 @@ class ProgramController extends Controller
             $search = $request->get('search');
             $query->where(function($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%")
                   ->orWhere('format', 'like', "%{$search}%");
             });
         }
@@ -54,6 +56,8 @@ class ProgramController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255|unique:programs',
+            'description' => 'nullable|string|max:1000',
+            'logo' => 'nullable|image|mimes:png,jpg,jpeg,svg|max:2048',
             'format' => 'required|string|max:255',
             'has_dependant' => 'required|boolean',
             'status' => 'required|boolean',
@@ -64,7 +68,13 @@ class ProgramController extends Controller
         }
 
         try {
-            Program::create($validator->validated());
+            $data = $validator->safe()->except(['logo']);
+
+            if ($request->hasFile('logo')) {
+                $data['logo'] = $request->file('logo')->store('programs/logos', 'public');
+            }
+
+            Program::create($data);
 
             return redirect()->route('programs.index')
                 ->with('success', 'Program created successfully.');
@@ -97,6 +107,8 @@ class ProgramController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255|unique:programs,name,' . $program->id,
+            'description' => 'nullable|string|max:1000',
+            'logo' => 'nullable|image|mimes:png,jpg,jpeg,svg|max:2048',
             'format' => 'required|string|max:255',
             'has_dependant' => 'required|boolean',
             'status' => 'required|boolean',
@@ -107,7 +119,17 @@ class ProgramController extends Controller
         }
 
         try {
-            $program->update($validator->validated());
+            $data = $validator->safe()->except(['logo']);
+
+            if ($request->hasFile('logo')) {
+                // Delete old logo if exists
+                if ($program->logo) {
+                    Storage::disk('public')->delete($program->logo);
+                }
+                $data['logo'] = $request->file('logo')->store('programs/logos', 'public');
+            }
+
+            $program->update($data);
 
             return redirect()->route('programs.index')
                 ->with('success', 'Program updated successfully.');
@@ -123,6 +145,9 @@ class ProgramController extends Controller
     public function destroy(Program $program)
     {
         try {
+            if ($program->logo) {
+                Storage::disk('public')->delete($program->logo);
+            }
             $program->delete();
 
             return redirect()->route('programs.index')

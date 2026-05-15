@@ -54,6 +54,23 @@
                             </div>
 
                             <div class="row mb-3">
+                                <div class="col-md-8">
+                                    <label class="font-weight-bold text-muted small">Description</label>
+                                    <div>{{ $program->description ?? '-' }}</div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="font-weight-bold text-muted small">Program Logo</label>
+                                    <div>
+                                        @if($program->logo)
+                                            <img src="{{ asset('storage/' . $program->logo) }}" alt="{{ $program->name }}" style="max-height: 60px; border: 1px solid #ddd; padding: 4px; border-radius: 4px; background: #fff;">
+                                        @else
+                                            <span class="text-muted">No logo uploaded</span>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row mb-3">
                                 <div class="col-md-6">
                                     <label class="font-weight-bold text-muted small">Format</label>
                                     <div>{{ $program->format }}</div>

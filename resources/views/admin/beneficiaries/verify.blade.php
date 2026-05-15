@@ -53,8 +53,11 @@
                                     <select class="form-control" id="program_id" name="program_id" required>
                                         <option value="">-- Select Program --</option>
                                         @foreach ($programs as $program)
-                                            <option value="{{ $program->id }}">{{ $program->name }}
-                                                ({{ $program->format }})</option>
+                                            <option value="{{ $program->id }}"
+                                                data-has-dependant="{{ $program->has_dependant ? '1' : '0' }}">
+                                                {{ $program->name }}
+                                                ({{ $program->format }})
+                                            </option>
                                         @endforeach
                                     </select>
                                 </div>
@@ -81,14 +84,16 @@
                             </div>
 
                             <!-- Step 3: DP Number Verification -->
-                            <div class="row mb-2">
+                            <div class="row mb-2" id="dpNumberSection">
                                 <div class="col-md-12">
                                     <label for="dp_no" class="font-weight-bold" style="color: #01542B;"><span
                                             class="badge badge-sm" style="background-color: #01542B;">3</span> DP Number
-                                        <span class="text-danger">*</span></label>
+                                        <span class="text-danger" id="dpRequiredStar">*</span>
+                                        <small class="text-muted" id="dpOptionalText" style="display: none;">(Optional for
+                                            this program)</small></label>
                                     <div class="input-group">
                                         <input type="text" class="form-control" id="dp_no" name="dp_no"
-                                            placeholder="Enter DP Number" required>
+                                            placeholder="Enter DP Number">
                                         <div class="input-group-append">
                                             <button class="btn btn-sm" type="button" id="verifyDpBtn"
                                                 style="background-color: #01542B; color: white;" disabled>
@@ -147,7 +152,7 @@
                                 <i class="fe fe-circle text-muted"></i> NIN Available
                             </li>
                             <li id="check_dp" class="mb-1 py-1">
-                                <i class="fe fe-circle text-muted"></i> DP Verified
+                                <i class="fe fe-circle text-muted"></i> <span id="dpCheckText">DP Verified</span>
                             </li>
                         </ul>
                     </div>
@@ -263,8 +268,8 @@
         }
 
         /* ========================================
-           MOBILE RESPONSIVE STYLES
-        ======================================== */
+                           MOBILE RESPONSIVE STYLES
+                        ======================================== */
         @media (max-width: 768px) {
 
             /* Page Header */
@@ -493,7 +498,8 @@
             program: false,
             nin: false,
             dp: false,
-            civilServantData: null
+            civilServantData: null,
+            dpRequired: true // Track if DP is required based on program
         };
 
         document.addEventListener('DOMContentLoaded', function() {
@@ -504,11 +510,42 @@
             const verifyDpBtn = document.getElementById('verifyDpBtn');
             const proceedBtn = document.getElementById('proceedBtn');
             const verificationForm = document.getElementById('verificationForm');
+            const dpRequiredStar = document.getElementById('dpRequiredStar');
+            const dpOptionalText = document.getElementById('dpOptionalText');
+            const dpCheckText = document.getElementById('dpCheckText');
+            const dpNumberSection = document.getElementById('dpNumberSection');
 
             // Program selection
             programSelect.addEventListener('change', function() {
                 verificationStatus.program = this.value !== '';
                 updateChecklist('program', verificationStatus.program);
+
+                // Check if program has dependants
+                const selectedOption = this.options[this.selectedIndex];
+                const hasDependant = selectedOption.getAttribute('data-has-dependant') === '1';
+
+                // Update DP requirement based on program
+                verificationStatus.dpRequired = hasDependant;
+
+                if (hasDependant) {
+                    // DP is required
+                    dpRequiredStar.style.display = 'inline';
+                    dpOptionalText.style.display = 'none';
+                    dpCheckText.textContent = 'DP Verified';
+                    verificationStatus.dp = false; // Reset DP status
+                    updateChecklist('dp', false);
+                } else {
+                    // DP is optional
+                    dpRequiredStar.style.display = 'none';
+                    dpOptionalText.style.display = 'inline';
+                    dpCheckText.textContent = 'DP (Optional)';
+                    // Auto-verify DP if not required and field is empty
+                    if (dpInput.value.trim() === '') {
+                        verificationStatus.dp = true;
+                        updateChecklist('dp', true);
+                    }
+                }
+
                 checkFormCompletion();
             });
 
@@ -532,6 +569,17 @@
                 verifyDpBtn.disabled = value.length === 0;
 
                 if (value.length === 0) {
+                    // If DP is not required, auto-verify when empty
+                    if (!verificationStatus.dpRequired) {
+                        verificationStatus.dp = true;
+                        updateChecklist('dp', true);
+                    } else {
+                        verificationStatus.dp = false;
+                        updateChecklist('dp', false);
+                    }
+                    checkFormCompletion();
+                } else {
+                    // If there's a value, it needs to be verified
                     verificationStatus.dp = false;
                     updateChecklist('dp', false);
                     checkFormCompletion();
@@ -562,7 +610,7 @@
                     `;
                             verificationStatus.nin = true;
                             verificationStatus.ninBeneficiaryId = data
-                            .beneficiary_id; // Store for continuation
+                                .beneficiary_id; // Store for continuation
                             updateChecklist('nin', true);
                         } else if (data.available) {
                             // NIN is completely available
@@ -654,7 +702,7 @@
                             verificationStatus.dp = true;
                             verificationStatus.civilServantData = data.civil_servant;
                             verificationStatus.beneficiaryId = data
-                            .beneficiary_id; // Store for continuation
+                                .beneficiary_id; // Store for continuation
                             verificationStatus.inProgress = true;
                             updateChecklist('dp', true);
                         } else if (data.found) {
@@ -730,7 +778,8 @@
                         dp_no: dpInput.value,
                         civil_servant: verificationStatus.civilServantData,
                         in_progress: inProgress,
-                        beneficiary_id: beneficiaryId
+                        beneficiary_id: beneficiaryId,
+                        dp_required: verificationStatus.dpRequired
                     };
 
                     sessionStorage.setItem('beneficiaryVerification', JSON.stringify(verificationData));

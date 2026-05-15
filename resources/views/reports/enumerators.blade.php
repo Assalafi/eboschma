@@ -24,7 +24,7 @@
                                 </svg>
                                 Back to Overview
                             </a>
-                            <a href="{{ route('reports.enumerators.export') }}" class="btn btn-primary">
+                            <a href="{{ route('reports.enumerators.export') }}{{ $programId ? '?program_id='.$programId : '' }}{{ request('date_from') ? ($programId ? '&' : '?').'date_from='.request('date_from') : '' }}{{ request('date_to') ? (($programId || request('date_from')) ? '&' : '?').'date_to='.request('date_to') : '' }}" class="btn btn-primary">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                                     style="display: inline; margin-right: 0.25rem;">
@@ -32,7 +32,7 @@
                                     <polyline points="7,10 12,15 17,10"></polyline>
                                     <line x1="12" y1="15" x2="12" y2="3"></line>
                                 </svg>
-                                Export Data
+                                Export{{ $selectedProgram ? ' ('.$selectedProgram->name.')' : '' }}{{ (request('date_from') || request('date_to')) ? ' (Date Range)' : '' }}
                             </a>
                         </div>
                     </div>
@@ -42,6 +42,64 @@
 
         <div class="page-body">
             <div class="container-xl">
+                <!-- Program Filter -->
+                <div class="card mb-3">
+                    <div class="card-body py-3">
+                        <form method="GET" action="{{ route('reports.enumerators') }}" class="row g-3 align-items-end">
+                            <div class="col-md-3">
+                                <label class="form-label">Filter by Program</label>
+                                <select name="program_id" class="form-select">
+                                    <option value="">All Programs</option>
+                                    @foreach($programs as $program)
+                                        <option value="{{ $program->id }}" {{ $programId == $program->id ? 'selected' : '' }}>
+                                            {{ $program->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">From Date</label>
+                                <input type="date" name="date_from" value="{{ request('date_from') }}" class="form-control">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">To Date</label>
+                                <input type="date" name="date_to" value="{{ request('date_to') }}" class="form-control">
+                            </div>
+                            <div class="col-md-3">
+                                <div class="btn-list">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="ti ti-filter me-1"></i>Filter
+                                    </button>
+                                    @if($selectedProgram || request('date_from') || request('date_to'))
+                                        <a href="{{ route('reports.enumerators') }}" class="btn btn-ghost-secondary">
+                                            <i class="ti ti-x"></i> Clear
+                                        </a>
+                                    @endif
+                                </div>
+                            </div>
+                        </form>
+                        @if($selectedProgram || request('date_from') || request('date_to'))
+                            <div class="mt-2">
+                                @if($selectedProgram)
+                                    <span class="badge bg-primary fs-6 me-2">
+                                        <i class="ti ti-filter me-1"></i>{{ $selectedProgram->name }}
+                                    </span>
+                                @endif
+                                @if(request('date_from'))
+                                    <span class="badge bg-info fs-6 me-2">
+                                        From: {{ request('date_from') }}
+                                    </span>
+                                @endif
+                                @if(request('date_to'))
+                                    <span class="badge bg-info fs-6 me-2">
+                                        To: {{ request('date_to') }}
+                                    </span>
+                                @endif
+                            </div>
+                        @endif
+                    </div>
+                </div>
+
                 <!-- Key Metrics -->
                 <div class="row row-deck row-cards mb-4">
                     <div class="col-sm-6 col-lg-3">
@@ -234,7 +292,7 @@
                                                 </td>
                                                 <td>
                                                     <div class="btn-list flex-nowrap">
-                                                        <a href="{{ route('reports.enumerators.enrollments', $enumerator->id) }}"
+                                                        <a href="{{ route('reports.enumerators.enrollments', $enumerator->id) }}{{ $programId ? '?program_id='.$programId : '' }}"
                                                             class="btn" title="View Enrollments">
                                                             <svg width="16" height="16" viewBox="0 0 24 24"
                                                                 fill="none" stroke="currentColor" stroke-width="2"
@@ -244,7 +302,7 @@
                                                                 <circle cx="12" cy="12" r="3"></circle>
                                                             </svg>
                                                         </a>
-                                                        <a href="{{ route('reports.enumerators.enrollments.export', $enumerator->id) }}"
+                                                        <a href="{{ route('reports.enumerators.enrollments.export', $enumerator->id) }}{{ $programId ? '?program_id='.$programId : '' }}"
                                                             class="btn" title="Download Enrollments">
                                                             <svg width="16" height="16" viewBox="0 0 24 24"
                                                                 fill="none" stroke="currentColor" stroke-width="2"

@@ -68,6 +68,9 @@ class Kernel extends HttpKernel
         'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
         'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
         
+        // Debug middleware
+        'debug.pharmacy' => \App\Http\Middleware\DebugPharmacyRequests::class,
+        
         // Custom middleware
         'check.permission' => \App\Http\Middleware\CheckPermission::class,
     ];

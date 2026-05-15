@@ -20,9 +20,9 @@
                                     class="btn btn-danger btn-sm mr-1 mb-1">
                                     <i class="fe fe-file-text"></i> PDF
                                 </a>
-                                <a href="{{ route('beneficiaries.id-card.download', $beneficiary->id) }}"
+                                <a href="{{ route('beneficiaries.id-card', $beneficiary->id) }}"
                                     class="btn btn-primary btn-sm mr-1 mb-1">
-                                    <i class="ti ti-download"></i> Download ID
+                                    <i class="fe fe-credit-card"></i> View ID Card
                                 </a>
                                 <a href="{{ route('beneficiaries.edit', $beneficiary->id) }}"
                                     class="btn btn-primary btn-sm mr-1 mb-1">
@@ -54,6 +54,105 @@
                                         <i class="fe fe-x-circle"></i> Reject
                                     </button>
                                 @endif
+
+                                <!-- Convert Program Button -->
+                                @if ($beneficiary->boschma_no)
+                                    <button type="button" class="btn btn-info btn-sm mr-1 mb-1" data-bs-toggle="modal"
+                                        data-bs-target="#convertProgramModal">
+                                        <i class="fe fe-refresh-cw"></i> Convert Program
+                                    </button>
+                                @endif
+                            </div>
+                        </div>
+
+                        <!-- Convert Program Modal -->
+                        <div class="modal fade" id="convertProgramModal" tabindex="-1" role="dialog"
+                            aria-labelledby="convertProgramModalLabel" aria-hidden="true">
+                            <div class="modal-dialog" role="document">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="convertProgramModalLabel">
+                                            <i class="fe fe-refresh-cw"></i> Convert to Different Program
+                                        </h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                            aria-label="Close"></button>
+                                    </div>
+                                    <form action="{{ route('beneficiaries.convert-program', $beneficiary->id) }}"
+                                        method="POST">
+                                        @csrf
+                                        <input type="hidden" name="current_program_id"
+                                            value="{{ $beneficiary->program_id }}">
+                                        <div class="modal-body">
+                                            <div class="alert alert-warning">
+                                                <i class="fe fe-alert-triangle"></i>
+                                                <strong>Warning:</strong> Converting the program will change the BOSCHMA ID
+                                                for this beneficiary and all dependants (spouse and children).
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <label class="font-weight-bold">Current Details:</label>
+                                                <ul class="list-unstyled mb-0 mt-2">
+                                                    <li><strong>Program:</strong> {{ $beneficiary->program->name ?? 'N/A' }}
+                                                    </li>
+                                                    <li><strong>BOSCHMA ID:</strong>
+                                                        <code>{{ $beneficiary->boschma_no }}</code>
+                                                    </li>
+                                                    @if ($beneficiary->spouse)
+                                                        <li><strong>Spouse ID:</strong>
+                                                            <code>{{ $beneficiary->spouse->boschma_no }}</code>
+                                                        </li>
+                                                    @endif
+                                                    @if ($beneficiary->children->count() > 0)
+                                                        <li><strong>Children IDs:</strong>
+                                                            @foreach ($beneficiary->children as $child)
+                                                                <code>{{ $child->boschma_no }}</code>{{ !$loop->last ? ', ' : '' }}
+                                                            @endforeach
+                                                        </li>
+                                                    @endif
+                                                </ul>
+                                            </div>
+
+                                            <div class="form-group">
+                                                <label for="new_program_id" class="font-weight-bold">Select New Program:
+                                                    <span class="text-danger">*</span></label>
+                                                <select name="new_program_id" id="new_program_id" class="form-control"
+                                                    required>
+                                                    <option value="">-- Select Program --</option>
+                                                    @foreach ($programs ?? [] as $program)
+                                                        @if ($program->id != $beneficiary->program_id)
+                                                            <option value="{{ $program->id }}">
+                                                                {{ $program->name }} ({{ $program->format }})
+                                                            </option>
+                                                        @endif
+                                                    @endforeach
+                                                </select>
+                                            </div>
+
+                                            <div class="form-group mt-3">
+                                                <div class="form-check">
+                                                    <input type="checkbox" class="form-check-input" id="generate_new_boschma_no"
+                                                        name="generate_new_boschma_no" value="1">
+                                                    <label class="form-check-label" for="generate_new_boschma_no">
+                                                        <strong>Generate New Boschma No</strong>
+                                                        <br><small class="text-muted">Check this to generate a new BOSCHMA number with a new sequence number (continuing from the last available). If unchecked, the current sequence number ({{ $beneficiary->sequence_number }}) will be kept.</small>
+                                                    </label>
+                                                </div>
+                                            </div>
+
+                                            <div id="newIdPreview" class="alert alert-info" style="display: none;">
+                                                <i class="fe fe-info"></i>
+                                                <strong>New BOSCHMA ID will be:</strong> <span id="previewId"></span>
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary"
+                                                data-bs-dismiss="modal">Cancel</button>
+                                            <button type="submit" class="btn btn-info">
+                                                <i class="fe fe-refresh-cw"></i> Convert Program
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
                             </div>
                         </div>
 
@@ -754,4 +853,49 @@
             color: #01542B !important;
         }
     </style>
+
+    <script>
+        // Program conversion preview
+        document.addEventListener('DOMContentLoaded', function() {
+            const programSelect = document.getElementById('new_program_id');
+            const previewDiv = document.getElementById('newIdPreview');
+            const previewSpan = document.getElementById('previewId');
+            const skipReservedCheckbox = document.getElementById('skip_reserved');
+            const sequenceNumber = '{{ str_pad($beneficiary->sequence_number ?? 0, 6, '0', STR_PAD_LEFT) }}';
+
+            // Store program formats
+            const programFormats = {
+                @foreach ($programs ?? [] as $program)
+                    '{{ $program->id }}': '{{ $program->format }}',
+                @endforeach
+            };
+
+            function updatePreview() {
+                const selectedProgramId = programSelect ? programSelect.value : '';
+                const skipReserved = skipReservedCheckbox ? skipReservedCheckbox.checked : false;
+
+                if (selectedProgramId && programFormats[selectedProgramId]) {
+                    if (skipReserved) {
+                        // Show message that new sequence will be assigned
+                        previewSpan.innerHTML = programFormats[selectedProgramId] +
+                            '<strong>[Next Available]</strong>';
+                    } else {
+                        const newBoschmaNo = programFormats[selectedProgramId] + sequenceNumber;
+                        previewSpan.textContent = newBoschmaNo;
+                    }
+                    previewDiv.style.display = 'block';
+                } else {
+                    previewDiv.style.display = 'none';
+                }
+            }
+
+            if (programSelect) {
+                programSelect.addEventListener('change', updatePreview);
+            }
+
+            if (skipReservedCheckbox) {
+                skipReservedCheckbox.addEventListener('change', updatePreview);
+            }
+        });
+    </script>
 @endsection

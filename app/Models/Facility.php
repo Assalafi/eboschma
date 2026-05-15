@@ -135,4 +135,30 @@ class Facility extends Model
     {
         return $this->hasMany(Child::class);
     }
+
+    /**
+     * Get the secondary services provided by this facility
+     */
+    public function services()
+    {
+        return $this->belongsToMany(Service::class, 'facility_has_services', 'facility_id', 'service_id')
+                    ->where('type', 'Secondary')
+                    ->withTimestamps();
+    }
+
+    /**
+     * Get the facility services (new system)
+     */
+    public function facilityServices()
+    {
+        return $this->hasMany(FacilityService::class);
+    }
+
+    /**
+     * Get wards belonging to this facility
+     */
+    public function wards()
+    {
+        return $this->hasMany(Ward::class);
+    }
 }

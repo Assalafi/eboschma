@@ -63,7 +63,8 @@
                                                             </option>
                                                         @endforeach
                                                     </select>
-                                                    <small class="text-muted">Select the program for this beneficiary</small>
+                                                    <small class="text-muted">Select the program for this
+                                                        beneficiary</small>
                                                 </div>
                                             </div>
 
@@ -415,68 +416,12 @@
                                                 <div class="col-md-9">
                                                     <select class="form-select" name="ethnicity" required>
                                                         <option value="">Select Ethnicity</option>
-                                                        <option value="Hausa"
-                                                            {{ old('ethnicity', $beneficiary->ethnicity) == 'Hausa' ? 'selected' : '' }}>
-                                                            Hausa
-                                                        </option>
-                                                        <option value="Yoruba"
-                                                            {{ old('ethnicity', $beneficiary->ethnicity) == 'Yoruba' ? 'selected' : '' }}>
-                                                            Yoruba
-                                                        </option>
-                                                        <option value="Igbo"
-                                                            {{ old('ethnicity', $beneficiary->ethnicity) == 'Igbo' ? 'selected' : '' }}>
-                                                            Igbo
-                                                        </option>
-                                                        <option value="Fulani"
-                                                            {{ old('ethnicity', $beneficiary->ethnicity) == 'Fulani' ? 'selected' : '' }}>
-                                                            Fulani
-                                                        </option>
-                                                        <option value="Kanuri"
-                                                            {{ old('ethnicity', $beneficiary->ethnicity) == 'Kanuri' ? 'selected' : '' }}>
-                                                            Kanuri
-                                                        </option>
-                                                        <option value="Ibibio"
-                                                            {{ old('ethnicity', $beneficiary->ethnicity) == 'Ibibio' ? 'selected' : '' }}>
-                                                            Ibibio
-                                                        </option>
-                                                        <option value="Tiv"
-                                                            {{ old('ethnicity', $beneficiary->ethnicity) == 'Tiv' ? 'selected' : '' }}>
-                                                            Tiv</option>
-                                                        <option value="Ijaw"
-                                                            {{ old('ethnicity', $beneficiary->ethnicity) == 'Ijaw' ? 'selected' : '' }}>
-                                                            Ijaw
-                                                        </option>
-                                                        <option value="Edo"
-                                                            {{ old('ethnicity', $beneficiary->ethnicity) == 'Edo' ? 'selected' : '' }}>
-                                                            Edo</option>
-                                                        <option value="Nupe"
-                                                            {{ old('ethnicity', $beneficiary->ethnicity) == 'Nupe' ? 'selected' : '' }}>
-                                                            Nupe
-                                                        </option>
-                                                        <option value="Gbagyi"
-                                                            {{ old('ethnicity', $beneficiary->ethnicity) == 'Gbagyi' ? 'selected' : '' }}>
-                                                            Gbagyi
-                                                        </option>
-                                                        <option value="Jukun"
-                                                            {{ old('ethnicity', $beneficiary->ethnicity) == 'Jukun' ? 'selected' : '' }}>
-                                                            Jukun
-                                                        </option>
-                                                        <option value="Urhobo"
-                                                            {{ old('ethnicity', $beneficiary->ethnicity) == 'Urhobo' ? 'selected' : '' }}>
-                                                            Urhobo
-                                                        </option>
-                                                        <option value="Igala"
-                                                            {{ old('ethnicity', $beneficiary->ethnicity) == 'Igala' ? 'selected' : '' }}>
-                                                            Igala
-                                                        </option>
-                                                        <option value="Idoma"
-                                                            {{ old('ethnicity', $beneficiary->ethnicity) == 'Idoma' ? 'selected' : '' }}>
-                                                            Idoma
-                                                        </option>
-                                                        <option value="Others"
-                                                            {{ old('ethnicity', $beneficiary->ethnicity) == 'Others' ? 'selected' : '' }}>
-                                                            Others
-                                                        </option>
+                                                        @foreach (\App\Models\Beneficiary::getEthnicityOptions() as $value => $label)
+                                                            <option value="{{ $value }}"
+                                                                {{ old('ethnicity', $beneficiary->ethnicity) == $value ? 'selected' : '' }}>
+                                                                {{ $label }}
+                                                            </option>
+                                                        @endforeach
                                                     </select>
                                                 </div>
                                             </div>
@@ -568,7 +513,8 @@
                                             </div>
 
                                             <div class="row mb-3">
-                                                <label class="col-md-4 form-label">ID Type: <span class="text-danger">*</span></label>
+                                                <label class="col-md-4 form-label">ID Type: <span
+                                                        class="text-danger">*</span></label>
                                                 <div class="col-md-8">
                                                     <select class="form-select" name="id_type" required>
                                                         <option value="">Select ID Type</option>
@@ -641,27 +587,19 @@
                                     </div>
 
                                     <div class="row mb-3">
-                                        <label class="col-md-2 form-label">Category: <span class="text-danger">*</span></label>
+                                        <label class="col-md-2 form-label">Category: <span
+                                                class="text-danger">*</span></label>
                                         <div class="col-md-10">
-                                            <div class="form-check form-check-inline">
-                                                <input class="form-check-input" type="radio" name="category"
-                                                    id="gl_step" value="GL/STEP" required
-                                                    {{ $beneficiary->category == 'GL/STEP' ? 'checked' : '' }}>
-                                                <label class="form-check-label" for="gl_step">GL/STEP</label>
-                                            </div>
-                                            <div class="form-check form-check-inline">
-                                                <input class="form-check-input" type="radio" name="category"
-                                                    id="private" value="Organized Private Sector"
-                                                    {{ $beneficiary->category == 'Organized Private Sector' ? 'checked' : '' }}>
-                                                <label class="form-check-label" for="private">Organized Private
-                                                    Sector</label>
-                                            </div>
-                                            <div class="form-check form-check-inline">
-                                                <input class="form-check-input" type="radio" name="category"
-                                                    id="others" value="Others"
-                                                    {{ $beneficiary->category == 'Others' ? 'checked' : '' }}>
-                                                <label class="form-check-label" for="others">Others</label>
-                                            </div>
+                                            @foreach ($beneficiaryCategories as $cat)
+                                                <div class="form-check form-check-inline">
+                                                    <input class="form-check-input" type="radio" name="category"
+                                                        id="cat_{{ $loop->index }}" value="{{ $cat->name }}"
+                                                        required
+                                                        {{ old('category', $beneficiary->category) == $cat->name ? 'checked' : '' }}>
+                                                    <label class="form-check-label"
+                                                        for="cat_{{ $loop->index }}">{{ $cat->name }}</label>
+                                                </div>
+                                            @endforeach
                                         </div>
                                     </div>
                                 </div>
@@ -812,7 +750,8 @@
                                                     <div
                                                         class="d-flex justify-content-between align-items-center bg-light p-2">
                                                         <h6 class="mb-0">Child {{ $index + 1 }}
-                                                            ({{ $beneficiary->boschma_no }}{{ $suffixes[$index] }})</h6>
+                                                            ({{ $beneficiary->boschma_no }}{{ $suffixes[$index] }})
+                                                        </h6>
                                                         <button type="button"
                                                             class="btn btn-sm btn-outline-danger remove-child"
                                                             data-index="{{ $index }}">
@@ -900,8 +839,7 @@
                                                                             <div class="mb-3 mt-3">
                                                                                 <input type="file"
                                                                                     class="dropify-create child-field"
-                                                                                    name="child_photo[]"
-                                                                                    data-height="180"
+                                                                                    name="child_photo[]" data-height="180"
                                                                                     data-allowed-file-extensions="jpg jpeg png"
                                                                                     data-max-file-size="2M"
                                                                                     data-default-file="{{ $child->photo ? url('storage/' . $child->photo) : '' }}">

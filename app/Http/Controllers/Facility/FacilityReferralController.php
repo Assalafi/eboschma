@@ -113,6 +113,30 @@ class FacilityReferralController extends Controller
                 ->orderBy('created_at', 'desc');
 
             return DataTables::of($referrals)
+                ->filterColumn('encounter.patient.firstname', function($query, $keyword) {
+                    $query->whereHas('encounter.patient', function($q) use ($keyword) {
+                        $q->where('enrollee_number', 'LIKE', "%{$keyword}%")
+                          ->orWhere('file_number', 'LIKE', "%{$keyword}%")
+                          ->orWhereExists(function($sub) use ($keyword) {
+                              $sub->select(DB::raw(1))
+                                  ->from('beneficiaries')
+                                  ->whereColumn('beneficiaries.boschma_no', 'patients.enrollee_number')
+                                  ->where('beneficiaries.fullname', 'LIKE', "%{$keyword}%");
+                          })
+                          ->orWhereExists(function($sub) use ($keyword) {
+                              $sub->select(DB::raw(1))
+                                  ->from('spouses')
+                                  ->whereColumn('spouses.boschma_no', 'patients.enrollee_number')
+                                  ->where('spouses.fullname', 'LIKE', "%{$keyword}%");
+                          })
+                          ->orWhereExists(function($sub) use ($keyword) {
+                              $sub->select(DB::raw(1))
+                                  ->from('children')
+                                  ->whereColumn('children.boschma_no', 'patients.enrollee_number')
+                                  ->where('children.fullname', 'LIKE', "%{$keyword}%");
+                          });
+                    });
+                })
                 ->addColumn('referral_info', function($referral) {
                     if ($referral->authorization) {
                         return "<div class='text-primary fw-bold'>" . $referral->authorization->authorization_code . "</div>" .

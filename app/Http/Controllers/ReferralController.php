@@ -34,13 +34,13 @@ class ReferralController extends Controller
                               $sub->select(\DB::raw(1))
                                   ->from('spouses')
                                   ->whereColumn('spouses.boschma_no', 'patients.enrollee_number')
-                                  ->where('spouses.fullname', 'LIKE', "%{$keyword}%");
+                                  ->where('spouses.name', 'LIKE', "%{$keyword}%");
                           })
                           ->orWhereExists(function($sub) use ($keyword) {
                               $sub->select(\DB::raw(1))
                                   ->from('children')
                                   ->whereColumn('children.boschma_no', 'patients.enrollee_number')
-                                  ->where('children.fullname', 'LIKE', "%{$keyword}%");
+                                  ->where('children.name', 'LIKE', "%{$keyword}%");
                           });
                     });
                 })

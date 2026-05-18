@@ -19,9 +19,9 @@ return new class extends Migration
             $table->unsignedBigInteger('request_id')->nullable()->after('status');
             
             // Add approval/dispense tracking
-            $table->unsignedBigInteger('approved_by')->nullable()->after('request_id');
+            $table->char('approved_by', 36)->nullable()->after('request_id');
             $table->timestamp('approved_at')->nullable()->after('approved_by');
-            $table->unsignedBigInteger('dispensed_by')->nullable()->after('approved_at');
+            $table->char('dispensed_by', 36)->nullable()->after('approved_at');
             $table->timestamp('dispensed_at')->nullable()->after('dispensed_by');
             
             // Add rejection tracking

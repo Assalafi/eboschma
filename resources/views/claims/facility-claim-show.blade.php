@@ -417,19 +417,19 @@
                         </div>
                         <div class="d-flex gap-2 flex-wrap">
                             @if ($canActOnVerifier)
-                                <button type="submit" class="btn btn-sm btn-success" onclick="document.getElementById('approvalType').value='verifier'; return confirm('Are you sure you want to verify and approve this claim? This action will move the claim to the approver stage.')">
+                                <button type="button" class="btn btn-sm btn-success" onclick="showApprovalModal('verifier', 'Are you sure you want to verify and approve this claim? This action will move the claim to the approver stage.')">
                                     <i class="ti-check"></i> Verify & Approve
                                 </button>
                             @elseif ($canActOnApprover)
-                                <button type="submit" class="btn btn-sm btn-success" onclick="document.getElementById('approvalType').value='approver'; return confirm('Are you sure you want to approve this claim? This action will move the claim to the Executive Secretary stage.')">
+                                <button type="button" class="btn btn-sm btn-success" onclick="showApprovalModal('approver', 'Are you sure you want to approve this claim? This action will move the claim to the Executive Secretary stage.')">
                                     <i class="ti-check"></i> RO Approve
                                 </button>
                             @elseif ($canActOnEs)
-                                <button type="submit" class="btn btn-sm btn-success" onclick="document.getElementById('approvalType').value='es'; return confirm('Are you sure you want to approve this claim? This action will move the claim to the Finance/Payment stage.')">
+                                <button type="button" class="btn btn-sm btn-success" onclick="showApprovalModal('es', 'Are you sure you want to approve this claim? This action will move the claim to the Finance/Payment stage.')">
                                     <i class="ti-check"></i> ES Approve
                                 </button>
                             @elseif ($canActOnFinance)
-                                <button type="submit" class="btn btn-sm btn-success" onclick="document.getElementById('approvalType').value='finance'; return confirm('Are you sure you want to mark this claim as paid? This will complete the approval workflow.')">
+                                <button type="button" class="btn btn-sm btn-success" onclick="showApprovalModal('finance', 'Are you sure you want to mark this claim as paid? This will complete the approval workflow.')">
                                     <i class="ti-money"></i> Mark as Paid
                                 </button>
                             @endif
@@ -467,7 +467,48 @@
 
     </div>
 
+    <!-- Action Confirmation Modal -->
+    <div class="modal modal-blur fade" id="confirmActionModal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="confirmActionModalTitle">Confirm Action</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="confirmActionModalBody">
+                    <!-- Dynamic message -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-success" id="confirmActionSubmitBtn">Confirm</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
+    function showApprovalModal(type, message) {
+        document.getElementById('approvalType').value = type;
+        
+        let title = 'Confirm Action';
+        if (type === 'verifier') title = 'Confirm Verification';
+        else if (type === 'approver') title = 'Confirm RO Approval';
+        else if (type === 'es') title = 'Confirm ES Approval';
+        else if (type === 'finance') title = 'Confirm Payment';
+
+        document.getElementById('confirmActionModalTitle').textContent = title;
+        document.getElementById('confirmActionModalBody').innerHTML = message;
+        
+        var modal = new bootstrap.Modal(document.getElementById('confirmActionModal'));
+        modal.show();
+    }
+
+    document.getElementById('confirmActionSubmitBtn').addEventListener('click', function() {
+        const btn = this;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Processing...';
+        document.getElementById('approvalForm').submit();
+    });
     function toggleRejectBox() {
         var box = document.getElementById('rejectBox');
         box.style.display = box.style.display === 'block' ? 'none' : 'block';

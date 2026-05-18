@@ -20,7 +20,7 @@ return new class extends Migration
                 $table->string('strength');
                 $table->string('unit');
                 $table->decimal('unit_price', 10, 2);
-                $table->uuid('facility_id')->nullable();
+                $table->unsignedBigInteger('facility_id')->nullable();
                 $table->string('status')->default('active');
                 $table->timestamps();
                 $table->softDeletes();

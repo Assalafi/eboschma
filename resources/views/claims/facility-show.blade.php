@@ -143,10 +143,44 @@
                 <div class="card-header">
                     <h3 class="card-title">Claims for {{ $facility->name }} ({{ $claims->total() }})</h3>
                     <div class="card-actions">
-                        <button type="button" class="btn btn-success me-2" id="bulkPaymentBtn" style="display: none;"
-                            onclick="processBulkPayment()">
-                            <i class="ti-money me-1"></i>Process Bulk Payment (<span id="selectedCount">0</span>)
-                        </button>
+                        @php
+                            $user = auth()->user();
+                            $isSuperAdmin = $user && ($user->hasRole('Super Admin') || $user->hasRole('admin'));
+                            $hasBulkAccess = $isSuperAdmin || $user->can('claim.es-approve') || $user->can('claim.finance-approve');
+                        @endphp
+                        
+                        @if ($hasBulkAccess)
+                        <span id="bulkActionsTotal" class="badge bg-light text-dark me-2" style="display: none; font-size: 0.9rem; padding: 0.5rem 0.75rem; border: 1px solid #e2e8f0; vertical-align: middle;">
+                            Total Selected: <strong>₦<span id="selectedTotalAmount">0.00</span></strong>
+                        </span>
+                        <div class="dropdown me-3" id="bulkActionsDropdown" style="display: none; vertical-align: middle;">
+                            <button class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown">
+                                <i class="ti-settings me-1"></i>Bulk Actions (<span id="selectedCount">0</span>)
+                            </button>
+                            <div class="dropdown-menu">
+                                @if (auth()->user()->can('claim.verify'))
+                                <a href="#" class="dropdown-item" onclick="processBulkAction('verifier')">
+                                    <i class="ti-check text-warning me-2"></i>Verify Claims
+                                </a>
+                                @endif
+                                @if (auth()->user()->can('claim.approve'))
+                                <a href="#" class="dropdown-item" onclick="processBulkAction('approver')">
+                                    <i class="ti-check text-success me-2"></i>Approve Claims
+                                </a>
+                                @endif
+                                @if (auth()->user()->can('claim.es-approve'))
+                                <a href="#" class="dropdown-item" onclick="processBulkAction('es')">
+                                    <i class="ti-check text-primary me-2"></i>ES Approve
+                                </a>
+                                @endif
+                                @if (auth()->user()->can('claim.finance-approve'))
+                                <a href="#" class="dropdown-item" onclick="processBulkAction('finance')">
+                                    <i class="ti-money text-success me-2"></i>Process Payment
+                                </a>
+                                @endif
+                            </div>
+                        </div>
+                        @endif
                         <div class="dropdown">
                             <button class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
                                 <i class="ti-download me-1"></i>Export
@@ -174,7 +208,9 @@
                             <thead class="bg-light">
                                 <tr>
                                     <th class="border-0 fw-semibold" style="width: 40px;">
+                                        @if(isset($hasBulkAccess) && $hasBulkAccess)
                                         <input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)">
+                                        @endif
                                     </th>
                                     <th class="border-0 fw-semibold">Claim #</th>
                                     <th class="border-0 fw-semibold">Beneficiary</th>
@@ -188,10 +224,26 @@
                                 @forelse ($claims as $claim)
                                     <tr>
                                         <td class="align-middle">
-                                            @if (($claim->es_status ?? '') === 'approved' && ($claim->finance_status ?? 'pending') !== 'paid')
-                                                <input type="checkbox" class="claim-checkbox" value="{{ $claim->id }}"
-                                                    data-amount="{{ $claim->total_amount }}"
-                                                    onchange="updateSelectedCount()">
+                                            @if(isset($hasBulkAccess) && $hasBulkAccess)
+                                                @php
+                                                    $canVerify = ($isSuperAdmin || $user->can('claim.verify')) && $claim->status === 'submitted' && in_array($claim->verifier_status ?? 'pending', ['pending', null, '']);
+                                                    $canApprove = ($isSuperAdmin || $user->can('claim.approve')) && $claim->status === 'verified' && in_array($claim->approver_status ?? 'pending', ['pending', null, '']);
+                                                    $canEsApprove = ($isSuperAdmin || $user->can('claim.es-approve')) && $claim->status === 'approved' && in_array($claim->es_status ?? 'pending', ['pending', null, '']);
+                                                    $canFinanceApprove = ($isSuperAdmin || $user->can('claim.finance-approve')) && $claim->status === 'es_approved' && in_array($claim->finance_status ?? 'pending', ['pending', null, '']);
+                                                    
+                                                    $stage = '';
+                                                    if ($canVerify) $stage = 'verifier';
+                                                    elseif ($canApprove) $stage = 'approver';
+                                                    elseif ($canEsApprove) $stage = 'es';
+                                                    elseif ($canFinanceApprove) $stage = 'finance';
+                                                @endphp
+                                                
+                                                @if ($canVerify || $canApprove || $canEsApprove || $canFinanceApprove)
+                                                    <input type="checkbox" class="claim-checkbox" value="{{ $claim->id }}"
+                                                        data-amount="{{ $claim->total_amount }}"
+                                                        data-stage="{{ $stage }}"
+                                                        onchange="updateSelectedCount()">
+                                                @endif
                                             @endif
                                         </td>
                                         <td class="align-middle">
@@ -221,27 +273,19 @@
                                         </td>
                                         <td class="align-middle">
                                             @if ($claim->status === 'submitted')
-                                                @if (empty($claim->ro_status))
-                                                    <span class="badge bg-warning">Pending RO Review</span>
-                                                @elseif ($claim->ro_status === 'approved' && empty($claim->e5_status))
-                                                    <span class="badge bg-primary">Pending E5 Approval</span>
-                                                @elseif ($claim->ro_status === 'rejected')
-                                                    <span class="badge bg-danger">RO Rejected</span>
-                                                @elseif ($claim->e5_status === 'rejected')
-                                                    <span class="badge bg-danger">E5 Rejected</span>
-                                                @else
-                                                    <span class="badge bg-info">Submitted</span>
-                                                @endif
+                                                <span class="badge bg-warning">Pending Verification</span>
+                                            @elseif ($claim->status === 'verified')
+                                                <span class="badge bg-primary">Pending Approval</span>
                                             @elseif ($claim->status === 'approved')
-                                                <span class="badge bg-success">Approved</span>
-                                            @elseif ($claim->status === 'rejected')
-                                                <span class="badge bg-danger">Rejected</span>
+                                                <span class="badge bg-info">Pending ES</span>
+                                            @elseif ($claim->status === 'es_approved')
+                                                <span class="badge bg-primary">Pending Payment</span>
                                             @elseif ($claim->status === 'paid')
                                                 <span class="badge bg-success">Paid</span>
+                                            @elseif ($claim->status === 'rejected')
+                                                <span class="badge bg-danger">Rejected</span>
                                             @elseif ($claim->status === 'draft')
                                                 <span class="badge bg-secondary">Draft</span>
-                                            @elseif ($claim->status === 'under_review')
-                                                <span class="badge bg-info">Under Review</span>
                                             @else
                                                 <span class="badge bg-secondary">{{ ucfirst($claim->status) }}</span>
                                             @endif
@@ -252,18 +296,6 @@
                                                     class="btn btn-sm btn-primary" title="View Claim">
                                                     <i class="ti-eye"></i>
                                                 </a>
-                                                @if (auth()->user()->can('review-claims') && $claim->status === 'submitted' && empty($claim->ro_status))
-                                                    <a href="#" class="btn btn-sm btn-warning" title="Review"
-                                                        onclick="reviewClaim({{ $claim->id }})">
-                                                        <i class="ti-clipboard-check"></i>
-                                                    </a>
-                                                @endif
-                                                @if (auth()->user()->can('approve-claims') && $claim->ro_status === 'approved' && empty($claim->e5_status))
-                                                    <a href="#" class="btn btn-sm btn-success" title="E5 Approve"
-                                                        onclick="e5ApproveClaim({{ $claim->id }})">
-                                                        <i class="ti-shield-check"></i>
-                                                    </a>
-                                                @endif
                                             </div>
                                         </td>
                                     </tr>
@@ -379,13 +411,47 @@
         </div>
     </div>
 
-    <script>
-        function reviewClaim(claimId) {
-            window.location.href = `/claims/${claimId}#review`;
-        }
+    <!-- Bulk Action Confirmation Modal -->
+    <div class="modal modal-blur fade" id="bulkActionModal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="bulkActionModalTitle">Confirm Action</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="bulkActionModalBody">
+                    <!-- Dynamic content will be placed here -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="confirmBulkActionBtn">Confirm</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
-        function e5ApproveClaim(claimId) {
-            window.location.href = `/claims/${claimId}#e5-approve`;
+    <!-- Bootstrap Toast Container -->
+    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 2000;">
+        <div id="actionToast" class="toast align-items-center text-white border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body" id="actionToastBody">
+                    <!-- Toast message here -->
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showToast(message, type = 'success') {
+            const toastEl = document.getElementById('actionToast');
+            const toastBody = document.getElementById('actionToastBody');
+            
+            toastEl.className = `toast align-items-center text-white border-0 bg-${type}`;
+            toastBody.innerHTML = message;
+            
+            const toast = new bootstrap.Toast(toastEl, { delay: 3000 });
+            toast.show();
         }
 
         // Toggle select all checkboxes
@@ -397,86 +463,131 @@
             updateSelectedCount();
         }
 
-        // Update selected count and show/hide bulk payment button
+        // Update selected count and show/hide bulk action button
         function updateSelectedCount() {
             const checkboxes = document.querySelectorAll('.claim-checkbox:checked');
             const count = checkboxes.length;
-            const bulkPaymentBtn = document.getElementById('bulkPaymentBtn');
+            const bulkActionsDropdown = document.getElementById('bulkActionsDropdown');
             const selectedCount = document.getElementById('selectedCount');
+            const bulkActionsTotal = document.getElementById('bulkActionsTotal');
+            const selectedTotalAmount = document.getElementById('selectedTotalAmount');
 
             selectedCount.textContent = count;
 
-            if (count > 0) {
-                bulkPaymentBtn.style.display = 'inline-block';
-            } else {
-                bulkPaymentBtn.style.display = 'none';
-            }
-
-            // Update select all checkbox state
-            const allCheckboxes = document.querySelectorAll('.claim-checkbox');
-            const selectAllCheckbox = document.getElementById('selectAll');
-            if (allCheckboxes.length > 0) {
-                selectAllCheckbox.checked = count === allCheckboxes.length;
-            }
-        }
-
-        // Process bulk payment
-        function processBulkPayment() {
-            const checkboxes = document.querySelectorAll('.claim-checkbox:checked');
-            const claimIds = Array.from(checkboxes).map(cb => cb.value);
-
-            if (claimIds.length === 0) {
-                alert('Please select at least one claim to process payment');
-                return;
-            }
-
-            // Calculate total amount
             let totalAmount = 0;
             checkboxes.forEach(cb => {
                 totalAmount += parseFloat(cb.dataset.amount || 0);
             });
 
-            // Confirm bulk payment
-            if (!confirm(
-                    `Process payment for ${claimIds.length} claims?\n\nTotal Amount: ₦${totalAmount.toLocaleString('en-NG', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
-                )) {
+            if (selectedTotalAmount) {
+                selectedTotalAmount.textContent = totalAmount.toLocaleString('en-NG', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            }
+
+            if (count > 0) {
+                if (bulkActionsDropdown) bulkActionsDropdown.style.display = 'inline-block';
+                if (bulkActionsTotal) bulkActionsTotal.style.display = 'inline-block';
+            } else {
+                if (bulkActionsDropdown) bulkActionsDropdown.style.display = 'none';
+                if (bulkActionsTotal) bulkActionsTotal.style.display = 'none';
+            }
+
+            // Update select all checkbox state
+            const allCheckboxes = document.querySelectorAll('.claim-checkbox');
+            const selectAllCheckbox = document.getElementById('selectAll');
+            if (allCheckboxes.length > 0 && selectAllCheckbox) {
+                selectAllCheckbox.checked = count === allCheckboxes.length;
+            }
+        }
+
+        // Process bulk action using Modal
+        let pendingBulkActionData = null;
+        
+        function processBulkAction(actionType) {
+            const checkboxes = document.querySelectorAll('.claim-checkbox:checked');
+            const claimIds = [];
+            let totalAmount = 0;
+            
+            checkboxes.forEach(cb => {
+                claimIds.push(cb.value);
+                totalAmount += parseFloat(cb.dataset.amount || 0);
+            });
+
+            if (claimIds.length === 0) {
+                showToast('Please select at least one claim.', 'warning');
                 return;
             }
 
-            // Show loading
-            const btn = document.getElementById('bulkPaymentBtn');
+            let confirmMsg = '';
+            let endpoint = '{{ route("claims.facility-claims.batch-approve") }}';
+            let bodyData = { claim_ids: claimIds, approval_type: actionType };
+            let actionTitle = '';
+
+            if (actionType === 'verifier') {
+                actionTitle = 'Verify Claims';
+                confirmMsg = `Are you sure you want to verify <strong>${claimIds.length}</strong> claims? This will move them to the approver stage.`;
+            } else if (actionType === 'approver') {
+                actionTitle = 'Approve Claims';
+                confirmMsg = `Are you sure you want to approve <strong>${claimIds.length}</strong> verified claims?`;
+            } else if (actionType === 'es') {
+                actionTitle = 'ES Approve Claims';
+                confirmMsg = `Are you sure you want to ES Approve <strong>${claimIds.length}</strong> claims?`;
+            } else if (actionType === 'finance') {
+                actionTitle = 'Process Bulk Payment';
+                confirmMsg = `Process payment for <strong>${claimIds.length}</strong> claims?<br><br><strong>Total Amount: ₦${totalAmount.toLocaleString('en-NG', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong>`;
+            }
+
+            // Set modal content
+            document.getElementById('bulkActionModalTitle').textContent = actionTitle;
+            document.getElementById('bulkActionModalBody').innerHTML = confirmMsg;
+            
+            // Store data for confirmation
+            pendingBulkActionData = { endpoint, bodyData };
+            
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('bulkActionModal'));
+            modal.show();
+        }
+
+        // Execute bulk action on modal confirm
+        document.getElementById('confirmBulkActionBtn').addEventListener('click', function() {
+            if (!pendingBulkActionData) return;
+            
+            const btn = this;
             const originalHtml = btn.innerHTML;
             btn.disabled = true;
-            btn.innerHTML = '<i class="ti-loader me-1"></i>Processing...';
-
-            // Submit bulk payment request
-            fetch('{{ route('claims.bulk-payment') }}', {
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Processing...';
+            
+            fetch(pendingBulkActionData.endpoint, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
                     },
-                    body: JSON.stringify({
-                        claim_ids: claimIds
-                    })
+                    body: JSON.stringify(pendingBulkActionData.bodyData)
                 })
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        alert('✅ ' + data.message);
-                        location.reload();
+                        // Hide modal properly
+                        const modalEl = document.getElementById('bulkActionModal');
+                        const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                        if (modalInstance) {
+                            modalInstance.hide();
+                        }
+                        showToast('<i class="ti-check"></i> ' + data.message, 'success');
+                        setTimeout(() => location.reload(), 1500);
                     } else {
-                        alert('Error: ' + data.message);
+                        showToast('<i class="ti-alert-circle"></i> Error: ' + data.message, 'danger');
                         btn.disabled = false;
                         btn.innerHTML = originalHtml;
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    alert('An error occurred while processing bulk payment');
+                    showToast('<i class="ti-alert-triangle"></i> An error occurred while processing bulk action', 'danger');
                     btn.disabled = false;
                     btn.innerHTML = originalHtml;
                 });
-        }
+        });
     </script>
 @endsection

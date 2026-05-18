@@ -14,7 +14,8 @@ return new class extends Migration
         Schema::create('ticket_replies', function (Blueprint $table) {
             $table->id();
             $table->foreignId('ticket_id')->constrained()->onDelete('cascade');
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->char('user_id', 36);
+            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
             $table->text('message');
             $table->string('attachment_path')->nullable(); // File upload path
             $table->string('attachment_name')->nullable(); // Original file name

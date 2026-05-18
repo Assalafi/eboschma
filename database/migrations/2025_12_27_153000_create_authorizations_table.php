@@ -17,7 +17,7 @@ return new class extends Migration
             $table->uuid('patient_id');
             $table->uuid('encounter_id');
             $table->uuid('service_referral_id')->nullable();
-            $table->unsignedBigInteger('approved_by')->nullable();
+            $table->char('approved_by', 36)->nullable();
             $table->datetime('expires_at')->nullable();
             $table->timestamps();
 

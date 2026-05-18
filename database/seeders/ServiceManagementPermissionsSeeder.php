@@ -48,30 +48,30 @@ class ServiceManagementPermissionsSeeder extends Seeder
             $serviceItemPermissions
         );
 
-        foreach($allPermissions as $permission) {
-            if (!Permission::where('name', $permission)->exists()) {
-                Permission::create(['name' => $permission]);
+        // Create permissions for both 'web' and 'staff' guards
+        $guards = ['web', 'staff'];
+        foreach ($guards as $guard) {
+            foreach ($allPermissions as $permission) {
+                Permission::firstOrCreate([
+                    'name' => $permission,
+                    'guard_name' => $guard
+                ]);
             }
         }
 
-        // Assign permissions to existing roles
-        
-        // Super Admin gets all permissions
-        $superAdminRole = Role::where('name', 'super-admin')->first();
-        if ($superAdminRole) {
-            $superAdminRole->givePermissionTo($allPermissions);
-        }
+        // Assign permissions to existing roles for both guards
+        foreach ($guards as $guard) {
+            // Super Admin gets all permissions
+            $superAdmin = Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => $guard]);
+            $superAdmin->givePermissionTo($allPermissions);
 
-        // Admin gets all service management permissions
-        $adminRole = Role::where('name', 'admin')->first();
-        if ($adminRole) {
-            $adminRole->givePermissionTo($allPermissions);
-        }
+            // Admin gets all service management permissions
+            $admin = Role::firstOrCreate(['name' => 'admin', 'guard_name' => $guard]);
+            $admin->givePermissionTo($allPermissions);
 
-        // Data Entry role gets view and create permissions only
-        $dataEntryRole = Role::where('name', 'data-entry')->first();
-        if ($dataEntryRole) {
-            $dataEntryRole->givePermissionTo([
+            // Data Entry role gets view and create permissions only
+            $dataEntry = Role::firstOrCreate(['name' => 'data-entry', 'guard_name' => $guard]);
+            $dataEntry->givePermissionTo([
                 'service-categories.view',
                 'service-categories.create',
                 'service-types.view',
@@ -79,12 +79,10 @@ class ServiceManagementPermissionsSeeder extends Seeder
                 'service-items.view',
                 'service-items.create'
             ]);
-        }
 
-        // Viewer role gets view permissions only
-        $viewerRole = Role::where('name', 'viewer')->first();
-        if ($viewerRole) {
-            $viewerRole->givePermissionTo([
+            // Viewer role gets view permissions only
+            $viewer = Role::firstOrCreate(['name' => 'viewer', 'guard_name' => $guard]);
+            $viewer->givePermissionTo([
                 'service-categories.view',
                 'service-types.view',
                 'service-items.view'

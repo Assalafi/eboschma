@@ -22,7 +22,8 @@ return new class extends Migration
             // Foreign keys
             $table->foreignId('facility_id')->nullable()->constrained()->onDelete('set null');
             $table->foreignId('ticket_category_id')->constrained()->onDelete('restrict');
-            $table->foreignId('assigned_to')->nullable()->constrained('staff')->onDelete('set null');
+            $table->char('assigned_to', 36)->nullable();
+            $table->foreign('assigned_to')->references('id')->on('staff')->onDelete('set null');
             $table->char('created_by', 36); // UUID for staff
             $table->foreign('created_by')->references('id')->on('staff')->onDelete('cascade');
             

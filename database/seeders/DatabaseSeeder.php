@@ -29,6 +29,8 @@ class DatabaseSeeder extends Seeder
             ClaimPermissionSeeder::class,
             ServiceManagementPermissionsSeeder::class,
             WardManagementPermissionsSeeder::class,
+            AdminUserSeeder::class,
+            TicketCategorySeeder::class,
         ]);
     }
 }

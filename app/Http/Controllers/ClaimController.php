@@ -2455,7 +2455,7 @@ class ClaimController extends Controller
     public function bulkApprove(Request $request)
     {
         // Check permission
-        if (!auth()->user()->can('review-claims')) {
+        if (!auth()->user()->can('claim.verify') && !auth()->user()->can('claim.approve')) {
             return response()->json(['success' => false, 'message' => 'Unauthorized action.'], 403);
         }
 
@@ -2521,6 +2521,33 @@ class ClaimController extends Controller
             ->where('fc.facility_id', $facility->id)
             ->whereNull('fc.deleted_at')
             ->select('fc.*', 'f.name as healthcare_provider');
+
+        // Restrict visibility based on user workflow permissions
+        $user = auth()->user();
+        $isSuperAdmin = $user && ($user->hasRole('Super Admin') || $user->hasRole('admin'));
+
+        if (!$isSuperAdmin && $user) {
+            $allowedStatuses = [];
+            
+            if ($user->can('claim.verify')) {
+                $allowedStatuses = array_merge($allowedStatuses, ['submitted', 'verified', 'approved', 'es_approved', 'paid', 'rejected']);
+            }
+            if ($user->can('claim.approve')) {
+                $allowedStatuses = array_merge($allowedStatuses, ['verified', 'approved', 'es_approved', 'paid', 'rejected']);
+            }
+            if ($user->can('claim.es-approve')) {
+                $allowedStatuses = array_merge($allowedStatuses, ['approved', 'es_approved', 'paid', 'rejected']);
+            }
+            if ($user->can('claim.finance-approve')) {
+                $allowedStatuses = array_merge($allowedStatuses, ['es_approved', 'paid', 'rejected']);
+            }
+            
+            $allowedStatuses = array_unique($allowedStatuses);
+            
+            if (!empty($allowedStatuses)) {
+                $query->whereIn('fc.status', $allowedStatuses);
+            }
+        }
 
         // Search by patient name, claim number, or boschma_no
         if ($request->filled('search')) {
@@ -2600,6 +2627,33 @@ class ClaimController extends Controller
 
         if (!$claim) {
             abort(404, 'Claim not found');
+        }
+
+        // Restrict details page visibility based on user workflow permissions
+        $user = auth()->user();
+        $isSuperAdmin = $user && ($user->hasRole('Super Admin') || $user->hasRole('admin'));
+
+        if (!$isSuperAdmin && $user) {
+            $allowedStatuses = [];
+            
+            if ($user->can('claim.verify')) {
+                $allowedStatuses = array_merge($allowedStatuses, ['submitted', 'verified', 'approved', 'es_approved', 'paid', 'rejected']);
+            }
+            if ($user->can('claim.approve')) {
+                $allowedStatuses = array_merge($allowedStatuses, ['verified', 'approved', 'es_approved', 'paid', 'rejected']);
+            }
+            if ($user->can('claim.es-approve')) {
+                $allowedStatuses = array_merge($allowedStatuses, ['approved', 'es_approved', 'paid', 'rejected']);
+            }
+            if ($user->can('claim.finance-approve')) {
+                $allowedStatuses = array_merge($allowedStatuses, ['es_approved', 'paid', 'rejected']);
+            }
+            
+            $allowedStatuses = array_unique($allowedStatuses);
+            
+            if (!empty($allowedStatuses) && !in_array($claim->status, $allowedStatuses)) {
+                abort(403, 'Unauthorized. This claim is not yet ready for your review.');
+            }
         }
 
         // Initialize arrays and collections
@@ -3015,7 +3069,7 @@ class ClaimController extends Controller
     {
         $user = auth()->user();
         $isSuperAdmin = $user && ($user->hasRole('Super Admin') || $user->hasRole('admin'));
-        $approvalType = $request->input('approval_type'); // 'es' or 'finance'
+        $approvalType = $request->input('approval_type'); // 'ro', 'es' or 'finance'
         $claimIds = $request->input('claim_ids', []);
         $notes = $request->input('notes');
 
@@ -3024,6 +3078,12 @@ class ClaimController extends Controller
         }
 
         // Permission check
+        if ($approvalType === 'verifier' && !$isSuperAdmin && !$user->can('claim.verify')) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized for verification'], 403);
+        }
+        if ($approvalType === 'approver' && !$isSuperAdmin && !$user->can('claim.approve')) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized for approval'], 403);
+        }
         if ($approvalType === 'es' && !$isSuperAdmin && !$user->can('claim.es-approve')) {
             return response()->json(['success' => false, 'message' => 'Unauthorized for ES approval'], 403);
         }
@@ -3048,14 +3108,33 @@ class ClaimController extends Controller
                 $updateData = [];
                 $staffId = $user->id ?? null;
 
-                if ($approvalType === 'es') {
-                    if (($claim->approver_status ?? 'pending') !== 'approved') {
-                        $errors[] = "Claim #{$claim->claim_number}: Not yet approved by RO";
+                if ($approvalType === 'verifier') {
+                    if (($claim->status ?? '') !== 'submitted' || !in_array($claim->verifier_status ?? 'pending', ['pending', null, ''])) {
+                        $errors[] = "Claim #{$claim->claim_number}: Not pending verification";
                         $failCount++;
                         continue;
                     }
-                    if (($claim->es_status ?? 'pending') === 'approved') {
-                        $errors[] = "Claim #{$claim->claim_number}: Already ES approved";
+                    $updateData = [
+                        'verifier_status' => 'approved',
+                        'verifier_updated_at' => now(),
+                        'verifier_id' => $staffId,
+                        'status' => 'verified',
+                    ];
+                } elseif ($approvalType === 'approver') {
+                    if (($claim->status ?? '') !== 'verified' || !in_array($claim->approver_status ?? 'pending', ['pending', null, ''])) {
+                        $errors[] = "Claim #{$claim->claim_number}: Not pending approval";
+                        $failCount++;
+                        continue;
+                    }
+                    $updateData = [
+                        'approver_status' => 'approved',
+                        'approver_updated_at' => now(),
+                        'approver_id' => $staffId,
+                        'status' => 'approved',
+                    ];
+                } elseif ($approvalType === 'es') {
+                    if (($claim->status ?? '') !== 'approved' || !in_array($claim->es_status ?? 'pending', ['pending', null, ''])) {
+                        $errors[] = "Claim #{$claim->claim_number}: Not pending ES approval";
                         $failCount++;
                         continue;
                     }
@@ -3067,13 +3146,8 @@ class ClaimController extends Controller
                         'status' => 'es_approved',
                     ];
                 } elseif ($approvalType === 'finance') {
-                    if (($claim->es_status ?? 'pending') !== 'approved') {
-                        $errors[] = "Claim #{$claim->claim_number}: Not yet ES approved";
-                        $failCount++;
-                        continue;
-                    }
-                    if (($claim->finance_status ?? 'pending') === 'paid') {
-                        $errors[] = "Claim #{$claim->claim_number}: Already paid";
+                    if (($claim->status ?? '') !== 'es_approved' || !in_array($claim->finance_status ?? 'pending', ['pending', null, ''])) {
+                        $errors[] = "Claim #{$claim->claim_number}: Not pending payment";
                         $failCount++;
                         continue;
                     }

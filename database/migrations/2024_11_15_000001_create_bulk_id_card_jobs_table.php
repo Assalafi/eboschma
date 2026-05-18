@@ -32,7 +32,8 @@ return new class extends Migration
             $table->timestamp('generated_at')->nullable();
             
             // User and timing
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->char('user_id', 36);
+            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
             $table->timestamp('started_at')->nullable();
             $table->timestamp('completed_at')->nullable();
             $table->timestamp('expires_at')->nullable(); // File cleanup time

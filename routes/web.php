@@ -475,6 +475,12 @@ Route::middleware(['auth:staff,web'])->group(function () {
         Route::get('crm/validate-boschma-no/{boschmaNo}', [CrmController::class, 'validateBoschmaNo'])
         ->name('crm.validate.boschma_no')
         ->where('boschmaNo', '.*'); // Allow any characters including slashes
+        
+        // Zoho Voice Routes
+        Route::get('zoho/oauth/redirect', [\App\Http\Controllers\ZohoOAuthController::class, 'redirectToZoho'])->name('zoho.oauth.redirect');
+        Route::get('zoho/oauth/callback', [\App\Http\Controllers\ZohoOAuthController::class, 'handleZohoCallback'])->name('zoho.oauth.callback');
+        Route::get('zoho/oauth/status', [\App\Http\Controllers\ZohoOAuthController::class, 'status'])->name('zoho.oauth.status');
+        Route::post('crm/zoho/sms', [CrmController::class, 'sendCustomSms'])->name('crm.zoho.sms');
     });
     
     Route::middleware(['permission:crm.create,staff'])->group(function () {

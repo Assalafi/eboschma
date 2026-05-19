@@ -213,6 +213,17 @@ class CrmController extends Controller
             );
         }
 
+        // Automated SMS notification via Zoho Voice
+        if (!empty($ticket->phone)) {
+            try {
+                $zohoService = resolve(\App\Services\ZohoVoiceService::class);
+                $smsMessage = "BOSCHMA Support: Hello {$ticket->name}, your ticket {$ticket->ticket_id} has been successfully raised. An agent is reviewing it. Thank you.";
+                $zohoService->sendSmsV2($ticket->phone, $smsMessage);
+            } catch (\Exception $e) {
+                \Log::error("Zoho SMS creation alert failed: " . $e->getMessage());
+            }
+        }
+
         return redirect()->route('crm.show', $ticket->id)
             ->with('success', 'Ticket created successfully!');
     }
@@ -377,6 +388,17 @@ class CrmController extends Controller
 
         $ticket->markAsCompleted();
 
+        // Automated SMS notification when ticket is resolved
+        if (!empty($ticket->phone)) {
+            try {
+                $zohoService = resolve(\App\Services\ZohoVoiceService::class);
+                $smsMessage = "BOSCHMA Support: Hello {$ticket->name}, your ticket {$ticket->ticket_id} has been marked as completed/resolved. Thank you.";
+                $zohoService->sendSmsV2($ticket->phone, $smsMessage);
+            } catch (\Exception $e) {
+                \Log::error("Zoho SMS completion alert failed: " . $e->getMessage());
+            }
+        }
+
         return redirect()->route('crm.show', $ticket->id)
             ->with('success', 'Ticket marked as completed successfully!');
     }
@@ -460,6 +482,17 @@ class CrmController extends Controller
                 'title' => 'New Reply',
                 'message' => Auth::user()->fullname . ' replied to ticket ' . $ticket->ticket_id,
             ]);
+        }
+
+        // Automated SMS notification to client if replied by agent
+        if (Auth::id() !== $ticket->created_by && !empty($ticket->phone)) {
+            try {
+                $zohoService = resolve(\App\Services\ZohoVoiceService::class);
+                $smsMessage = "BOSCHMA Support: Hello {$ticket->name}, support agent " . Auth::user()->fullname . " has updated your ticket {$ticket->ticket_id}.";
+                $zohoService->sendSmsV2($ticket->phone, $smsMessage);
+            } catch (\Exception $e) {
+                \Log::error("Zoho SMS reply alert failed: " . $e->getMessage());
+            }
         }
 
         return redirect()->route('crm.show', $ticket->id)
@@ -759,5 +792,36 @@ class CrmController extends Controller
         }
 
         return response()->download($path, $reply->attachment_name);
+    }
+
+    /**
+     * Send custom SMS to enrollee via Zoho Voice.
+     */
+    public function sendCustomSms(Request $request)
+    {
+        $request->validate([
+            'phone' => 'required',
+            'message' => 'required|string',
+            'ticket_id' => 'required|exists:tickets,id',
+        ]);
+
+        try {
+            $zohoService = resolve(\App\Services\ZohoVoiceService::class);
+            $response = $zohoService->sendSmsV2($request->phone, $request->message);
+
+            // Log SMS dispatch in ticket timeline
+            $ticket = Ticket::findOrFail($request->ticket_id);
+            $ticket->addReply(
+                "💬 **SMS Sent via Zoho Voice**\n" .
+                "* **Recipient**: {$request->phone}\n" .
+                "* **Message**: {$request->message}",
+                Auth::id(),
+                false
+            );
+
+            return response()->json(['success' => true]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()]);
+        }
     }
 }

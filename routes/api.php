@@ -90,3 +90,8 @@ Route::prefix('auth')->group(function () {
         Route::post('/logout', [CivilServantApiController::class, 'logout']);
     });
 });
+
+// Zoho Voice Integration API Webhook & Lookup Routes
+Route::post('/zoho/webhook/call', [\App\Http\Controllers\ZohoWebhookController::class, 'handleCallWebhook']);
+Route::get('/zoho/lookup', [\App\Http\Controllers\ZohoWebhookController::class, 'lookupBeneficiary']);
+

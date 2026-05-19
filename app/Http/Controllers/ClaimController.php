@@ -927,11 +927,19 @@ class ClaimController extends Controller
      */
     public function export(Request $request)
     {
-        $claims = Claim::with(['creator', 'updater']);
+        $claims = \App\Models\FacilityClaim::with(['facility', 'diagnoses', 'submittedBy']);
 
         // Apply filters
         if ($request->filled('status')) {
-            $claims->where('status', $request->status);
+            if ($request->status === 'approved') {
+                $claims->where('status', 'paid');
+            } else {
+                $claims->where('status', $request->status);
+            }
+        }
+        
+        if ($request->filled('facility_id')) {
+            $claims->where('facility_id', $request->facility_id);
         }
         
         if ($request->filled('claim_type')) {
@@ -946,7 +954,16 @@ class ClaimController extends Controller
             $claims->whereDate('service_date', '<=', $request->date_to);
         }
 
-        return Excel::download(new ClaimsExport($claims->get()), 'claims-' . now()->format('Y-m-d') . '.xlsx');
+        $filteredClaims = $claims->get();
+
+        if ($request->status === 'approved' || $request->status === 'paid' || $request->status === 'es_approved') {
+            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('claims.approved-pdf', ['claims' => $filteredClaims]);
+            // Set paper to A4
+            $pdf->setPaper('A4', 'portrait');
+            return $pdf->stream('approved-claims-slips.pdf');
+        }
+
+        return Excel::download(new ClaimsExport($filteredClaims), 'claims-' . now()->format('Y-m-d') . '.xlsx');
     }
 
     /**

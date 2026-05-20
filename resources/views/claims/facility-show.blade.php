@@ -95,12 +95,23 @@
                 <div class="card-body">
                     <form method="GET" action="{{ route('claims.facility.show', $facility->id) }}">
                         <div class="row g-3 align-items-end">
-                            <div class="col-md-4">
+                            <div class="col-md-2">
                                 <label class="form-label">Search</label>
                                 <div class="input-icon">
                                     <span class="input-icon-addon"><i class="ti-search"></i></span>
-                                    <input type="text" name="search" class="form-control" placeholder="Patient name, claim #, BOSCHMA #, enrollee #..." value="{{ request('search') }}">
+                                    <input type="text" name="search" class="form-control" placeholder="Search..." value="{{ request('search') }}">
                                 </div>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Program</label>
+                                <select name="program_id" class="form-select">
+                                    <option value="">All Programs</option>
+                                    @foreach ($programs ?? [] as $program)
+                                        <option value="{{ $program->id }}" {{ request('program_id') == $program->id ? 'selected' : '' }}>
+                                            {{ $program->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
                             </div>
                             <div class="col-md-2">
                                 <label class="form-label">Status</label>

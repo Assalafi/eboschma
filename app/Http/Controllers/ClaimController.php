@@ -18,6 +18,7 @@ use App\Models\Spouse;
 use App\Models\Child;
 use App\Models\Patient;
 use App\Models\Facility;
+use App\Models\Program;
 use App\Imports\ClaimsImport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -2582,6 +2583,42 @@ class ClaimController extends Controller
             $query->where('fc.status', $request->status);
         }
 
+        // Filter by program
+        if ($request->filled('program_id')) {
+            $programId = $request->program_id;
+            $query->where(function($q) use ($programId) {
+                $q->where(function($q1) use ($programId) {
+                    $q1->where('fc.enrollee_type', 'beneficiary')
+                       ->whereExists(function($sub) use ($programId) {
+                           $sub->select(DB::raw(1))
+                               ->from('beneficiaries')
+                               ->whereColumn('beneficiaries.boschma_no', 'fc.enrollee_number')
+                               ->where('beneficiaries.program_id', $programId);
+                       });
+                })
+                ->orWhere(function($q2) use ($programId) {
+                    $q2->where('fc.enrollee_type', 'spouse')
+                       ->whereExists(function($sub) use ($programId) {
+                           $sub->select(DB::raw(1))
+                               ->from('spouses')
+                               ->join('beneficiaries', 'spouses.beneficiary_id', '=', 'beneficiaries.id')
+                               ->whereColumn('spouses.boschma_no', 'fc.enrollee_number')
+                               ->where('beneficiaries.program_id', $programId);
+                       });
+                })
+                ->orWhere(function($q3) use ($programId) {
+                    $q3->where('fc.enrollee_type', 'child')
+                       ->whereExists(function($sub) use ($programId) {
+                           $sub->select(DB::raw(1))
+                               ->from('children')
+                               ->join('beneficiaries', 'children.beneficiary_id', '=', 'beneficiaries.id')
+                               ->whereColumn('children.boschma_no', 'fc.enrollee_number')
+                               ->where('beneficiaries.program_id', $programId);
+                       });
+                });
+            });
+        }
+
         // Filter by date range
         if ($request->filled('date_from')) {
             $query->whereDate('fc.service_date', '>=', $request->date_from);
@@ -2627,7 +2664,9 @@ class ClaimController extends Controller
                                     ->sum('total_amount'),
         ];
 
-        return view('claims.facility-show', compact('claims', 'facility', 'stats'));
+        $programs = Program::orderBy('name')->get();
+
+        return view('claims.facility-show', compact('claims', 'facility', 'stats', 'programs'));
     }
 
     /**

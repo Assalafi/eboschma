@@ -211,11 +211,29 @@
                                                     Female</option>
                                             </select>
                                         </div>
-                                        <div class="col-lg-2 col-md-12 mb-2">
-                                            <button type="submit" class="btn btn-primary btn-sm btn-block mr-1"
+                                        <div class="col-lg-2 col-md-12 mb-2 d-flex gap-2">
+                                            <button type="submit" class="btn btn-primary btn-sm flex-fill"
                                                 style="background-color: #01542B; border-color: #01542B;">
                                                 <i class="fe fe-search"></i> Filter
                                             </button>
+                                            <div class="btn-group flex-fill">
+                                                <button type="button" class="btn btn-sm btn-outline-success dropdown-toggle"
+                                                    style="border-color: #01542B; color: #01542B;"
+                                                    {{ request()->filled('facility_id') ? 'data-bs-toggle=dropdown aria-expanded=false' : 'disabled' }}
+                                                    title="{{ request()->filled('facility_id') ? 'Export filtered results' : 'Please filter by a facility first to enable export' }}">
+                                                    <i class="fe fe-download"></i> Export
+                                                </button>
+                                                <div class="dropdown-menu dropdown-menu-right">
+                                                    <button type="button" class="dropdown-item"
+                                                        onclick="submitExport('excel')">
+                                                        <i class="fe fe-file-text mr-1"></i> Export to Excel
+                                                    </button>
+                                                    <button type="button" class="dropdown-item"
+                                                        onclick="submitExport('pdf')">
+                                                        <i class="fe fe-file mr-1"></i> Export to PDF
+                                                    </button>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                     @if (request()->hasAny(['search', 'status', 'program_id', 'facility_id', 'gender']))
@@ -720,6 +738,31 @@
     </style>
 
     <script>
+        function submitExport(format) {
+            var form = document.getElementById('filter-form');
+            // Remove any previous hidden export input
+            var existing = form.querySelector('input[name="export"]');
+            if (existing) existing.remove();
+            // Add hidden input with the chosen format
+            var input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'export';
+            input.value = format;
+            form.appendChild(input);
+            // For PDF, open in new tab
+            if (format === 'pdf') {
+                form.target = '_blank';
+            } else {
+                form.target = '';
+            }
+            form.submit();
+            // Clean up so next Filter click works normally
+            setTimeout(function() {
+                input.remove();
+                form.target = '';
+            }, 100);
+        }
+
         $(document).ready(function() {
             // Initialize DataTable
             var table = $('#beneficiaries-table').DataTable({

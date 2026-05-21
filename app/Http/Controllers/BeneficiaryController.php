@@ -83,6 +83,57 @@ class BeneficiaryController extends Controller
             });
         }
 
+        if ($request->has('export') && in_array($request->export, ['excel', 'pdf'])) {
+            // Resolve facility name for report header
+            $facilityName = 'ALL FACILITIES';
+            if ($request->filled('facility_id')) {
+                $facility = Facility::find($request->facility_id);
+                if ($facility) {
+                    $facilityName = strtoupper($facility->name);
+                }
+            }
+
+            if ($request->export === 'pdf') {
+                // Load a lean copy of the query for PDF (only needed columns)
+                $pdfBeneficiaries = (clone $query)
+                    ->select('id', 'fullname', 'gender', 'date_of_birth', 'marital_status', 'phone_no', 'nin', 'boschma_no')
+                    ->orderBy('fullname')
+                    ->get();
+
+                // Group by age bracket
+                $grouped = [
+                    '0-5' => collect(), '6-17' => collect(), '18-35' => collect(),
+                    '36-50' => collect(), '51-64' => collect(), '65+' => collect(),
+                    'Unknown' => collect(),
+                ];
+                foreach ($pdfBeneficiaries as $b) {
+                    $age = null;
+                    if (!empty($b->date_of_birth)) {
+                        try { $age = \Carbon\Carbon::parse($b->date_of_birth)->age; } catch (\Exception $e) {}
+                    }
+                    if ($age === null)      $grouped['Unknown']->push($b);
+                    elseif ($age <= 5)      $grouped['0-5']->push($b);
+                    elseif ($age <= 17)     $grouped['6-17']->push($b);
+                    elseif ($age <= 35)     $grouped['18-35']->push($b);
+                    elseif ($age <= 50)     $grouped['36-50']->push($b);
+                    elseif ($age <= 64)     $grouped['51-64']->push($b);
+                    else                    $grouped['65+']->push($b);
+                }
+                $groupedBeneficiaries = array_filter($grouped, fn($g) => $g->count() > 0);
+
+                $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('reports.prints.beneficiary-list', compact('groupedBeneficiaries', 'facilityName'))
+                           ->setPaper('a4', 'landscape');
+
+                return $pdf->stream('Beneficiary_List.pdf');
+            }
+
+            // Excel export (chunked, memory-efficient)
+            return Excel::download(
+                new \App\Exports\BeneficiariesExport($query, $facilityName),
+                'Beneficiary_List_' . date('Ymd_His') . '.xlsx'
+            );
+        }
+
         $beneficiaries = $query->latest()->paginate(20)->withQueryString();
         $facilities = Facility::orderBy('name')->get();
         $programs = Program::orderBy('name')->get();
@@ -1028,13 +1079,14 @@ class BeneficiaryController extends Controller
     {
         $beneficiary = Beneficiary::with(['spouse', 'children'])->findOrFail($id);
 
-        $pdf = PDF::loadView('admin.beneficiaries.pdf', compact('beneficiary'));
+        $pdf = \PDF::loadView('admin.beneficiaries.pdf', compact('beneficiary'));
 
         // Sanitize the boschma_no to remove invalid filename characters
         $sanitizedBoschmaNo = str_replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], '_', $beneficiary->boschma_no);
         
         return $pdf->download('beneficiary-' . $sanitizedBoschmaNo . '.pdf');
     }
+
 
     /**
      * Handle bulk actions for beneficiaries

@@ -454,12 +454,40 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Check for URL parameters from search results
+            const urlParams = new URLSearchParams(window.location.search);
+            const boschmaNoFromUrl = urlParams.get('boschma_no');
+            const nameFromUrl = urlParams.get('name');
+            const facilityIdFromUrl = urlParams.get('facility_id');
+
             const boschmaNoInput = document.getElementById('boschma_no');
             const nameInput = document.getElementById('name');
             const phoneInput = document.getElementById('phone');
             const emailInput = document.getElementById('email'); // May not exist
             const facilityInput = document.getElementById('facility_id_display');
             const outsiderCheckbox = document.getElementById('is_outsider');
+
+            // Pre-fill form with beneficiary data from search results
+            if (boschmaNoFromUrl) {
+                boschmaNoInput.value = boschmaNoFromUrl;
+            }
+
+            if (nameFromUrl) {
+                nameInput.value = decodeURIComponent(nameFromUrl);
+            }
+
+            if (facilityIdFromUrl) {
+                const facilityOption = $(`#facility_list option[data-id="${facilityIdFromUrl}"]`);
+                if (facilityOption.length > 0) {
+                    facilityInput.value = facilityOption.val();
+                    $('#facility_id').val(facilityIdFromUrl);
+                }
+            }
+
+            // Trigger auto-population if boschma_no was provided
+            if (boschmaNoFromUrl) {
+                boschmaNoInput.blur();
+            }
 
             // Handle outsider checkbox
             outsiderCheckbox.addEventListener('change', function() {

@@ -12,12 +12,64 @@
                             <i class="ti-headphone-alt"></i> Customer Care Tickets
                         </h4>
                         <div style="float: right" class="card-action">
+                            <a href="{{ route('crm.facility-activity') }}" class="btn btn-info me-2">
+                                <i class="ti-pulse"></i> Facility Activity
+                            </a>
                             <a href="{{ route('crm.create') }}" class="btn btn-primary">
                                 <i class="ti-plus"></i> Create Ticket
                             </a>
                         </div>
                     </div>
                     <div class="card-body">
+                        <!-- Beneficiary Search Panel -->
+                        <div class="card mb-4 border-info shadow-sm">
+                            <div class="card-header bg-info text-white">
+                                <h5 class="card-title mb-0">
+                                    <i class="ti-search me-2"></i>
+                                    Beneficiary Search
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-10">
+                                        <div class="form-group">
+                                            <label for="beneficiary_search">Search by NIN, BOSCHMA ID, Name, or Phone</label>
+                                            <input type="text" class="form-control" id="beneficiary_search" 
+                                                placeholder="Enter search term...">
+                                            <small class="text-muted">Type to search for beneficiaries, spouses, or children</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <div class="form-group">
+                                            <label>&nbsp;</label>
+                                            <button type="button" class="btn btn-info w-100" id="beneficiary_search_btn">
+                                                <i class="ti-search me-1"></i> Search
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Search Results -->
+                                <div id="searchResults" class="mt-3" style="display:none;">
+                                    <div id="searchResultsContent"></div>
+                                </div>
+                                
+                                <!-- Loading Spinner -->
+                                <div id="searchLoading" class="text-center mt-3" style="display:none;">
+                                    <div class="spinner-border text-info" role="status">
+                                        <span class="sr-only">Searching...</span>
+                                    </div>
+                                    <p class="text-muted mt-2">Searching beneficiaries...</p>
+                                </div>
+
+                                <!-- No Results Message -->
+                                <div id="searchNoResults" class="alert alert-warning mt-3" style="display:none;">
+                                    <i class="ti-info-alt me-2"></i>
+                                    <span id="searchNoResultsText"></span>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Statistics Cards -->
                         <div class="row mb-4">
                             <div class="col-md-2 col-sm-6">
@@ -66,6 +118,84 @@
                                         <h5 class="card-title">{{ App\Models\Ticket::assignedTo(auth()->id())->count() }}
                                         </h5>
                                         <p class="card-text">My Tickets</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Active Staff Panel -->
+                        <div class="card mb-4 border-success shadow-sm">
+                            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center" data-bs-toggle="collapse" data-bs-target="#activeStaffCollapse" style="cursor: pointer;">
+                                <h5 class="card-title mb-0">
+                                    <i class="ti-user me-2"></i> Active Staff (Last 30 Min)
+                                </h5>
+                                <div>
+                                    <button class="btn btn-sm btn-light text-success me-2" onclick="event.stopPropagation(); fetchActiveStaff()">
+                                        <i class="ti-reload"></i> Refresh
+                                    </button>
+                                    <i class="ti-angle-down"></i>
+                                </div>
+                            </div>
+                            <div id="activeStaffCollapse" class="collapse show">
+                                <div class="card-body p-0">
+                                    <div class="table-responsive">
+                                        <table class="table table-hover mb-0">
+                                            <thead class="bg-light">
+                                                <tr>
+                                                    <th>Name</th>
+                                                    <th>Role/Department</th>
+                                                    <th>Status</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="activeStaffList">
+                                                <tr>
+                                                    <td colspan="4" class="text-center py-3">
+                                                        <div class="spinner-border spinner-border-sm text-success" role="status"></div>
+                                                        Loading active staff...
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- User Activity Monitor Panel -->
+                        <div class="card mb-4 border-info shadow-sm">
+                            <div class="card-header bg-info text-white d-flex justify-content-between align-items-center" data-bs-toggle="collapse" data-bs-target="#ehrActivityCollapse" style="cursor: pointer;">
+                                <h5 class="card-title mb-0">
+                                    <i class="ti-pulse me-2"></i> User Activity Monitor
+                                </h5>
+                                <div>
+                                    <button class="btn btn-sm btn-light text-info me-2" onclick="event.stopPropagation(); fetchEhrActivity()">
+                                        <i class="ti-reload"></i> Refresh
+                                    </button>
+                                    <i class="ti-angle-down"></i>
+                                </div>
+                            </div>
+                            <div id="ehrActivityCollapse" class="collapse show">
+                                <div class="card-body p-0">
+                                    <div class="table-responsive">
+                                        <table class="table table-hover mb-0">
+                                            <thead class="bg-light">
+                                                <tr>
+                                                    <th>Action Type</th>
+                                                    <th>Staff</th>
+                                                    <th>Patient</th>
+                                                    <th>Time</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="ehrActivityList">
+                                                <tr>
+                                                    <td colspan="4" class="text-center py-3">
+                                                        <div class="spinner-border spinner-border-sm text-info" role="status"></div>
+                                                        Loading activity...
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
                                     </div>
                                 </div>
                             </div>
@@ -399,7 +529,52 @@
         </div>
     </div>
 
+    <!-- Internal Message Modal (Phase 5 Placeholder) -->
+    <div class="modal fade" id="internalMessageModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title"><i class="ti-comment-alt me-2"></i> Internal Message</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" style="background: none; border: none; font-size: 1.25rem; color: white; cursor: pointer;">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p>Send a message to <strong id="msgStaffName"></strong></p>
+                    <input type="hidden" id="msgStaffId">
+                    <div class="form-group">
+                        <textarea class="form-control" rows="4" placeholder="Type your message here..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-info text-white" onclick="alert('Message sent internally! (Phase 5 feature)'); bootstrap.Modal.getInstance(document.getElementById('internalMessageModal')).hide();">Send Message</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Beneficiary Profile Side Panel (Slide-in) -->
+    <div id="profilePanel" style="display:none; position:fixed; top:0; right:0; height:100%; width:420px; max-width:100%; z-index:1500; background:#fff; box-shadow:-6px 0 24px rgba(0,0,0,0.12); transform: translateX(100%); transition: transform 0.28s ease;">
+        <div class="d-flex align-items-center justify-content-between p-3 border-bottom">
+            <h5 class="mb-0">Patient Information</h5>
+            <div>
+                <button class="btn btn-sm btn-outline-secondary me-2" onclick="closeSidePanel()">Close</button>
+            </div>
+        </div>
+        <div id="profileLoader" class="text-center p-4" style="display:none;">
+            <div class="spinner-border text-info" role="status"></div>
+            <p class="text-muted mt-2">Loading profile...</p>
+        </div>
+        <div id="profileContent" style="padding:16px; display:none; overflow:auto; height:calc(100% - 72px);">
+            <!-- Filled dynamically via JS -->
+        </div>
+    </div>
+
     <style>
+        /* Profile panel slide-in */
+        #profilePanel.slide-in {
+            transform: translateX(0) !important;
+        }
+
         .animate-blink {
             animation: blinker 1.2s linear infinite;
         }
@@ -493,5 +668,427 @@
             const pop = document.getElementById('zohoCallPop');
             pop.style.transform = 'translateY(400px)';
         };
+
+        // Beneficiary Search Functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchInput = document.getElementById('beneficiary_search');
+            const searchBtn = document.getElementById('beneficiary_search_btn');
+            const searchResults = document.getElementById('searchResults');
+            const searchLoading = document.getElementById('searchLoading');
+            const searchNoResults = document.getElementById('searchNoResults');
+            const searchResultsContent = document.getElementById('searchResultsContent');
+
+            // Handle Enter key on search input
+            searchInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    performSearch();
+                }
+            });
+
+            // Handle search button click
+            searchBtn.addEventListener('click', performSearch);
+
+            function performSearch() {
+                const query = searchInput.value.trim();
+                
+                if (!query) {
+                    alert('Please enter a search term');
+                    return;
+                }
+
+                // Show loading, hide others
+                searchLoading.style.display = 'block';
+                searchResults.style.display = 'none';
+                searchNoResults.style.display = 'none';
+
+                // Make AJAX request
+                fetch('{{ route("crm.search-beneficiary") }}?q=' + encodeURIComponent(query))
+                    .then(response => response.json())
+                    .then(data => {
+                        searchLoading.style.display = 'none';
+
+                        if (data.success && data.results.length > 0) {
+                            displayResults(data.results);
+                            searchResults.style.display = 'block';
+                            searchNoResults.style.display = 'none';
+                        } else {
+                            searchNoResults.style.display = 'block';
+                            document.getElementById('searchNoResultsText').textContent = 
+                                data.message || 'No beneficiaries found matching your search';
+                            searchResults.style.display = 'none';
+                        }
+                    })
+                    .catch(error => {
+                        searchLoading.style.display = 'none';
+                        console.error('Error:', error);
+                        searchNoResults.style.display = 'block';
+                        document.getElementById('searchNoResultsText').textContent = 
+                            'An error occurred while searching. Please try again.';
+                    });
+            }
+            
+            // Active Staff fetch
+            window.fetchActiveStaff = function() {
+                const listBody = document.getElementById('activeStaffList');
+                listBody.innerHTML = '<tr><td colspan="4" class="text-center py-3"><div class="spinner-border spinner-border-sm text-success"></div> Loading...</td></tr>';
+                
+                fetch('{{ route("crm.active-staff") }}')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            if (data.data.length === 0) {
+                                listBody.innerHTML = '<tr><td colspan="4" class="text-center py-3 text-muted">No active staff in the last 30 minutes.</td></tr>';
+                                return;
+                            }
+                            
+                            let html = '';
+                            data.data.forEach(staff => {
+                                html += `
+                                    <tr>
+                                        <td class="fw-bold">${staff.name}</td>
+                                        <td>${staff.role}</td>
+                                        <td><span class="badge bg-success"><i class="ti-control-record"></i> ${staff.status}</span></td>
+                                        <td>
+                                            <a href="tel:${staff.phone}" class="btn btn-sm btn-outline-primary" title="Call">
+                                                <i class="ti-mobile"></i> Call
+                                            </a>
+                                            <button class="btn btn-sm btn-outline-info ms-1" onclick="openInternalMessageModal('${staff.id}', '${staff.name.replace(/'/g, "\\'")}')" title="Message">
+                                                <i class="ti-comment-alt"></i> Message
+                                            </button>
+                                        </td>
+                                    </tr>
+                                `;
+                            });
+                            listBody.innerHTML = html;
+                        }
+                    })
+                    .catch(error => {
+                        listBody.innerHTML = '<tr><td colspan="4" class="text-center py-3 text-danger">Failed to load active staff.</td></tr>';
+                    });
+            };
+
+            fetchActiveStaff();
+            
+            // EHR Activity fetch
+            window.fetchEhrActivity = function() {
+                const listBody = document.getElementById('ehrActivityList');
+                listBody.innerHTML = '<tr><td colspan="4" class="text-center py-3"><div class="spinner-border spinner-border-sm text-info"></div> Loading...</td></tr>';
+                
+                // If there's a facility_id filter, we could append it. Assuming no filter for dashboard or we can add it later.
+                fetch('{{ route("crm.ehr-activity") }}')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            if (data.data.length === 0) {
+                                listBody.innerHTML = '<tr><td colspan="4" class="text-center py-3 text-muted">No recent EHR activity found.</td></tr>';
+                                return;
+                            }
+                            
+                            let html = '';
+                            data.data.forEach(activity => {
+                                let icon = 'ti-check-box';
+                                if (activity.type === 'Consultation') icon = 'ti-stethoscope';
+                                else if (activity.type === 'Vitals') icon = 'ti-heart-broken';
+                                else if (activity.type === 'Lab') icon = 'ti-support';
+                                else if (activity.type === 'Pharmacy') icon = 'ti-spray';
+                                
+                                html += `
+                                    <tr>
+                                        <td>
+                                            <span class="badge bg-secondary"><i class="${icon}"></i> ${activity.type}</span>
+                                        </td>
+                                        <td class="fw-bold">${activity.staff}</td>
+                                        <td>${activity.patient}</td>
+                                        <td class="text-muted"><small>${activity.time_formatted}</small></td>
+                                    </tr>
+                                `;
+                            });
+                            listBody.innerHTML = html;
+                        }
+                    })
+                    .catch(error => {
+                        listBody.innerHTML = '<tr><td colspan="4" class="text-center py-3 text-danger">Failed to load EHR activity.</td></tr>';
+                    });
+            };
+
+            fetchEhrActivity();
+
+            function displayResults(results) {
+                let html = '<div class="row">';
+                
+                results.forEach(result => {
+                    const typeLabel = result.type === 'beneficiary' ? 'Beneficiary' : 
+                                     result.type === 'spouse' ? 'Spouse' : 'Child';
+                    const typeColor = result.type === 'beneficiary' ? 'primary' : 
+                                     result.type === 'spouse' ? 'warning' : 'info';
+                    
+                    html += `
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="card h-100 border-${typeColor}">
+                                <div class="card-header bg-${typeColor} text-white">
+                                    <span class="badge bg-light text-${typeColor}">${typeLabel}</span>
+                                    <span class="float-right">${result.boschma_id}</span>
+                                </div>
+                                <div class="card-body">
+                                    <h6 class="card-title">${result.name}</h6>
+                                    <small class="text-muted d-block">
+                                        <strong>Facility:</strong> ${result.facility}
+                                    </small>
+                                    ${result.phone ? `<small class="text-muted d-block"><strong>Phone:</strong> ${result.phone}</small>` : ''}
+                                    <small class="text-muted d-block">
+                                        <strong>Gender:</strong> ${result.gender || 'N/A'}
+                                    </small>
+                                    <small class="text-muted d-block">
+                                        <strong>Status:</strong> <span class="badge badge-${result.status === 'active' ? 'success' : 'warning'}">${result.status}</span>
+                                    </small>
+                                    ${result.last_updated ? `<small class="text-muted d-block"><strong>Updated:</strong> ${result.last_updated}</small>` : ''}
+                                </div>
+                                <div class="card-footer bg-white">
+                                    <div class="btn-group w-100" role="group">
+                                        <button class="btn btn-sm btn-info flex-grow-1" onclick="viewBeneficiaryProfile('${result.id}')">
+                                            <i class="ti-eye me-1"></i> View
+                                        </button>
+                                        <button class="btn btn-sm btn-primary flex-grow-1" onclick="createTicketWithBeneficiary('${result.boschma_id}', '${result.name.replace(/'/g, "\\'")}', '${result.facility_id}')">
+                                            <i class="ti-plus me-1"></i> Ticket
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                html += '</div>';
+                searchResultsContent.innerHTML = html;
+            }
+
+            window.createTicketWithBeneficiary = function(boschmaNo, name, facilityId) {
+                // Redirect to create ticket page with beneficiary data pre-filled
+                const url = '{{ route("crm.create") }}' + '?boschma_no=' + encodeURIComponent(boschmaNo) + 
+                           '&name=' + encodeURIComponent(name) + 
+                           '&facility_id=' + facilityId;
+                window.location.href = url;
+            };
+            
+            window.openInternalMessageModal = function(id, name) {
+                // Phase 5 internal messaging placeholder modal
+                document.getElementById('msgStaffName').textContent = name;
+                document.getElementById('msgStaffId').value = id;
+                const msgModal = new bootstrap.Modal(document.getElementById('internalMessageModal'));
+                msgModal.show();
+            };
+
+            window.viewBeneficiaryProfile = function(boschmaId) {
+                // Fetch profile data and open side panel
+                const profilePanel = document.getElementById('profilePanel');
+                const profileContent = document.getElementById('profileContent');
+                const profileLoader = document.getElementById('profileLoader');
+                
+                profileContent.style.display = 'none';
+                profileLoader.style.display = 'block';
+                profilePanel.style.display = 'block';
+                slideInPanel();
+
+                fetch('/crm/beneficiary/' + encodeURIComponent(boschmaId) + '/profile', {
+                    method: 'GET',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
+                    }
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        displayBeneficiaryProfile(data.profile, data.visit_history);
+                        profileLoader.style.display = 'none';
+                        profileContent.style.display = 'block';
+                    } else {
+                        profileContent.innerHTML = '<div class="alert alert-danger">Error loading profile: ' + data.message + '</div>';
+                        profileLoader.style.display = 'none';
+                        profileContent.style.display = 'block';
+                    }
+                })
+                .catch(error => {
+                    profileContent.innerHTML = '<div class="alert alert-danger">Error: ' + error.message + '</div>';
+                    profileLoader.style.display = 'none';
+                    profileContent.style.display = 'block';
+                });
+            };
+
+            window.displayBeneficiaryProfile = function(profile, visitHistory) {
+                const profileContent = document.getElementById('profileContent');
+                
+                let html = `
+                    <div class="profile-section">
+                        <div class="row mb-3">
+                            <div class="col-md-3 text-center">
+                                ${profile.photo ? `<img src="${profile.photo}" alt="${profile.name}" class="img-fluid rounded" style="max-height: 150px; width: auto;">` : '<div class="bg-light rounded p-3"><i class="ti-user" style="font-size: 80px; color: #ccc;"></i></div>'}
+                            </div>
+                            <div class="col-md-9">
+                                <h4>${profile.name}</h4>
+                                <p class="mb-1"><strong>BOSCHMA ID:</strong> <span class="badge bg-primary">${profile.boschma_id}</span></p>
+                                <p class="mb-1"><strong>Type:</strong> <span class="badge bg-info">${profile.type === 'beneficiary' ? 'Beneficiary' : profile.type === 'spouse' ? 'Spouse' : 'Child'}</span></p>
+                                <p class="mb-1"><strong>Gender:</strong> ${profile.gender || 'N/A'}</p>
+                                <p class="mb-1"><strong>Phone:</strong> ${profile.phone || 'N/A'}</p>
+                                ${profile.date_of_birth ? `<p class="mb-1"><strong>Date of Birth:</strong> ${profile.date_of_birth}</p>` : ''}
+                            </div>
+                        </div>
+                        
+                        <hr>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p class="mb-1"><strong>Enrolled Facility:</strong></p>
+                                <p>${profile.enrolled_facility}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <p class="mb-1"><strong>Current Status:</strong></p>
+                                <p>
+                                    ${profile.current_status === 'Waiting' ? '<span class="badge bg-warning">Waiting</span>' : 
+                                      profile.current_status === 'In Consultation' ? '<span class="badge bg-info">In Consultation</span>' : 
+                                      profile.current_status === 'Pharmacy' ? '<span class="badge bg-secondary">Pharmacy</span>' : 
+                                      profile.current_status === 'Completed' ? '<span class="badge bg-success">Completed</span>' :
+                                      '<span class="badge bg-secondary">' + profile.current_status + '</span>'}
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <p class="mt-2 mb-0"><strong>Last Visit:</strong> ${profile.last_visit_date}</p>
+                    </div>
+                    
+                    <hr>
+                    
+                    <!-- Visit History Tabs -->
+                    <ul class="nav nav-tabs mb-3" id="visitTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <a class="nav-link active" id="visitHistory-tab" data-bs-toggle="tab" href="#visitHistory" role="tab">Visit History (${visitHistory.total})</a>
+                        </li>
+                    </ul>
+                    
+                    <div class="tab-content">
+                        <div class="tab-pane fade show active" id="visitHistory" role="tabpanel">
+                            <div id="visitHistoryContent"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <button class="btn btn-primary w-100" onclick="createTicketForBeneficiary('${profile.boschma_id}', '${profile.name.replace(/'/g, "\\'")}')">
+                            <i class="ti-plus me-1"></i> Create Ticket for this Beneficiary
+                        </button>
+                    </div>
+                `;
+                
+                profileContent.innerHTML = html;
+                // Use numeric/internal id for pagination and future calls to avoid URL-encoding issues
+                loadVisitHistory(visitHistory, profile.id);
+            };
+
+            window.loadVisitHistory = function(visitHistory, profileId) {
+                const visitHistoryContent = document.getElementById('visitHistoryContent');
+                
+                if (visitHistory.data.length === 0) {
+                    visitHistoryContent.innerHTML = '<div class="alert alert-info">No visit history available</div>';
+                } else {
+                    let html = '<div class="list-group">';
+                    
+                    visitHistory.data.forEach(visit => {
+                        html += `
+                            <div class="list-group-item">
+                                <div class="row align-items-center">
+                                    <div class="col-md-3">
+                                        <strong>${visit.visit_date}</strong>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <small class="text-muted">
+                                            <strong>Nature:</strong> ${visit.nature_of_visit || 'N/A'}
+                                        </small>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <small class="text-muted">
+                                            <strong>Facility:</strong> ${visit.facility}
+                                        </small>
+                                    </div>
+                                    <div class="col-md-3 text-end">
+                                        <span class="badge ${visit.status === 'Completed' ? 'bg-success' : visit.status === 'In Progress' ? 'bg-info' : 'bg-warning'}">${visit.status}</span>
+                                    </div>
+                                </div>
+                                ${visit.reason_for_visit ? `<small class="text-muted d-block mt-1"><strong>Reason:</strong> ${visit.reason_for_visit}</small>` : ''}
+                            </div>
+                        `;
+                    });
+                    
+                    html += '</div>';
+                    
+                    // Add pagination if needed
+                    if (visitHistory.last_page > 1) {
+                        html += '<nav class="mt-3"><ul class="pagination justify-content-center">';
+                        
+                        for (let i = 1; i <= visitHistory.last_page; i++) {
+                            html += `<li class="page-item ${i === visitHistory.current_page ? 'active' : ''}">
+                                <a class="page-link" href="#" onclick="loadVisitHistoryPage(${i}, '${profileId}'); return false;">${i}</a>
+                            </li>`;
+                        }
+                        
+                        html += '</ul></nav>';
+                    }
+                    
+                    visitHistoryContent.innerHTML = html;
+                }
+            };
+
+            window.loadVisitHistoryPage = function(page, profileId) {
+                const profilePanel = document.getElementById('profilePanel');
+                const profileContent = document.getElementById('profileContent');
+                const profileLoader = document.getElementById('profileLoader');
+                
+                profileContent.style.display = 'none';
+                profileLoader.style.display = 'block';
+
+                fetch('/crm/beneficiary/' + encodeURIComponent(profileId) + '/profile?page=' + page, {
+                    method: 'GET',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        loadVisitHistory(data.visit_history, boschmaId);
+                        profileLoader.style.display = 'none';
+                        profileContent.style.display = 'block';
+                    }
+                })
+                .catch(error => {
+                    profileContent.innerHTML = '<div class="alert alert-danger">Error: ' + error.message + '</div>';
+                    profileLoader.style.display = 'none';
+                    profileContent.style.display = 'block';
+                });
+            };
+
+            window.createTicketForBeneficiary = function(boschmaNo, name) {
+                const url = '{{ route("crm.create") }}' + '?boschma_no=' + encodeURIComponent(boschmaNo) + 
+                           '&name=' + encodeURIComponent(name);
+                window.location.href = url;
+            };
+
+            window.slideInPanel = function() {
+                const panel = document.getElementById('profilePanel');
+                panel.classList.add('slide-in');
+            };
+
+            window.closeSidePanel = function() {
+                const panel = document.getElementById('profilePanel');
+                panel.classList.remove('slide-in');
+                setTimeout(() => {
+                    panel.style.display = 'none';
+                }, 300);
+            };
+        });
     </script>
 @endsection

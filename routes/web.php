@@ -468,6 +468,13 @@ Route::middleware(['auth:staff,web'])->group(function () {
     Route::middleware(['permission:crm.view,staff'])->group(function () {
         Route::get('crm', [CrmController::class, 'index'])->name('crm.index');
         Route::get('crm/create', [CrmController::class, 'create'])->name('crm.create');
+        Route::get('crm/search-beneficiary', [CrmController::class, 'searchBeneficiary'])->name('crm.search-beneficiary');
+        Route::get('crm/beneficiary/{id}/profile', [CrmController::class, 'getBeneficiaryProfile'])
+            ->name('crm.beneficiary.profile')
+            ->where('id', '.*');
+        Route::get('crm/facility-activity', [CrmController::class, 'facilityActivity'])->name('crm.facility-activity');
+        Route::get('crm/active-staff', [CrmController::class, 'activeStaff'])->name('crm.active-staff');
+        Route::get('crm/ehr-activity', [CrmController::class, 'ehrActivity'])->name('crm.ehr-activity');
         Route::get('crm/{ticket}', [CrmController::class, 'show'])->name('crm.show');
         Route::get('crm/{ticket}/edit', [CrmController::class, 'edit'])->name('crm.edit');
         Route::get('crm/stats', [CrmController::class, 'stats'])->name('crm.stats');

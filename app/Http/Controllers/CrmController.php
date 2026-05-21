@@ -824,4 +824,577 @@ class CrmController extends Controller
             return response()->json(['success' => false, 'message' => $e->getMessage()]);
         }
     }
+
+    /**
+     * Search for beneficiaries by NIN, BOSCHMA ID, Name, or Phone Number
+     */
+    public function searchBeneficiary(Request $request)
+    {
+        $query = $request->get('q', '');
+        
+        if (empty($query)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Please provide a search query'
+            ]);
+        }
+
+        // Build search results from beneficiaries table
+        $beneficiaries = \App\Models\Beneficiary::with('facility')
+            ->where(function($q) use ($query) {
+                $q->where('boschma_no', 'LIKE', "%{$query}%")
+                  ->orWhere('nin', 'LIKE', "%{$query}%")
+                  ->orWhere('fullname', 'LIKE', "%{$query}%")
+                  ->orWhere('phone_no', 'LIKE', "%{$query}%");
+            })
+            ->where('status', '!=', 'draft')
+            ->limit(10)
+            ->get()
+            ->map(function($beneficiary) {
+                return [
+                    'id' => $beneficiary->id,
+                    'boschma_id' => $beneficiary->boschma_no,
+                    'name' => $beneficiary->fullname,
+                    'facility' => $beneficiary->facility ? $beneficiary->facility->name : 'N/A',
+                    'facility_id' => $beneficiary->facility_id,
+                    'gender' => $beneficiary->gender,
+                    'phone' => $beneficiary->phone_no,
+                    'nin' => $beneficiary->nin,
+                    'status' => $beneficiary->status,
+                    'type' => 'beneficiary',
+                    'last_updated' => $beneficiary->updated_at ? $beneficiary->updated_at->format('Y-m-d H:i') : 'N/A',
+                    'email' => $beneficiary->email,
+                    'date_of_birth' => $beneficiary->date_of_birth,
+                    'photo' => $beneficiary->photo ? url('storage/' . $beneficiary->photo) : null
+                ];
+            });
+
+        // Build search results from spouses table
+        $spouses = \App\Models\Spouse::with('beneficiary.facility')
+            ->where(function($q) use ($query) {
+                $q->where('boschma_no', 'LIKE', "%{$query}%")
+                  ->orWhere('nin', 'LIKE', "%{$query}%")
+                  ->orWhere('name', 'LIKE', "%{$query}%")
+                  ->orWhere('phone', 'LIKE', "%{$query}%");
+            })
+            ->limit(10)
+            ->get()
+            ->map(function($spouse) {
+                return [
+                    'id' => $spouse->id,
+                    'boschma_id' => $spouse->boschma_no,
+                    'name' => $spouse->name,
+                    'facility' => $spouse->beneficiary && $spouse->beneficiary->facility ? $spouse->beneficiary->facility->name : 'N/A',
+                    'facility_id' => $spouse->facility_id,
+                    'gender' => $spouse->gender,
+                    'phone' => $spouse->phone,
+                    'nin' => $spouse->nin,
+                    'status' => $spouse->status ?? 'active',
+                    'type' => 'spouse',
+                    'last_updated' => $spouse->updated_at ? $spouse->updated_at->format('Y-m-d H:i') : 'N/A',
+                    'email' => $spouse->email,
+                    'date_of_birth' => $spouse->dob,
+                    'photo' => $spouse->photo ? url('storage/' . $spouse->photo) : null
+                ];
+            });
+
+        // Build search results from children table
+        $children = \App\Models\Child::with('beneficiary.facility')
+            ->where(function($q) use ($query) {
+                $q->where('boschma_no', 'LIKE', "%{$query}%")
+                  ->orWhere('nin', 'LIKE', "%{$query}%")
+                  ->orWhere('name', 'LIKE', "%{$query}%");
+            })
+            ->limit(10)
+            ->get()
+            ->map(function($child) {
+                return [
+                    'id' => $child->id,
+                    'boschma_id' => $child->boschma_no,
+                    'name' => $child->name,
+                    'facility' => $child->beneficiary && $child->beneficiary->facility ? $child->beneficiary->facility->name : 'N/A',
+                    'facility_id' => $child->facility_id,
+                    'gender' => $child->gender,
+                    'phone' => null,
+                    'nin' => $child->nin,
+                    'status' => $child->status ?? 'active',
+                    'type' => 'child',
+                    'last_updated' => $child->updated_at ? $child->updated_at->format('Y-m-d H:i') : 'N/A',
+                    'email' => null,
+                    'date_of_birth' => $child->dob,
+                    'photo' => $child->photo ? url('storage/' . $child->photo) : null
+                ];
+            });
+
+        // Merge all results
+        $results = $beneficiaries->concat($spouses)->concat($children)
+            ->unique(function($item) {
+                return $item['boschma_id'] . $item['name'];
+            })
+            ->values()
+            ->take(10);
+
+        if ($results->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No beneficiaries found matching your search',
+                'results' => []
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Beneficiaries found',
+            'results' => $results
+        ]);
+    }
+
+    /**
+     * Get beneficiary profile with visit history
+     */
+    public function getBeneficiaryProfile(Request $request, $id)
+    {
+        try {
+            // Find beneficiary by ID or boschma_no
+            $beneficiary = \App\Models\Beneficiary::where('id', $id)
+                ->orWhere('boschma_no', $id)
+                ->with('facility')
+                ->first();
+
+            if (!$beneficiary) {
+                // Try to find in spouses table
+                $spouse = \App\Models\Spouse::where('id', $id)
+                    ->orWhere('boschma_no', $id)
+                    ->with(['beneficiary', 'beneficiary.facility'])
+                    ->first();
+
+                if ($spouse) {
+                    $beneficiaryInfo = [
+                        'id' => $spouse->id,
+                        'boschma_id' => $spouse->boschma_no,
+                        'name' => $spouse->name,
+                        'facility' => $spouse->beneficiary && $spouse->beneficiary->facility ? $spouse->beneficiary->facility->name : 'N/A',
+                        'facility_id' => $spouse->facility_id,
+                        'gender' => $spouse->gender,
+                        'phone' => $spouse->phone,
+                        'status' => $spouse->status ?? 'active',
+                        'type' => 'spouse',
+                        'photo' => $spouse->photo ? url('storage/' . $spouse->photo) : null,
+                        'date_of_birth' => $spouse->dob
+                    ];
+                } else {
+                    // Try to find in children table
+                    $child = \App\Models\Child::where('id', $id)
+                        ->orWhere('boschma_no', $id)
+                        ->with(['beneficiary', 'beneficiary.facility'])
+                        ->first();
+
+                    if ($child) {
+                        $beneficiaryInfo = [
+                            'id' => $child->id,
+                            'boschma_id' => $child->boschma_no,
+                            'name' => $child->name,
+                            'facility' => $child->beneficiary && $child->beneficiary->facility ? $child->beneficiary->facility->name : 'N/A',
+                            'facility_id' => $child->facility_id,
+                            'gender' => $child->gender,
+                            'phone' => null,
+                            'status' => $child->status ?? 'active',
+                            'type' => 'child',
+                            'photo' => $child->photo ? url('storage/' . $child->photo) : null,
+                            'date_of_birth' => $child->dob
+                        ];
+                    } else {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Beneficiary not found'
+                        ], 404);
+                    }
+                }
+            } else {
+                $beneficiaryInfo = [
+                    'id' => $beneficiary->id,
+                    'boschma_id' => $beneficiary->boschma_no,
+                    'name' => $beneficiary->fullname,
+                    'facility' => $beneficiary->facility ? $beneficiary->facility->name : 'N/A',
+                    'facility_id' => $beneficiary->facility_id,
+                    'gender' => $beneficiary->gender,
+                    'phone' => $beneficiary->phone_no,
+                    'status' => $beneficiary->status,
+                    'type' => 'beneficiary',
+                    'photo' => $beneficiary->photo ? url('storage/' . $beneficiary->photo) : null,
+                    'date_of_birth' => $beneficiary->date_of_birth
+                ];
+            }
+
+            // Get patient record to fetch encounters
+            $patientBoschmaNo = $beneficiaryInfo['boschma_id'];
+            $patient = \App\Models\Patient::where('enrollee_number', $patientBoschmaNo)->first();
+
+            $lastVisitDate = 'N/A';
+            $currentStatus = $beneficiaryInfo['status'];
+
+            if ($patient) {
+                // Get the most recent encounter to determine current status
+                $latestEncounter = \App\Models\Encounter::where('patient_id', $patient->id)
+                    ->latest('visit_date')
+                    ->first();
+
+                if ($latestEncounter) {
+                    $lastVisitDate = $latestEncounter->visit_date->format('Y-m-d H:i');
+                    // Map encounter status to patient status
+                    if ($latestEncounter->status === 'In Progress') {
+                        $currentStatus = 'In Consultation';
+                    } elseif ($latestEncounter->status === 'Completed') {
+                        $currentStatus = 'Completed';
+                    } else {
+                        $currentStatus = 'Waiting';
+                    }
+                }
+
+                // Get paginated visit history
+                $page = $request->get('page', 1);
+                $perPage = $request->get('per_page', 10);
+
+                $encounters = \App\Models\Encounter::where('patient_id', $patient->id)
+                    ->with(['facility', 'program'])
+                    ->orderBy('visit_date', 'desc')
+                    ->paginate($perPage, ['*'], 'page', $page);
+
+                $visitHistory = $encounters->map(function($encounter) {
+                    return [
+                        'id' => $encounter->id,
+                        'visit_date' => $encounter->visit_date->format('Y-m-d H:i'),
+                        'nature_of_visit' => $encounter->nature_of_visit,
+                        'reason_for_visit' => $encounter->reason_for_visit,
+                        'status' => $encounter->status,
+                        'facility' => $encounter->facility ? $encounter->facility->name : 'N/A',
+                        'mode_of_entry' => $encounter->mode_of_entry
+                    ];
+                });
+
+                $visitHistoryPagination = [
+                    'total' => $encounters->total(),
+                    'per_page' => $encounters->perPage(),
+                    'current_page' => $encounters->currentPage(),
+                    'last_page' => $encounters->lastPage(),
+                    'from' => $encounters->firstItem(),
+                    'to' => $encounters->lastItem(),
+                    'data' => $visitHistory
+                ];
+            } else {
+                $visitHistoryPagination = [
+                    'total' => 0,
+                    'per_page' => 10,
+                    'current_page' => 1,
+                    'last_page' => 0,
+                    'from' => null,
+                    'to' => null,
+                    'data' => []
+                ];
+            }
+
+            return response()->json([
+                'success' => true,
+                'profile' => [
+                    'id' => $beneficiaryInfo['id'],
+                    'boschma_id' => $beneficiaryInfo['boschma_id'],
+                    'name' => $beneficiaryInfo['name'],
+                    'enrolled_facility' => $beneficiaryInfo['facility'],
+                    'current_status' => $currentStatus,
+                    'last_visit_date' => $lastVisitDate,
+                    'gender' => $beneficiaryInfo['gender'],
+                    'phone' => $beneficiaryInfo['phone'],
+                    'type' => $beneficiaryInfo['type'],
+                    'photo' => $beneficiaryInfo['photo'],
+                    'date_of_birth' => $beneficiaryInfo['date_of_birth']
+                ],
+                'visit_history' => $visitHistoryPagination
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error fetching beneficiary profile: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+    
+    /**
+     * Get Facility Activity Overview
+     */
+    public function facilityActivity(Request $request)
+    {
+        $user = auth()->user();
+        $isCustomerCare = $user && $user->role && $user->role->name === 'Customer Care';
+        $facilityId = $isCustomerCare ? $user->facility_id : null;
+        $dateLimit = now()->subDays(15)->startOfDay();
+
+        // Awaiting Pharmacy: pending prescriptions count
+        $awaitingPharmacy = DB::table('prescriptions as p')
+            ->join('clinical_consultations as cc', 'p.clinical_consultation_id', '=', 'cc.id')
+            ->join('encounters as e', 'cc.encounter_id', '=', 'e.id')
+            ->when($facilityId, fn($q) => $q->where('e.facility_id', $facilityId))
+            ->where('e.visit_date', '>=', $dateLimit)
+            ->where('p.status', 'Pending')
+            ->count();
+
+        // Awaiting Lab: pending/authorized lab order items count
+        $awaitingLab = DB::table('service_order_items as soi')
+            ->join('service_orders as so', 'soi.service_order_id', '=', 'so.id')
+            ->join('encounters as e', 'so.encounter_id', '=', 'e.id')
+            ->when($facilityId, fn($q) => $q->where('e.facility_id', $facilityId))
+            ->where('e.visit_date', '>=', $dateLimit)
+            ->whereIn('soi.status', ['pending', 'authorized'])
+            ->count();
+
+        $inConsultation = DB::table('encounters')
+            ->when($facilityId, fn($q) => $q->where('facility_id', $facilityId))
+            ->where('visit_date', '>=', $dateLimit)
+            ->where('status', 'In Consultation')
+            ->count();
+
+        $triaged = DB::table('encounters')
+            ->when($facilityId, fn($q) => $q->where('facility_id', $facilityId))
+            ->where('visit_date', '>=', $dateLimit)
+            ->where('status', 'Triaged')
+            ->count();
+
+        $registered = DB::table('encounters')
+            ->when($facilityId, fn($q) => $q->where('facility_id', $facilityId))
+            ->where('visit_date', '>=', $dateLimit)
+            ->where('status', 'Registered')
+            ->count();
+
+        // Get base facility stats
+        $baseFacilityStats = DB::table('encounters as e')
+            ->join('facilities as f', 'e.facility_id', '=', 'f.id')
+            ->select('e.facility_id', 'f.name as facility_name',
+                DB::raw("SUM(CASE WHEN e.status = 'Registered' THEN 1 ELSE 0 END) as registered"),
+                DB::raw("SUM(CASE WHEN e.status = 'Triaged' THEN 1 ELSE 0 END) as triaged"),
+                DB::raw("SUM(CASE WHEN e.status = 'In Consultation' THEN 1 ELSE 0 END) as in_consultation"))
+            ->when($facilityId, fn($q) => $q->where('e.facility_id', $facilityId))
+            ->where('e.visit_date', '>=', $dateLimit)
+            ->whereIn('e.status', ['Registered', 'Triaged', 'In Consultation'])
+            ->groupBy('e.facility_id', 'f.name')
+            ->get()
+            ->keyBy('facility_id');
+
+        // Get awaiting pharmacy per facility
+        $pharmacyByFacility = DB::table('prescriptions as p')
+            ->join('clinical_consultations as cc', 'p.clinical_consultation_id', '=', 'cc.id')
+            ->join('encounters as e', 'cc.encounter_id', '=', 'e.id')
+            ->select('e.facility_id', DB::raw('COUNT(*) as awaiting_pharmacy'))
+            ->when($facilityId, fn($q) => $q->where('e.facility_id', $facilityId))
+            ->where('e.visit_date', '>=', $dateLimit)
+            ->where('p.status', 'Pending')
+            ->groupBy('e.facility_id')
+            ->get()
+            ->keyBy('facility_id');
+
+        // Get awaiting lab per facility
+        $labByFacility = DB::table('service_order_items as soi')
+            ->join('service_orders as so', 'soi.service_order_id', '=', 'so.id')
+            ->join('encounters as e', 'so.encounter_id', '=', 'e.id')
+            ->select('e.facility_id', DB::raw('COUNT(*) as awaiting_lab'))
+            ->when($facilityId, fn($q) => $q->where('e.facility_id', $facilityId))
+            ->where('e.visit_date', '>=', $dateLimit)
+            ->whereIn('soi.status', ['pending', 'authorized'])
+            ->groupBy('e.facility_id')
+            ->get()
+            ->keyBy('facility_id');
+
+        // Merge all facility stats
+        $waitingByFacility = $baseFacilityStats->map(function($facility) use ($pharmacyByFacility, $labByFacility) {
+            $facility->awaiting_pharmacy = $pharmacyByFacility->get($facility->facility_id)->awaiting_pharmacy ?? 0;
+            $facility->awaiting_lab = $labByFacility->get($facility->facility_id)->awaiting_lab ?? 0;
+            return $facility;
+        })->values()->sortByDesc('registered')->values();
+
+        $waitingQueue = [
+            'awaiting_pharmacy' => $awaitingPharmacy,
+            'awaiting_lab'      => $awaitingLab,
+            'in_consultation'   => $inConsultation,
+            'triaged'           => $triaged,
+            'registered'        => $registered,
+            'total_waiting'     => $awaitingPharmacy + $awaitingLab + $inConsultation + $triaged + $registered,
+            'by_facility'       => $waitingByFacility,
+        ];
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'data' => $waitingQueue
+            ]);
+        }
+
+        return view('admin.crm.facility-activity', compact('waitingQueue'));
+    }
+
+    /**
+     * Get active staff (active in the last 30 minutes)
+     */
+    public function activeStaff(Request $request)
+    {
+        $activeSessionUserIds = DB::table('sessions')
+            ->whereNotNull('user_id')
+            ->where('last_activity', '>=', now()->subMinutes(30)->timestamp)
+            ->pluck('user_id')
+            ->unique();
+
+        $user = auth()->user();
+        $isCustomerCare = $user && $user->role && $user->role->name === 'Customer Care';
+        $facilityId = $isCustomerCare ? $user->facility_id : null;
+
+        $activeStaffList = [];
+
+        // Fetch from staff table (assuming global if no facility_id exists)
+        if (!$isCustomerCare) {
+            $staffMembers = Staff::whereIn('id', $activeSessionUserIds)->get();
+            foreach ($staffMembers as $staff) {
+                $activeStaffList[] = [
+                    'id' => $staff->id,
+                    'name' => $staff->fullname,
+                    'role' => 'Staff', // Default fallback
+                    'phone' => $staff->phone,
+                    'status' => 'Online',
+                ];
+            }
+        }
+
+        // Fetch from users table
+        $usersQuery = \App\Models\User::whereIn('id', $activeSessionUserIds)
+            ->with(['role', 'staffPosition']);
+            
+        if ($facilityId) {
+            $usersQuery->where('facility_id', $facilityId);
+        }
+        
+        $users = $usersQuery->get();
+            
+        foreach ($users as $user) {
+            $roleName = 'User';
+            if ($user->role) {
+                $roleName = $user->role->name;
+            } elseif ($user->staffPosition) {
+                $roleName = $user->staffPosition->name;
+            }
+            
+            $activeStaffList[] = [
+                'id' => $user->id,
+                'name' => $user->name,
+                'role' => $roleName,
+                'phone' => $user->phone,
+                'status' => 'Online',
+            ];
+        }
+
+        // Ensure unique by ID (in case someone is in both or we had overlap somehow)
+        $activeStaffList = collect($activeStaffList)->unique('id')->values()->all();
+
+        return response()->json([
+            'success' => true,
+            'data' => $activeStaffList
+        ]);
+    }
+
+    /**
+     * Get EHR Activity
+     */
+    public function ehrActivity(Request $request)
+    {
+        $user = auth()->user();
+        $isCustomerCare = $user && $user->role && $user->role->name === 'Customer Care';
+        $facilityId = $isCustomerCare ? $user->facility_id : $request->get('facility_id');
+        $dateLimit = now()->subDays(15)->startOfDay();
+        
+        $activities = collect();
+
+        // 1. Consultations
+        $consultationsQuery = \App\Models\ClinicalConsultation::with(['doctor', 'encounter.patient'])
+            ->where('created_at', '>=', $dateLimit)
+            ->latest('created_at')
+            ->take(20);
+        if ($facilityId) {
+            $consultationsQuery->whereHas('encounter', function($q) use ($facilityId) {
+                $q->where('facility_id', $facilityId);
+            });
+        }
+        foreach ($consultationsQuery->get() as $c) {
+            $activities->push([
+                'type' => 'Consultation',
+                'staff' => $c->doctor ? $c->doctor->name : 'Unknown',
+                'patient' => ($c->encounter && $c->encounter->patient) ? ($c->encounter->patient->full_info['fullname'] ?? $c->encounter->patient->enrollee_number) : 'Unknown',
+                'timestamp' => $c->created_at,
+                'time_formatted' => $c->created_at->diffForHumans()
+            ]);
+        }
+
+        // 2. Vitals
+        $vitalsQuery = \App\Models\VitalSign::with(['takenBy', 'encounter.patient'])
+            ->where('created_at', '>=', $dateLimit)
+            ->latest('created_at')
+            ->take(20);
+        if ($facilityId) {
+            $vitalsQuery->whereHas('encounter', function($q) use ($facilityId) {
+                $q->where('facility_id', $facilityId);
+            });
+        }
+        foreach ($vitalsQuery->get() as $v) {
+            $activities->push([
+                'type' => 'Vitals',
+                'staff' => $v->takenBy ? $v->takenBy->name : 'Unknown',
+                'patient' => ($v->encounter && $v->encounter->patient) ? ($v->encounter->patient->full_info['fullname'] ?? $v->encounter->patient->enrollee_number) : 'Unknown',
+                'timestamp' => $v->created_at,
+                'time_formatted' => $v->created_at->diffForHumans()
+            ]);
+        }
+
+        // 3. Lab
+        $labQuery = \App\Models\ServiceOrder::with(['orderedBy', 'patient'])
+            ->where('created_at', '>=', $dateLimit)
+            ->latest('created_at')
+            ->take(20);
+        if ($facilityId) {
+            $labQuery->where('facility_id', $facilityId);
+        }
+        foreach ($labQuery->get() as $l) {
+            $activities->push([
+                'type' => 'Lab',
+                'staff' => $l->orderedBy ? $l->orderedBy->name : 'Unknown',
+                'patient' => $l->patient ? ($l->patient->full_info['fullname'] ?? $l->patient->enrollee_number) : 'Unknown',
+                'timestamp' => $l->created_at,
+                'time_formatted' => $l->created_at->diffForHumans()
+            ]);
+        }
+
+        // 4. Pharmacy (Prescriptions)
+        $rxQuery = \App\Models\Prescription::with(['consultation.doctor', 'consultation.encounter.patient'])
+            ->latest('created_at')
+            ->take(20);
+        if ($facilityId) {
+            $rxQuery->whereHas('consultation.encounter', function($q) use ($facilityId) {
+                $q->where('facility_id', $facilityId);
+            });
+        }
+        foreach ($rxQuery->get() as $r) {
+            $doctor = $r->consultation && $r->consultation->doctor ? $r->consultation->doctor->name : 'Unknown';
+            $patient = ($r->consultation && $r->consultation->encounter && $r->consultation->encounter->patient) 
+                ? ($r->consultation->encounter->patient->full_info['fullname'] ?? $r->consultation->encounter->patient->enrollee_number) 
+                : 'Unknown';
+            
+            $activities->push([
+                'type' => 'Pharmacy',
+                'staff' => $doctor,
+                'patient' => $patient,
+                'timestamp' => $r->created_at,
+                'time_formatted' => $r->created_at->diffForHumans()
+            ]);
+        }
+
+        $recentActivities = $activities->sortByDesc('timestamp')->take(20)->values()->all();
+
+        return response()->json([
+            'success' => true,
+            'data' => $recentActivities
+        ]);
+    }
 }

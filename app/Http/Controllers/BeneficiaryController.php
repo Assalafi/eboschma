@@ -94,6 +94,10 @@ class BeneficiaryController extends Controller
             }
 
             if ($request->export === 'pdf') {
+                // Increase memory limit for DomPDF
+                ini_set('memory_limit', '512M');
+                ini_set('max_execution_time', 300);
+
                 // Load a lean copy of the query for PDF (only needed columns)
                 $pdfBeneficiaries = (clone $query)
                     ->select('id', 'fullname', 'gender', 'date_of_birth', 'marital_status', 'phone_no', 'nin', 'boschma_no')

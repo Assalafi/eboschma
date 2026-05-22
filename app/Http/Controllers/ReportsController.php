@@ -216,8 +216,18 @@ class ReportsController extends Controller
         return Excel::download(new EnumeratorEnrollmentsExport($id, $enumerator->fullname), $filename);
     }
 
-    public function facilityEnrollments($id)
+    public function facilityEnrollments(Request $request, $id)
     {
+        $programId = $request->get('program_id');
+        $gender = $request->get('gender');
+        $dateFrom = $request->get('date_from');
+        $dateTo = $request->get('date_to');
+        $programs = \App\Models\Program::orderBy('name')->get();
+
+        // Build date range filter
+        $dateFromSql = $dateFrom ? $dateFrom . ' 00:00:00' : null;
+        $dateToSql = $dateTo ? $dateTo . ' 23:59:59' : null;
+
         // Get the facility
         $facility = Facility::findOrFail($id);
         
@@ -225,11 +235,21 @@ class ReportsController extends Controller
         $enrollments = collect();
         
         // Get all beneficiaries for this facility
-        $beneficiaries = Beneficiary::where('facility_id', $id)
+        $beneficiariesQuery = Beneficiary::where('facility_id', $id)
             ->with('creator')
-            ->where('status', '!=', 'draft')
-            ->orderBy('created_at', 'desc')
-            ->get();
+            ->where('status', '!=', 'draft');
+
+        if ($programId) {
+            $beneficiariesQuery->where('program_id', $programId);
+        }
+        if ($gender) {
+            $beneficiariesQuery->where('gender', $gender);
+        }
+        if ($dateFromSql && $dateToSql) {
+            $beneficiariesQuery->whereBetween('created_at', [$dateFromSql, $dateToSql]);
+        }
+            
+        $beneficiaries = $beneficiariesQuery->orderBy('created_at', 'desc')->get();
 
         foreach ($beneficiaries as $beneficiary) {
             // Add principal beneficiary
@@ -250,10 +270,21 @@ class ReportsController extends Controller
         }
         
         // Get all spouses directly assigned to this facility
-        $spouses = \App\Models\Spouse::where('facility_id', $id)
-            ->with('beneficiary.creator')
-            ->orderBy('created_at', 'desc')
-            ->get();
+        $spousesQuery = \App\Models\Spouse::where('facility_id', $id)
+            ->with('beneficiary.creator');
+
+        if ($gender) {
+            $spousesQuery->where('gender', $gender);
+        }
+
+        if ($programId || ($dateFromSql && $dateToSql)) {
+            $spousesQuery->whereHas('beneficiary', function($q) use ($programId, $dateFromSql, $dateToSql) {
+                if ($programId) $q->where('program_id', $programId);
+                if ($dateFromSql && $dateToSql) $q->whereBetween('created_at', [$dateFromSql, $dateToSql]);
+            });
+        }
+            
+        $spouses = $spousesQuery->orderBy('created_at', 'desc')->get();
 
         foreach ($spouses as $spouse) {
             $enrollments->push((object)[
@@ -273,10 +304,21 @@ class ReportsController extends Controller
         }
         
         // Get all children directly assigned to this facility
-        $children = \App\Models\Child::where('facility_id', $id)
-            ->with('beneficiary.creator')
-            ->orderBy('created_at', 'desc')
-            ->get();
+        $childrenQuery = \App\Models\Child::where('facility_id', $id)
+            ->with('beneficiary.creator');
+
+        if ($gender) {
+            $childrenQuery->where('gender', $gender);
+        }
+
+        if ($programId || ($dateFromSql && $dateToSql)) {
+            $childrenQuery->whereHas('beneficiary', function($q) use ($programId, $dateFromSql, $dateToSql) {
+                if ($programId) $q->where('program_id', $programId);
+                if ($dateFromSql && $dateToSql) $q->whereBetween('created_at', [$dateFromSql, $dateToSql]);
+            });
+        }
+            
+        $children = $childrenQuery->orderBy('created_at', 'desc')->get();
 
         foreach ($children as $child) {
             $enrollments->push((object)[
@@ -303,6 +345,12 @@ class ReportsController extends Controller
         $perPage = 20;
         $currentItems = $enrollments->forPage($currentPage, $perPage);
         
+        $query = [];
+        if ($programId) $query['program_id'] = $programId;
+        if ($gender) $query['gender'] = $gender;
+        if ($dateFrom) $query['date_from'] = $dateFrom;
+        if ($dateTo) $query['date_to'] = $dateTo;
+        
         $paginatedEnrollments = new \Illuminate\Pagination\LengthAwarePaginator(
             $currentItems,
             $enrollments->count(),
@@ -311,10 +359,13 @@ class ReportsController extends Controller
             [
                 'path' => request()->url(),
                 'pageName' => 'page',
+                'query' => $query,
             ]
         );
 
-        return view('reports.facility-enrollments', compact('facility', 'enrollments', 'paginatedEnrollments'));
+        $selectedProgram = $programId ? \App\Models\Program::find($programId) : null;
+
+        return view('reports.facility-enrollments', compact('facility', 'enrollments', 'paginatedEnrollments', 'programs', 'programId', 'selectedProgram'));
     }
 
     public function exportFacilities(Request $request)

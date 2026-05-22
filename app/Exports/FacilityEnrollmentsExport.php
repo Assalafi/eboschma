@@ -19,17 +19,26 @@ class FacilityEnrollmentsExport implements FromCollection, WithHeadings, WithTit
     protected $facilityId;
     protected $facilityName;
     protected $programId;
+    protected $dateFrom;
+    protected $dateTo;
+    protected $gender;
 
-    public function __construct($facilityId, $facilityName, $programId = null)
+    public function __construct($facilityId, $facilityName, $programId = null, $dateFrom = null, $dateTo = null, $gender = null)
     {
         $this->facilityId = $facilityId;
         $this->facilityName = $facilityName;
         $this->programId = $programId;
+        $this->dateFrom = $dateFrom;
+        $this->dateTo = $dateTo;
+        $this->gender = $gender;
     }
 
     public function collection()
     {
         $enrollments = collect();
+
+        $dateFromSql = $this->dateFrom ? $this->dateFrom . ' 00:00:00' : null;
+        $dateToSql = $this->dateTo ? $this->dateTo . ' 23:59:59' : null;
 
         // Get beneficiaries for this facility
         $beneficiaryQuery = Beneficiary::where('facility_id', $this->facilityId)
@@ -38,6 +47,12 @@ class FacilityEnrollmentsExport implements FromCollection, WithHeadings, WithTit
         
         if ($this->programId) {
             $beneficiaryQuery->where('program_id', $this->programId);
+        }
+        if ($this->gender) {
+            $beneficiaryQuery->where('gender', $this->gender);
+        }
+        if ($dateFromSql && $dateToSql) {
+            $beneficiaryQuery->whereBetween('created_at', [$dateFromSql, $dateToSql]);
         }
         
         $beneficiaries = $beneficiaryQuery->get();
@@ -67,9 +82,18 @@ class FacilityEnrollmentsExport implements FromCollection, WithHeadings, WithTit
         $spouseQuery = Spouse::where('facility_id', $this->facilityId)
             ->with('beneficiary.creator');
         
-        if ($this->programId) {
-            $spouseQuery->whereHas('beneficiary', function($q) {
-                $q->where('program_id', $this->programId);
+        if ($this->gender) {
+            $spouseQuery->where('gender', $this->gender);
+        }
+
+        if ($this->programId || ($dateFromSql && $dateToSql)) {
+            $spouseQuery->whereHas('beneficiary', function($q) use ($dateFromSql, $dateToSql) {
+                if ($this->programId) {
+                    $q->where('program_id', $this->programId);
+                }
+                if ($dateFromSql && $dateToSql) {
+                    $q->whereBetween('created_at', [$dateFromSql, $dateToSql]);
+                }
             });
         }
         
@@ -100,9 +124,18 @@ class FacilityEnrollmentsExport implements FromCollection, WithHeadings, WithTit
         $childQuery = Child::where('facility_id', $this->facilityId)
             ->with('beneficiary.creator');
         
-        if ($this->programId) {
-            $childQuery->whereHas('beneficiary', function($q) {
-                $q->where('program_id', $this->programId);
+        if ($this->gender) {
+            $childQuery->where('gender', $this->gender);
+        }
+
+        if ($this->programId || ($dateFromSql && $dateToSql)) {
+            $childQuery->whereHas('beneficiary', function($q) use ($dateFromSql, $dateToSql) {
+                if ($this->programId) {
+                    $q->where('program_id', $this->programId);
+                }
+                if ($dateFromSql && $dateToSql) {
+                    $q->whereBetween('created_at', [$dateFromSql, $dateToSql]);
+                }
             });
         }
         

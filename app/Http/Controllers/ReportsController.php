@@ -374,11 +374,13 @@ class ReportsController extends Controller
         $facilityId = $request->get('facility_id');
         $programId = $request->get('program_id');
         $lga = $request->get('lga');
+        $gender = $request->get('gender');
         $dateFrom = $request->get('date_from');
         $dateTo = $request->get('date_to');
         $program = $programId ? \App\Models\Program::find($programId) : null;
         $programSuffix = $program ? '_' . str_replace(' ', '_', $program->name) : '';
         $lgaSuffix = $lga ? '_' . str_replace(' ', '_', $lga) : '';
+        $genderSuffix = $gender ? '_' . str_replace(' ', '_', $gender) : '';
         $dateSuffix = '';
         if ($dateFrom || $dateTo) {
             $dateSuffix = '_' . ($dateFrom ?: 'start') . '_to_' . ($dateTo ?: 'end');
@@ -387,8 +389,8 @@ class ReportsController extends Controller
         if ($facilityId) {
             // Export specific facility enrollments (detailed records)
             $facility = Facility::findOrFail($facilityId);
-            $filename = $facility->name . $programSuffix . $lgaSuffix . $dateSuffix . '_enrollments_' . date('Y-m_d_H-i-s') . '.xlsx';
-            return Excel::download(new FacilityEnrollmentsExport($facilityId, $facility->name, $programId, $dateFrom, $dateTo), $filename);
+            $filename = $facility->name . $programSuffix . $genderSuffix . $dateSuffix . '_enrollments_' . date('Y-m_d_H-i-s') . '.xlsx';
+            return Excel::download(new FacilityEnrollmentsExport($facilityId, $facility->name, $programId, $dateFrom, $dateTo, $gender), $filename);
         } else {
             // Export all facilities (summary data)
             $filename = 'facility_performance' . $programSuffix . $lgaSuffix . $dateSuffix . '_' . date('Y-m_d_H-i-s') . '.xlsx';

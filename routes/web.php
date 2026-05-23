@@ -362,32 +362,32 @@ Route::middleware(['auth:staff,web'])->group(function () {
     
     // Reports Management (Protected by permissions)
     Route::prefix('reports')->name('reports.')->group(function () {
-        Route::get('/', [ReportsController::class, 'index'])->name('index')->middleware('permission:report.view,staff');
-        Route::get('/export', [ReportsController::class, 'exportDashboard'])->name('export')->middleware('permission:report.view,staff');
-        Route::get('/enumerators', [ReportsController::class, 'enumerators'])->name('enumerators')->middleware('permission:report.view,staff');
-        Route::get('/enumerators/export', [ReportsController::class, 'exportEnumerators'])->name('enumerators.export')->middleware('permission:report.view,staff');
-        Route::get('/enumerators/{id}/enrollments', [ReportsController::class, 'enumeratorEnrollments'])->name('enumerators.enrollments')->middleware('permission:report.view,staff');
-        Route::get('/enumerators/{id}/enrollments/export', [ReportsController::class, 'exportEnumeratorEnrollments'])->name('enumerators.enrollments.export')->middleware('permission:report.view,staff');
-        Route::get('/facilities', [ReportsController::class, 'facilities'])->name('facilities')->middleware('permission:report.view,staff');
-        Route::get('/facilities/export', [ReportsController::class, 'exportFacilities'])->name('facilities.export')->middleware('permission:report.view,staff');
-        Route::get('/facilities/{id}/enrollments', [ReportsController::class, 'facilityEnrollments'])->name('facilities.show')->middleware('permission:report.view,staff');
-        Route::get('/enrollments', [ReportsController::class, 'enrollments'])->name('enrollments')->middleware('permission:report.view,staff');
-        Route::get('/enrollments/export', [ReportsController::class, 'exportEnrollments'])->name('enrollments.export')->middleware('permission:report.view,staff');
-        Route::get('/enrollments/export/month/{month}', [ReportsController::class, 'exportMonthlyEnrollments'])->name('enrollments.export.month')->middleware('permission:report.view,staff');
-        Route::get('/enrollments/export/category/{category}', [ReportsController::class, 'exportCategoryEnrollments'])->name('enrollments.export.category')->middleware('permission:report.view,staff');
-        Route::get('/enrollments/export/status/{status}', [ReportsController::class, 'exportStatusEnrollments'])->name('enrollments.export.status')->middleware('permission:report.view,staff');
-        Route::get('/crm/reports', [ReportsController::class, 'crm'])->name('crm')->middleware('permission:report.view,staff');
-        Route::get('/crm/reports/export', [ReportsController::class, 'crmExport'])->name('crm.export')->middleware('permission:report.view,staff');
-        Route::get('/crm/reports/print', [ReportsController::class, 'crmPrint'])->name('crm.print')->middleware('permission:report.view,staff');
-        Route::get('/crm/reports/{ticket}', [ReportsController::class, 'crmTicketDetail'])->name('crm.ticket.detail')->middleware('permission:report.view,staff');
-        Route::get('/crm/reports/category/breakdown', [ReportsController::class, 'crmCategoryBreakdown'])->name('crm.category.breakdown')->middleware('permission:report.view,staff');
-        Route::get('/crm/reports/status/breakdown', [ReportsController::class, 'crmStatusBreakdown'])->name('crm.status.breakdown')->middleware('permission:report.view,staff');
-        Route::get('/crm/reports/department/breakdown', [ReportsController::class, 'crmDepartmentBreakdown'])->name('crm.department.breakdown')->middleware('permission:report.view,staff');
+        Route::get('/', [ReportsController::class, 'index'])->name('index')->middleware('permission:report.view|crm.view,staff');
+        Route::get('/export', [ReportsController::class, 'exportDashboard'])->name('export')->middleware('permission:report.view|crm.view,staff');
+        Route::get('/enumerators', [ReportsController::class, 'enumerators'])->name('enumerators')->middleware('permission:report.view|crm.view,staff');
+        Route::get('/enumerators/export', [ReportsController::class, 'exportEnumerators'])->name('enumerators.export')->middleware('permission:report.view|crm.view,staff');
+        Route::get('/enumerators/{id}/enrollments', [ReportsController::class, 'enumeratorEnrollments'])->name('enumerators.enrollments')->middleware('permission:report.view|crm.view,staff');
+        Route::get('/enumerators/{id}/enrollments/export', [ReportsController::class, 'exportEnumeratorEnrollments'])->name('enumerators.enrollments.export')->middleware('permission:report.view|crm.view,staff');
+        Route::get('/facilities', [ReportsController::class, 'facilities'])->name('facilities')->middleware('permission:report.view|crm.view,staff');
+        Route::get('/facilities/export', [ReportsController::class, 'exportFacilities'])->name('facilities.export')->middleware('permission:report.view|crm.view,staff');
+        Route::get('/facilities/{id}/enrollments', [ReportsController::class, 'facilityEnrollments'])->name('facilities.show')->middleware('permission:report.view|crm.view,staff');
+        Route::get('/enrollments', [ReportsController::class, 'enrollments'])->name('enrollments')->middleware('permission:report.view|crm.view,staff');
+        Route::get('/enrollments/export', [ReportsController::class, 'exportEnrollments'])->name('enrollments.export')->middleware('permission:report.view|crm.view,staff');
+        Route::get('/enrollments/export/month/{month}', [ReportsController::class, 'exportMonthlyEnrollments'])->name('enrollments.export.month')->middleware('permission:report.view|crm.view,staff');
+        Route::get('/enrollments/export/category/{category}', [ReportsController::class, 'exportCategoryEnrollments'])->name('enrollments.export.category')->middleware('permission:report.view|crm.view,staff');
+        Route::get('/enrollments/export/status/{status}', [ReportsController::class, 'exportStatusEnrollments'])->name('enrollments.export.status')->middleware('permission:report.view|crm.view,staff');
+        Route::get('/crm/reports', [ReportsController::class, 'crm'])->name('crm')->middleware('permission:report.view|crm.view,staff');
+        Route::get('/crm/reports/export', [ReportsController::class, 'crmExport'])->name('crm.export')->middleware('permission:report.view|crm.view,staff');
+        Route::get('/crm/reports/print', [ReportsController::class, 'crmPrint'])->name('crm.print')->middleware('permission:report.view|crm.view,staff');
+        Route::get('/crm/reports/{ticket}', [ReportsController::class, 'crmTicketDetail'])->name('crm.ticket.detail')->middleware('permission:report.view|crm.view,staff');
+        Route::get('/crm/reports/category/breakdown', [ReportsController::class, 'crmCategoryBreakdown'])->name('crm.category.breakdown')->middleware('permission:report.view|crm.view,staff');
+        Route::get('/crm/reports/status/breakdown', [ReportsController::class, 'crmStatusBreakdown'])->name('crm.status.breakdown')->middleware('permission:report.view|crm.view,staff');
+        Route::get('/crm/reports/department/breakdown', [ReportsController::class, 'crmDepartmentBreakdown'])->name('crm.department.breakdown')->middleware('permission:report.view|crm.view,staff');
 
         // EHR Activity Reports
-        Route::get('/ehr', [EhrReportController::class, 'index'])->name('ehr')->middleware('permission:report.view,staff');
-        Route::get('/ehr/export', [EhrReportController::class, 'export'])->name('ehr.export')->middleware('permission:report.view,staff');
-        Route::get('/ehr/drilldown', [EhrReportController::class, 'drilldown'])->name('ehr.drilldown')->middleware('permission:report.view,staff');
+        Route::get('/ehr', [EhrReportController::class, 'index'])->name('ehr')->middleware('permission:report.view|crm.view,staff');
+        Route::get('/ehr/export', [EhrReportController::class, 'export'])->name('ehr.export')->middleware('permission:report.view|crm.view,staff');
+        Route::get('/ehr/drilldown', [EhrReportController::class, 'drilldown'])->name('ehr.drilldown')->middleware('permission:report.view|crm.view,staff');
     });
     
     // Contributions Management (Protected by permissions)

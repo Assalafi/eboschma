@@ -123,11 +123,29 @@
 document.addEventListener('DOMContentLoaded', function() {
     // ── Drilldown Handler ──────────────────────────────────────
     const drilldownUrl = @json(route('reports.ehr.drilldown'));
+    @php
+        $user = auth('staff')->user() ?? auth()->user();
+        $isCustomerCare = false;
+        $facilityIds = [];
+        if ($user) {
+            $isCustomerCare = (method_exists($user, 'hasRole') && $user->hasRole('Customer Care')) ||
+                              (isset($user->role) && $user->role->name === 'Customer Care');
+            if ($isCustomerCare) {
+                if (method_exists($user, 'facilities') && $user->facilities()->count() > 0) {
+                    $facilityIds = $user->facilities->pluck('id')->toArray();
+                } elseif (isset($user->facility_id) && $user->facility_id) {
+                    $facilityIds = [$user->facility_id];
+                } else {
+                    $facilityIds = [-1]; // no facilities assigned
+                }
+            }
+        }
+    @endphp
     const baseParams = {
         date_from: '{{ \Carbon\Carbon::now()->subDays(15)->toDateString() }}',
         date_to: '{{ \Carbon\Carbon::today()->toDateString() }}',
-        @if(auth()->user()->role && auth()->user()->role->name === 'Customer Care')
-        facility_id: '{{ auth()->user()->facility_id }}',
+        @if($isCustomerCare && !empty($facilityIds))
+        'facility_id[]': @json($facilityIds),
         @endif
     };
     const modal = new bootstrap.Modal(document.getElementById('drilldownModal'));

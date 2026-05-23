@@ -490,12 +490,37 @@ class EhrReportController extends Controller
 
     private function getWaitingQueue($facilityId, $programId)
     {
+        // For Live Waiting Queue, only consider the last 15 days to match the drilldown logic
+        $dateFrom = \Carbon\Carbon::now()->subDays(15)->format('Y-m-d');
+        $dateTo = \Carbon\Carbon::now()->format('Y-m-d');
+
+        // Helper to handle both array and scalar facilityId
+        $applyFacility = function($q, $fid) {
+            if (is_array($fid) && !empty($fid)) {
+                return $q->whereIn('e.facility_id', $fid);
+            } elseif ($fid) {
+                return $q->where('e.facility_id', $fid);
+            }
+            return $q;
+        };
+
+        // Helper for direct facility_id (no alias)
+        $applyFacilityDirect = function($q, $fid) {
+            if (is_array($fid) && !empty($fid)) {
+                return $q->whereIn('facility_id', $fid);
+            } elseif ($fid) {
+                return $q->where('facility_id', $fid);
+            }
+            return $q;
+        };
+
         // Awaiting Pharmacy: pending prescriptions count
         $awaitingPharmacy = DB::table('prescriptions as p')
             ->join('clinical_consultations as cc', 'p.clinical_consultation_id', '=', 'cc.id')
             ->join('encounters as e', 'cc.encounter_id', '=', 'e.id')
-            ->when($facilityId, fn($q) => $q->where('e.facility_id', $facilityId))
+            ->where(function($q) use ($applyFacility, $facilityId) { return $applyFacility($q, $facilityId); })
             ->when($programId, fn($q) => $q->where('e.program_id', $programId))
+            ->whereBetween('e.visit_date', ["$dateFrom 00:00:00", "$dateTo 23:59:59"])
             ->where('p.status', 'Pending')
             ->count();
 
@@ -503,26 +528,30 @@ class EhrReportController extends Controller
         $awaitingLab = DB::table('service_order_items as soi')
             ->join('service_orders as so', 'soi.service_order_id', '=', 'so.id')
             ->join('encounters as e', 'so.encounter_id', '=', 'e.id')
-            ->when($facilityId, fn($q) => $q->where('e.facility_id', $facilityId))
+            ->where(function($q) use ($applyFacility, $facilityId) { return $applyFacility($q, $facilityId); })
             ->when($programId, fn($q) => $q->where('e.program_id', $programId))
+            ->whereBetween('e.visit_date', ["$dateFrom 00:00:00", "$dateTo 23:59:59"])
             ->whereIn('soi.status', ['pending', 'authorized'])
             ->count();
 
         $inConsultation = DB::table('encounters')
-            ->when($facilityId, fn($q) => $q->where('facility_id', $facilityId))
+            ->where(function($q) use ($applyFacilityDirect, $facilityId) { return $applyFacilityDirect($q, $facilityId); })
             ->when($programId, fn($q) => $q->where('program_id', $programId))
+            ->whereBetween('visit_date', ["$dateFrom 00:00:00", "$dateTo 23:59:59"])
             ->where('status', 'In Consultation')
             ->count();
 
         $triaged = DB::table('encounters')
-            ->when($facilityId, fn($q) => $q->where('facility_id', $facilityId))
+            ->where(function($q) use ($applyFacilityDirect, $facilityId) { return $applyFacilityDirect($q, $facilityId); })
             ->when($programId, fn($q) => $q->where('program_id', $programId))
+            ->whereBetween('visit_date', ["$dateFrom 00:00:00", "$dateTo 23:59:59"])
             ->where('status', 'Triaged')
             ->count();
 
         $registered = DB::table('encounters')
-            ->when($facilityId, fn($q) => $q->where('facility_id', $facilityId))
+            ->where(function($q) use ($applyFacilityDirect, $facilityId) { return $applyFacilityDirect($q, $facilityId); })
             ->when($programId, fn($q) => $q->where('program_id', $programId))
+            ->whereBetween('visit_date', ["$dateFrom 00:00:00", "$dateTo 23:59:59"])
             ->where('status', 'Registered')
             ->count();
 
@@ -533,8 +562,9 @@ class EhrReportController extends Controller
                 DB::raw("SUM(CASE WHEN e.status = 'Registered' THEN 1 ELSE 0 END) as registered"),
                 DB::raw("SUM(CASE WHEN e.status = 'Triaged' THEN 1 ELSE 0 END) as triaged"),
                 DB::raw("SUM(CASE WHEN e.status = 'In Consultation' THEN 1 ELSE 0 END) as in_consultation"))
-            ->when($facilityId, fn($q) => $q->where('e.facility_id', $facilityId))
+            ->where(function($q) use ($applyFacility, $facilityId) { return $applyFacility($q, $facilityId); })
             ->when($programId, fn($q) => $q->where('e.program_id', $programId))
+            ->whereBetween('e.visit_date', ["$dateFrom 00:00:00", "$dateTo 23:59:59"])
             ->whereIn('e.status', ['Registered', 'Triaged', 'In Consultation'])
             ->groupBy('e.facility_id', 'f.name')
             ->get()
@@ -545,8 +575,9 @@ class EhrReportController extends Controller
             ->join('clinical_consultations as cc', 'p.clinical_consultation_id', '=', 'cc.id')
             ->join('encounters as e', 'cc.encounter_id', '=', 'e.id')
             ->select('e.facility_id', DB::raw('COUNT(*) as awaiting_pharmacy'))
-            ->when($facilityId, fn($q) => $q->where('e.facility_id', $facilityId))
+            ->where(function($q) use ($applyFacility, $facilityId) { return $applyFacility($q, $facilityId); })
             ->when($programId, fn($q) => $q->where('e.program_id', $programId))
+            ->whereBetween('e.visit_date', ["$dateFrom 00:00:00", "$dateTo 23:59:59"])
             ->where('p.status', 'Pending')
             ->groupBy('e.facility_id')
             ->get()
@@ -557,8 +588,9 @@ class EhrReportController extends Controller
             ->join('service_orders as so', 'soi.service_order_id', '=', 'so.id')
             ->join('encounters as e', 'so.encounter_id', '=', 'e.id')
             ->select('e.facility_id', DB::raw('COUNT(*) as awaiting_lab'))
-            ->when($facilityId, fn($q) => $q->where('e.facility_id', $facilityId))
+            ->where(function($q) use ($applyFacility, $facilityId) { return $applyFacility($q, $facilityId); })
             ->when($programId, fn($q) => $q->where('e.program_id', $programId))
+            ->whereBetween('e.visit_date', ["$dateFrom 00:00:00", "$dateTo 23:59:59"])
             ->whereIn('soi.status', ['pending', 'authorized'])
             ->groupBy('e.facility_id')
             ->get()
@@ -581,6 +613,7 @@ class EhrReportController extends Controller
             'by_facility'       => $waitingByFacility,
         ];
     }
+
 
     // ── Staff Performance ─────────────────────────────────────────────
 
@@ -790,6 +823,9 @@ class EhrReportController extends Controller
     {
         $type       = $request->get('type');
         $facilityId = $request->get('facility_id');
+        if (is_string($facilityId) && strpos($facilityId, ',') !== false) {
+            $facilityId = explode(',', $facilityId);
+        }
         $programId  = $request->get('program_id');
         $dateFrom   = $request->get('date_from', Carbon::now()->subDays(90)->toDateString());
         $dateTo     = $request->get('date_to', Carbon::now()->toDateString());
@@ -811,7 +847,9 @@ class EhrReportController extends Controller
                     ->leftJoin('facilities as f', 'e.facility_id', '=', 'f.id')
                     ->leftJoin('programs as pr', 'e.program_id', '=', 'pr.id')
                     ->select('pt.file_number', 'pt.enrollee_number', 'f.name as facility', 'pr.name as program', 'e.status', 'e.visit_date', 'e.nature_of_visit')
-                    ->when($facilityId, fn($q) => $q->where('e.facility_id', $facilityId))
+                    ->when($facilityId, function($q) use ($facilityId) {
+                        return is_array($facilityId) ? $q->whereIn('e.facility_id', $facilityId) : $q->where('e.facility_id', $facilityId);
+                    })
                     ->when($programId, fn($q) => $q->where('e.program_id', $programId))
                     ->whereBetween('e.visit_date', $dateRange);
                 if ($type === 'completed_encounters') $query = $query->where('e.status', 'Completed');
@@ -827,7 +865,9 @@ class EhrReportController extends Controller
                     ->join('patients as pt', 'e.patient_id', '=', 'pt.id')
                     ->leftJoin('facilities as f', 'e.facility_id', '=', 'f.id')
                     ->select('pt.id', 'pt.file_number', 'pt.enrollee_number', 'pt.enrollee_type', 'f.name as facility', DB::raw('COUNT(*) as visits'), DB::raw('MAX(e.visit_date) as last_visit'))
-                    ->when($facilityId, fn($q) => $q->where('e.facility_id', $facilityId))
+                    ->when($facilityId, function($q) use ($facilityId) {
+                        return is_array($facilityId) ? $q->whereIn('e.facility_id', $facilityId) : $q->where('e.facility_id', $facilityId);
+                    })
                     ->when($programId, fn($q) => $q->where('e.program_id', $programId))
                     ->whereBetween('e.visit_date', $dateRange)
                     ->groupBy('pt.id', 'pt.file_number', 'pt.enrollee_number', 'pt.enrollee_type', 'f.name');
@@ -844,7 +884,9 @@ class EhrReportController extends Controller
                     ->leftJoin('patients as pt', 'e.patient_id', '=', 'pt.id')
                     ->leftJoin('facilities as f', 'e.facility_id', '=', 'f.id')
                     ->select('pt.file_number', 'pt.enrollee_number', 'u.name as doctor', 'cc.status', 'f.name as facility', 'e.visit_date')
-                    ->when($facilityId, fn($q) => $q->where('e.facility_id', $facilityId))
+                    ->when($facilityId, function($q) use ($facilityId) {
+                        return is_array($facilityId) ? $q->whereIn('e.facility_id', $facilityId) : $q->where('e.facility_id', $facilityId);
+                    })
                     ->when($programId, fn($q) => $q->where('e.program_id', $programId))
                     ->whereBetween('e.visit_date', $dateRange)
                     ->when($status, fn($q) => $q->where('cc.status', $status));
@@ -861,7 +903,9 @@ class EhrReportController extends Controller
                     ->leftJoin('patients as pt', 'e.patient_id', '=', 'pt.id')
                     ->leftJoin('facilities as f', 'e.facility_id', '=', 'f.id')
                     ->select('pt.file_number', 'pt.enrollee_number', 'p.status', 'f.name as facility', 'p.created_at')
-                    ->when($facilityId, fn($q) => $q->where('e.facility_id', $facilityId))
+                    ->when($facilityId, function($q) use ($facilityId) {
+                        return is_array($facilityId) ? $q->whereIn('e.facility_id', $facilityId) : $q->where('e.facility_id', $facilityId);
+                    })
                     ->when($programId, fn($q) => $q->where('e.program_id', $programId))
                     ->whereBetween('e.visit_date', $dateRange)
                     ->when($status, fn($q) => $q->where('p.status', $status));
@@ -881,7 +925,9 @@ class EhrReportController extends Controller
                     ->leftJoin('patients as pt', 'e.patient_id', '=', 'pt.id')
                     ->leftJoin('facilities as f', 'e.facility_id', '=', 'f.id')
                     ->select('pt.file_number', 'pt.enrollee_number', 'pd.quantity_dispensed', 'pd.cost_of_medication', 'f.name as facility', 'pd.dispensing_date_time')
-                    ->when($facilityId, fn($q) => $q->where('e.facility_id', $facilityId))
+                    ->when($facilityId, function($q) use ($facilityId) {
+                        return is_array($facilityId) ? $q->whereIn('e.facility_id', $facilityId) : $q->where('e.facility_id', $facilityId);
+                    })
                     ->when($programId, fn($q) => $q->where('e.program_id', $programId))
                     ->whereBetween('e.visit_date', $dateRange);
                 $total = (clone $query)->count();
@@ -898,7 +944,9 @@ class EhrReportController extends Controller
                     ->leftJoin('patients as pt', 'e.patient_id', '=', 'pt.id')
                     ->leftJoin('facilities as f', 'e.facility_id', '=', 'f.id')
                     ->select('pt.file_number', 'pt.enrollee_number', 'si.name as test', 'soi.status', 'f.name as facility', 'e.visit_date')
-                    ->when($facilityId, fn($q) => $q->where('e.facility_id', $facilityId))
+                    ->when($facilityId, function($q) use ($facilityId) {
+                        return is_array($facilityId) ? $q->whereIn('e.facility_id', $facilityId) : $q->where('e.facility_id', $facilityId);
+                    })
                     ->when($programId, fn($q) => $q->where('e.program_id', $programId))
                     ->whereBetween('e.visit_date', $dateRange)
                     ->when($status, fn($q) => $q->where('soi.status', $status));
@@ -915,7 +963,9 @@ class EhrReportController extends Controller
                     ->leftJoin('users as u', 'v.taken_by', '=', 'u.id')
                     ->leftJoin('facilities as f', 'e.facility_id', '=', 'f.id')
                     ->select('pt.file_number', 'pt.enrollee_number', 'u.name as taken_by', 'v.temperature', 'v.blood_pressure_systolic', 'v.blood_pressure_diastolic', 'v.pulse_rate', 'f.name as facility', 'v.created_at')
-                    ->when($facilityId, fn($q) => $q->where('e.facility_id', $facilityId))
+                    ->when($facilityId, function($q) use ($facilityId) {
+                        return is_array($facilityId) ? $q->whereIn('e.facility_id', $facilityId) : $q->where('e.facility_id', $facilityId);
+                    })
                     ->when($programId, fn($q) => $q->where('e.program_id', $programId))
                     ->whereBetween('e.visit_date', $dateRange);
                 $total = (clone $query)->count();
@@ -932,7 +982,9 @@ class EhrReportController extends Controller
                     ->leftJoin('patients as pt', 'e.patient_id', '=', 'pt.id')
                     ->leftJoin('facilities as f', 'e.facility_id', '=', 'f.id')
                     ->select('pt.file_number', 'pt.enrollee_number', 'si.name as service', 'si.price', 'soi.status', 'f.name as facility', 'e.visit_date')
-                    ->when($facilityId, fn($q) => $q->where('e.facility_id', $facilityId))
+                    ->when($facilityId, function($q) use ($facilityId) {
+                        return is_array($facilityId) ? $q->whereIn('e.facility_id', $facilityId) : $q->where('e.facility_id', $facilityId);
+                    })
                     ->when($programId, fn($q) => $q->where('e.program_id', $programId))
                     ->whereBetween('e.visit_date', $dateRange);
                 $total = (clone $query)->count();
@@ -947,7 +999,9 @@ class EhrReportController extends Controller
                     ->leftJoin('facilities as f', 'e.facility_id', '=', 'f.id')
                     ->leftJoin('programs as pr', 'e.program_id', '=', 'pr.id')
                     ->select('pt.file_number', 'pt.enrollee_number', 'f.name as facility', 'pr.name as program', 'e.status', 'e.visit_date', 'e.nature_of_visit')
-                    ->when($facilityId, fn($q) => $q->where('e.facility_id', $facilityId))
+                    ->when($facilityId, function($q) use ($facilityId) {
+                        return is_array($facilityId) ? $q->whereIn('e.facility_id', $facilityId) : $q->where('e.facility_id', $facilityId);
+                    })
                     ->when($programId, fn($q) => $q->where('e.program_id', $programId))
                     ->whereBetween('e.visit_date', $dateRange)
                     ->when($extra, fn($q) => $q->where('e.nature_of_visit', $extra));
@@ -966,7 +1020,9 @@ class EhrReportController extends Controller
                     ->leftJoin('users as u', 'cc.doctor_id', '=', 'u.id')
                     ->leftJoin('facilities as f', 'e.facility_id', '=', 'f.id')
                     ->select('pt.file_number', 'pt.enrollee_number', 'u.name as doctor', 'ic.description as diagnosis', 'f.name as facility', 'e.visit_date')
-                    ->when($facilityId, fn($q) => $q->where('e.facility_id', $facilityId))
+                    ->when($facilityId, function($q) use ($facilityId) {
+                        return is_array($facilityId) ? $q->whereIn('e.facility_id', $facilityId) : $q->where('e.facility_id', $facilityId);
+                    })
                     ->when($programId, fn($q) => $q->where('e.program_id', $programId))
                     ->whereBetween('e.visit_date', $dateRange);
                 $total = (clone $query)->count();
@@ -983,7 +1039,9 @@ class EhrReportController extends Controller
                     ->leftJoin('users as u', 'cc.doctor_id', '=', 'u.id')
                     ->leftJoin('facilities as f', 'e.facility_id', '=', 'f.id')
                     ->select('pt.file_number', 'pt.enrollee_number', 'u.name as doctor', 'p.status as rx_status', 'f.name as facility', 'e.visit_date')
-                    ->when($facilityId, fn($q) => $q->where('e.facility_id', $facilityId))
+                    ->when($facilityId, function($q) use ($facilityId) {
+                        return is_array($facilityId) ? $q->whereIn('e.facility_id', $facilityId) : $q->where('e.facility_id', $facilityId);
+                    })
                     ->when($programId, fn($q) => $q->where('e.program_id', $programId))
                     ->whereBetween('e.visit_date', $dateRange);
                 $total = (clone $query)->count();
@@ -1001,7 +1059,9 @@ class EhrReportController extends Controller
                     ->leftJoin('users as u', 'cc.doctor_id', '=', 'u.id')
                     ->leftJoin('facilities as f', 'e.facility_id', '=', 'f.id')
                     ->select('pt.file_number', 'pt.enrollee_number', 'ic.description as diagnosis', 'ic.code as icd_code', 'cd.diagnosis_type', 'u.name as doctor', 'f.name as facility', 'e.visit_date')
-                    ->when($facilityId, fn($q) => $q->where('e.facility_id', $facilityId))
+                    ->when($facilityId, function($q) use ($facilityId) {
+                        return is_array($facilityId) ? $q->whereIn('e.facility_id', $facilityId) : $q->where('e.facility_id', $facilityId);
+                    })
                     ->when($programId, fn($q) => $q->where('e.program_id', $programId))
                     ->whereBetween('e.visit_date', $dateRange)
                     ->when($extra, fn($q) => $q->where('ic.description', $extra));
@@ -1021,7 +1081,9 @@ class EhrReportController extends Controller
                     ->leftJoin('users as u', 'cc.doctor_id', '=', 'u.id')
                     ->leftJoin('facilities as f', 'e.facility_id', '=', 'f.id')
                     ->select('pt.file_number', 'pt.enrollee_number', 'd.name as drug_name', 'pi.quantity', 'pi.dosage', 'u.name as doctor', 'f.name as facility', 'e.visit_date')
-                    ->when($facilityId, fn($q) => $q->where('e.facility_id', $facilityId))
+                    ->when($facilityId, function($q) use ($facilityId) {
+                        return is_array($facilityId) ? $q->whereIn('e.facility_id', $facilityId) : $q->where('e.facility_id', $facilityId);
+                    })
                     ->when($programId, fn($q) => $q->where('e.program_id', $programId))
                     ->whereBetween('e.visit_date', $dateRange)
                     ->when($extra, fn($q) => $q->where('d.name', $extra));
@@ -1039,7 +1101,9 @@ class EhrReportController extends Controller
                     ->leftJoin('patients as pt', 'e.patient_id', '=', 'pt.id')
                     ->leftJoin('facilities as f', 'e.facility_id', '=', 'f.id')
                     ->select('pt.file_number', 'pt.enrollee_number', 'si.name as test', 'soi.status', 'f.name as facility', 'e.visit_date')
-                    ->when($facilityId, fn($q) => $q->where('e.facility_id', $facilityId))
+                    ->when($facilityId, function($q) use ($facilityId) {
+                        return is_array($facilityId) ? $q->whereIn('e.facility_id', $facilityId) : $q->where('e.facility_id', $facilityId);
+                    })
                     ->when($programId, fn($q) => $q->where('e.program_id', $programId))
                     ->whereBetween('e.visit_date', $dateRange)
                     ->when($extra, fn($q) => $q->where('si.name', $extra))
@@ -1057,7 +1121,9 @@ class EhrReportController extends Controller
                     ->leftJoin('users as u', 'cc.doctor_id', '=', 'u.id')
                     ->leftJoin('facilities as f', 'e.facility_id', '=', 'f.id')
                     ->select('pt.file_number', 'pt.enrollee_number', 'u.name as doctor', 'cc.status', 'f.name as facility', 'e.visit_date')
-                    ->when($facilityId, fn($q) => $q->where('e.facility_id', $facilityId))
+                    ->when($facilityId, function($q) use ($facilityId) {
+                        return is_array($facilityId) ? $q->whereIn('e.facility_id', $facilityId) : $q->where('e.facility_id', $facilityId);
+                    })
                     ->when($programId, fn($q) => $q->where('e.program_id', $programId))
                     ->whereBetween('e.visit_date', $dateRange)
                     ->when($extra, fn($q) => $q->where('cc.doctor_id', $extra))
@@ -1075,7 +1141,9 @@ class EhrReportController extends Controller
                     ->leftJoin('users as u', 'v.taken_by', '=', 'u.id')
                     ->leftJoin('facilities as f', 'e.facility_id', '=', 'f.id')
                     ->select('pt.file_number', 'pt.enrollee_number', 'u.name as nurse', 'v.temperature', 'v.blood_pressure_systolic', 'v.blood_pressure_diastolic', 'v.pulse_rate', 'f.name as facility', 'v.created_at')
-                    ->when($facilityId, fn($q) => $q->where('e.facility_id', $facilityId))
+                    ->when($facilityId, function($q) use ($facilityId) {
+                        return is_array($facilityId) ? $q->whereIn('e.facility_id', $facilityId) : $q->where('e.facility_id', $facilityId);
+                    })
                     ->when($programId, fn($q) => $q->where('e.program_id', $programId))
                     ->whereBetween('e.visit_date', $dateRange)
                     ->when($extra, fn($q) => $q->where('v.taken_by', $extra));
@@ -1096,7 +1164,9 @@ class EhrReportController extends Controller
                     ->leftJoin('users as u', 'pd.dispensing_officer_id', '=', 'u.id')
                     ->leftJoin('facilities as f', 'e.facility_id', '=', 'f.id')
                     ->select('pt.file_number', 'pt.enrollee_number', 'd.name as drug_name', 'pd.quantity_dispensed', 'pd.cost_of_medication', 'u.name as pharmacist', 'f.name as facility', 'pd.dispensing_date_time')
-                    ->when($facilityId, fn($q) => $q->where('e.facility_id', $facilityId))
+                    ->when($facilityId, function($q) use ($facilityId) {
+                        return is_array($facilityId) ? $q->whereIn('e.facility_id', $facilityId) : $q->where('e.facility_id', $facilityId);
+                    })
                     ->when($programId, fn($q) => $q->where('e.program_id', $programId))
                     ->whereBetween('e.visit_date', $dateRange)
                     ->when($extra, fn($q) => $q->where('pd.dispensing_officer_id', $extra));
@@ -1116,7 +1186,9 @@ class EhrReportController extends Controller
                     ->leftJoin('users as u', 'sr.reported_by', '=', 'u.id')
                     ->leftJoin('facilities as f', 'e.facility_id', '=', 'f.id')
                     ->select('pt.file_number', 'pt.enrollee_number', 'si.name as test', 'sr.result_value', 'u.name as lab_tech', 'f.name as facility', 'sr.reported_at')
-                    ->when($facilityId, fn($q) => $q->where('e.facility_id', $facilityId))
+                    ->when($facilityId, function($q) use ($facilityId) {
+                        return is_array($facilityId) ? $q->whereIn('e.facility_id', $facilityId) : $q->where('e.facility_id', $facilityId);
+                    })
                     ->when($programId, fn($q) => $q->where('e.program_id', $programId))
                     ->whereBetween('e.visit_date', $dateRange)
                     ->when($extra, fn($q) => $q->where('sr.reported_by', $extra));
@@ -1132,7 +1204,9 @@ class EhrReportController extends Controller
                     ->leftJoin('facilities as f', 'e.facility_id', '=', 'f.id')
                     ->leftJoin('programs as pr', 'e.program_id', '=', 'pr.id')
                     ->select('pt.file_number', 'pt.enrollee_number', 'f.name as facility', 'pr.name as program', 'e.status', 'e.visit_date')
-                    ->when($facilityId, fn($q) => $q->where('e.facility_id', $facilityId))
+                    ->when($facilityId, function($q) use ($facilityId) {
+                        return is_array($facilityId) ? $q->whereIn('e.facility_id', $facilityId) : $q->where('e.facility_id', $facilityId);
+                    })
                     ->when($programId, fn($q) => $q->where('e.program_id', $programId))
                     ->whereBetween('e.visit_date', $dateRange)
                     ->when($extra, fn($q) => $q->where('e.officer_in_charge_id', $extra));
@@ -1149,7 +1223,9 @@ class EhrReportController extends Controller
                     ->leftJoin('facilities as f', 'e.facility_id', '=', 'f.id')
                     ->leftJoin('programs as pr', 'e.program_id', '=', 'pr.id')
                     ->select('pt.file_number', 'pt.enrollee_number', 'f.name as facility', 'pr.name as program', 'e.status', 'e.visit_date')
-                    ->when($facilityId, fn($q) => $q->where('e.facility_id', $facilityId))
+                    ->when($facilityId, function($q) use ($facilityId) {
+                        return is_array($facilityId) ? $q->whereIn('e.facility_id', $facilityId) : $q->where('e.facility_id', $facilityId);
+                    })
                     ->when($programId, fn($q) => $q->where('e.program_id', $programId))
                     ->whereBetween('e.visit_date', $dateRange);
                 if ($status === 'active') {
@@ -1171,7 +1247,9 @@ class EhrReportController extends Controller
                     ->leftJoin('users as u', 'cc.doctor_id', '=', 'u.id')
                     ->leftJoin('facilities as f', 'e.facility_id', '=', 'f.id')
                     ->select('pt.file_number', 'pt.enrollee_number', 'u.name as doctor', 'p.status as prescription_status', 'f.name as facility', 'e.visit_date')
-                    ->when($facilityId, fn($q) => $q->where('e.facility_id', $facilityId))
+                    ->when($facilityId, function($q) use ($facilityId) {
+                        return is_array($facilityId) ? $q->whereIn('e.facility_id', $facilityId) : $q->where('e.facility_id', $facilityId);
+                    })
                     ->when($programId, fn($q) => $q->where('e.program_id', $programId))
                     ->where('p.status', 'Pending');
                 $total = (clone $query)->count();
@@ -1189,7 +1267,9 @@ class EhrReportController extends Controller
                     ->leftJoin('users as u', 'so.ordered_by', '=', 'u.id')
                     ->leftJoin('facilities as f', 'e.facility_id', '=', 'f.id')
                     ->select('pt.file_number', 'pt.enrollee_number', 'u.name as ordered_by', 'si.name as test_name', 'soi.status', 'f.name as facility', 'e.visit_date')
-                    ->when($facilityId, fn($q) => $q->where('e.facility_id', $facilityId))
+                    ->when($facilityId, function($q) use ($facilityId) {
+                        return is_array($facilityId) ? $q->whereIn('e.facility_id', $facilityId) : $q->where('e.facility_id', $facilityId);
+                    })
                     ->when($programId, fn($q) => $q->where('e.program_id', $programId))
                     ->whereIn('soi.status', ['pending', 'authorized']);
                 $total = (clone $query)->count();

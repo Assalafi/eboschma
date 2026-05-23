@@ -16,6 +16,16 @@
             <div class="slide-left disabled" id="slide-left"><i class="fe fe-chevron-left text-dark"></i></div>
             <ul class="menu-nav nav text-dark">
                 <br><br>
+                @php
+                    $user = auth('staff')->user() ?? auth()->user();
+                    $isCustomerCareOnly = false;
+                    if ($user && method_exists($user, 'hasRole') && $user->hasRole('Customer Care')) {
+                        if (!$user->hasAnyRole(['admin', 'Super Admin'])) {
+                            $isCustomerCareOnly = true;
+                        }
+                    }
+                @endphp
+                @if(!$isCustomerCareOnly)
                 @can('dashboard.view')
                     <li class="nav-header text-dark"><span class="nav-label text-dark">BOSCHMA</span></li>
                     <li class="nav-item @if (request()->routeIs('dashboard') || request()->is('/')) active @endif">
@@ -369,6 +379,7 @@
                         </ul>
                     </li>
                 @endcanany
+                @endif
 
                 <!-- CRM / Customer Care -->
                 @can('crm.view')

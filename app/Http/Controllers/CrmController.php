@@ -1320,7 +1320,7 @@ class CrmController extends Controller
             ->where('created_at', '>=', $dateLimit)
             ->latest('created_at')
             ->take(20);
-        if ($facilityId) {
+        if ($facilityIds !== null) {
             $consultationsQuery->whereHas('encounter', function($q) use ($facilityIds) {
                 $q->whereIn('facility_id', $facilityIds);
             });
@@ -1340,7 +1340,7 @@ class CrmController extends Controller
             ->where('created_at', '>=', $dateLimit)
             ->latest('created_at')
             ->take(20);
-        if ($facilityId) {
+        if ($facilityIds !== null) {
             $vitalsQuery->whereHas('encounter', function($q) use ($facilityIds) {
                 $q->whereIn('facility_id', $facilityIds);
             });
@@ -1377,7 +1377,7 @@ class CrmController extends Controller
         $rxQuery = \App\Models\Prescription::with(['consultation.doctor', 'consultation.encounter.patient'])
             ->latest('created_at')
             ->take(20);
-        if ($facilityId) {
+        if ($facilityIds !== null) {
             $rxQuery->whereHas('consultation.encounter', function($q) use ($facilityIds) {
                 $q->whereIn('facility_id', $facilityIds);
             });

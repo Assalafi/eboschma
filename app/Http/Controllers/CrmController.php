@@ -660,7 +660,7 @@ class CrmController extends Controller
             'in_progress' => (clone $baseQuery)->status('in_progress')->count(),
             'completed' => (clone $baseQuery)->status('completed')->count(),
             'overdue' => (clone $baseQuery)->overdue()->count(),
-            'my_tickets' => (clone $baseQuery)->assignedTo(Auth::id())->count()
+            'my_tickets' => (clone $baseQuery)->assignedTo(Auth::guard('staff')->id() ?? Auth::id())->count()
         ];
 
         return response()->json($stats);
@@ -1410,7 +1410,7 @@ class CrmController extends Controller
      */
     private function getCustomerCareFacilityIds()
     {
-        $user = auth()->user();
+        $user = auth('staff')->user() ?? auth()->user();
         if (!$user) return [];
         
         $isCustomerCare = (method_exists($user, 'hasRole') && $user->hasRole('Customer Care')) ||

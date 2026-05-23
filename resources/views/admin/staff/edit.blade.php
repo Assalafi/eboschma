@@ -81,6 +81,25 @@
                                 @enderror
                             </div>
 
+                            <div class="form-group">
+                                <label for="facilities">Assigned Facilities</label>
+                                <small class="text-muted d-block mb-2">Select one or more facilities (optional)</small>
+                                <select class="form-control select2 @error('facilities') is-invalid @enderror" 
+                                    id="facilities" name="facilities[]" multiple>
+                                    @php
+                                        $selectedFacilities = old('facilities', $staff->facilities->pluck('id')->toArray());
+                                    @endphp
+                                    @foreach ($facilities as $facility)
+                                        <option value="{{ $facility->id }}" {{ in_array($facility->id, $selectedFacilities) ? 'selected' : '' }}>
+                                            {{ $facility->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                                @error('facilities')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+
                             <hr class="my-4">
 
                             <div class="form-group">

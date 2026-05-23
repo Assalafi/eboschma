@@ -50,4 +50,12 @@ class Staff extends Authenticatable
             }
         });
     }
+
+    /**
+     * Get the facilities associated with the staff.
+     */
+    public function facilities()
+    {
+        return $this->belongsToMany(Facility::class, 'facility_staff', 'staff_id', 'facility_id')->withTimestamps();
+    }
 }

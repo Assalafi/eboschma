@@ -81,6 +81,22 @@
                             </div>
 
                             <div class="form-group">
+                                <label for="facilities">Assigned Facilities</label>
+                                <small class="text-muted d-block mb-2">Select one or more facilities (optional)</small>
+                                <select class="form-control select2 @error('facilities') is-invalid @enderror" 
+                                    id="facilities" name="facilities[]" multiple>
+                                    @foreach ($facilities as $facility)
+                                        <option value="{{ $facility->id }}" {{ (is_array(old('facilities')) && in_array($facility->id, old('facilities'))) ? 'selected' : '' }}>
+                                            {{ $facility->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                                @error('facilities')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+
+                            <div class="form-group">
                                 <label for="password">Password <span class="text-danger">*</span></label>
                                 <input type="password" class="form-control @error('password') is-invalid @enderror"
                                     id="password" name="password" required minlength="8">

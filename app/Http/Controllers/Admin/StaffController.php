@@ -25,7 +25,8 @@ class StaffController extends Controller
     public function create()
     {
         $roles = Role::where('guard_name', 'staff')->get();
-        return view('admin.staff.create', compact('roles'));
+        $facilities = \App\Models\Facility::orderBy('name')->get();
+        return view('admin.staff.create', compact('roles', 'facilities'));
     }
 
     /**
@@ -40,6 +41,8 @@ class StaffController extends Controller
             'password' => 'required|string|min:8|confirmed',
             'roles' => 'required|array',
             'roles.*' => 'required|exists:roles,name',
+            'facilities' => 'nullable|array',
+            'facilities.*' => 'exists:facilities,id',
         ]);
 
         $staff = Staff::create([
@@ -51,6 +54,11 @@ class StaffController extends Controller
 
         // Assign multiple roles
         $staff->syncRoles($validated['roles']);
+
+        // Assign facilities
+        if (!empty($validated['facilities'])) {
+            $staff->facilities()->sync($validated['facilities']);
+        }
 
         return redirect()->route('staff.index')
             ->with('success', 'Staff member created successfully!');
@@ -71,8 +79,9 @@ class StaffController extends Controller
     public function edit(Staff $staff)
     {
         $roles = Role::where('guard_name', 'staff')->get();
-        $staff->load('roles');
-        return view('admin.staff.edit', compact('staff', 'roles'));
+        $facilities = \App\Models\Facility::orderBy('name')->get();
+        $staff->load('roles', 'facilities');
+        return view('admin.staff.edit', compact('staff', 'roles', 'facilities'));
     }
 
     /**
@@ -87,6 +96,8 @@ class StaffController extends Controller
             'password' => 'nullable|string|min:8|confirmed',
             'roles' => 'required|array',
             'roles.*' => 'required|exists:roles,name',
+            'facilities' => 'nullable|array',
+            'facilities.*' => 'exists:facilities,id',
         ]);
 
         $staff->update([
@@ -102,6 +113,13 @@ class StaffController extends Controller
 
         // Sync multiple roles
         $staff->syncRoles($validated['roles']);
+
+        // Sync facilities
+        if (isset($validated['facilities'])) {
+            $staff->facilities()->sync($validated['facilities']);
+        } else {
+            $staff->facilities()->sync([]);
+        }
 
         return redirect()->route('staff.index')
             ->with('success', 'Staff member updated successfully!');

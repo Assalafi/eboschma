@@ -70,6 +70,11 @@ class CrmController extends Controller
             });
         }
 
+        $ccFacilityIds = $this->getCustomerCareFacilityIds();
+        if ($ccFacilityIds !== null) {
+            $query->whereIn('facility_id', $ccFacilityIds);
+        }
+
         $tickets = $query->paginate(15);
         $categories = TicketCategory::active()->get();
         $staff = Staff::orderBy('fullname')->get();
@@ -642,13 +647,20 @@ class CrmController extends Controller
      */
     public function stats()
     {
+        $ccFacilityIds = $this->getCustomerCareFacilityIds();
+        
+        $baseQuery = \App\Models\Ticket::query();
+        if ($ccFacilityIds !== null) {
+            $baseQuery->whereIn('facility_id', $ccFacilityIds);
+        }
+        
         $stats = [
-            'total' => Ticket::count(),
-            'pending' => Ticket::status('pending')->count(),
-            'in_progress' => Ticket::status('in_progress')->count(),
-            'completed' => Ticket::status('completed')->count(),
-            'overdue' => Ticket::overdue()->count(),
-            'my_tickets' => Ticket::assignedTo(Auth::id())->count()
+            'total' => (clone $baseQuery)->count(),
+            'pending' => (clone $baseQuery)->status('pending')->count(),
+            'in_progress' => (clone $baseQuery)->status('in_progress')->count(),
+            'completed' => (clone $baseQuery)->status('completed')->count(),
+            'overdue' => (clone $baseQuery)->overdue()->count(),
+            'my_tickets' => (clone $baseQuery)->assignedTo(Auth::id())->count()
         ];
 
         return response()->json($stats);
@@ -1123,16 +1135,14 @@ class CrmController extends Controller
      */
     public function facilityActivity(Request $request)
     {
-        $user = auth()->user();
-        $isCustomerCare = $user && $user->role && $user->role->name === 'Customer Care';
-        $facilityId = $isCustomerCare ? $user->facility_id : null;
+        $facilityIds = $this->getCustomerCareFacilityIds();
         $dateLimit = now()->subDays(15)->startOfDay();
 
         // Awaiting Pharmacy: pending prescriptions count
         $awaitingPharmacy = DB::table('prescriptions as p')
             ->join('clinical_consultations as cc', 'p.clinical_consultation_id', '=', 'cc.id')
             ->join('encounters as e', 'cc.encounter_id', '=', 'e.id')
-            ->when($facilityId, fn($q) => $q->where('e.facility_id', $facilityId))
+            ->when($facilityIds !== null, fn($q) => $q->whereIn('e.facility_id', $facilityIds))
             ->where('e.visit_date', '>=', $dateLimit)
             ->where('p.status', 'Pending')
             ->count();
@@ -1141,25 +1151,25 @@ class CrmController extends Controller
         $awaitingLab = DB::table('service_order_items as soi')
             ->join('service_orders as so', 'soi.service_order_id', '=', 'so.id')
             ->join('encounters as e', 'so.encounter_id', '=', 'e.id')
-            ->when($facilityId, fn($q) => $q->where('e.facility_id', $facilityId))
+            ->when($facilityIds !== null, fn($q) => $q->whereIn('e.facility_id', $facilityIds))
             ->where('e.visit_date', '>=', $dateLimit)
             ->whereIn('soi.status', ['pending', 'authorized'])
             ->count();
 
         $inConsultation = DB::table('encounters')
-            ->when($facilityId, fn($q) => $q->where('facility_id', $facilityId))
+            ->when($facilityIds !== null, fn($q) => $q->whereIn('facility_id', $facilityIds))
             ->where('visit_date', '>=', $dateLimit)
             ->where('status', 'In Consultation')
             ->count();
 
         $triaged = DB::table('encounters')
-            ->when($facilityId, fn($q) => $q->where('facility_id', $facilityId))
+            ->when($facilityIds !== null, fn($q) => $q->whereIn('facility_id', $facilityIds))
             ->where('visit_date', '>=', $dateLimit)
             ->where('status', 'Triaged')
             ->count();
 
         $registered = DB::table('encounters')
-            ->when($facilityId, fn($q) => $q->where('facility_id', $facilityId))
+            ->when($facilityIds !== null, fn($q) => $q->whereIn('facility_id', $facilityIds))
             ->where('visit_date', '>=', $dateLimit)
             ->where('status', 'Registered')
             ->count();
@@ -1171,7 +1181,7 @@ class CrmController extends Controller
                 DB::raw("SUM(CASE WHEN e.status = 'Registered' THEN 1 ELSE 0 END) as registered"),
                 DB::raw("SUM(CASE WHEN e.status = 'Triaged' THEN 1 ELSE 0 END) as triaged"),
                 DB::raw("SUM(CASE WHEN e.status = 'In Consultation' THEN 1 ELSE 0 END) as in_consultation"))
-            ->when($facilityId, fn($q) => $q->where('e.facility_id', $facilityId))
+            ->when($facilityIds !== null, fn($q) => $q->whereIn('e.facility_id', $facilityIds))
             ->where('e.visit_date', '>=', $dateLimit)
             ->whereIn('e.status', ['Registered', 'Triaged', 'In Consultation'])
             ->groupBy('e.facility_id', 'f.name')
@@ -1183,7 +1193,7 @@ class CrmController extends Controller
             ->join('clinical_consultations as cc', 'p.clinical_consultation_id', '=', 'cc.id')
             ->join('encounters as e', 'cc.encounter_id', '=', 'e.id')
             ->select('e.facility_id', DB::raw('COUNT(*) as awaiting_pharmacy'))
-            ->when($facilityId, fn($q) => $q->where('e.facility_id', $facilityId))
+            ->when($facilityIds !== null, fn($q) => $q->whereIn('e.facility_id', $facilityIds))
             ->where('e.visit_date', '>=', $dateLimit)
             ->where('p.status', 'Pending')
             ->groupBy('e.facility_id')
@@ -1195,7 +1205,7 @@ class CrmController extends Controller
             ->join('service_orders as so', 'soi.service_order_id', '=', 'so.id')
             ->join('encounters as e', 'so.encounter_id', '=', 'e.id')
             ->select('e.facility_id', DB::raw('COUNT(*) as awaiting_lab'))
-            ->when($facilityId, fn($q) => $q->where('e.facility_id', $facilityId))
+            ->when($facilityIds !== null, fn($q) => $q->whereIn('e.facility_id', $facilityIds))
             ->where('e.visit_date', '>=', $dateLimit)
             ->whereIn('soi.status', ['pending', 'authorized'])
             ->groupBy('e.facility_id')
@@ -1240,14 +1250,12 @@ class CrmController extends Controller
             ->pluck('user_id')
             ->unique();
 
-        $user = auth()->user();
-        $isCustomerCare = $user && $user->role && $user->role->name === 'Customer Care';
-        $facilityId = $isCustomerCare ? $user->facility_id : null;
+        $facilityIds = $this->getCustomerCareFacilityIds();
 
         $activeStaffList = [];
 
         // Fetch from staff table (assuming global if no facility_id exists)
-        if (!$isCustomerCare) {
+        if ($facilityIds === null) {
             $staffMembers = Staff::whereIn('id', $activeSessionUserIds)->get();
             foreach ($staffMembers as $staff) {
                 $activeStaffList[] = [
@@ -1264,8 +1272,8 @@ class CrmController extends Controller
         $usersQuery = \App\Models\User::whereIn('id', $activeSessionUserIds)
             ->with(['role', 'staffPosition']);
             
-        if ($facilityId) {
-            $usersQuery->where('facility_id', $facilityId);
+        if ($facilityIds !== null) {
+            $usersQuery->whereIn('facility_id', $facilityIds);
         }
         
         $users = $usersQuery->get();
@@ -1301,9 +1309,8 @@ class CrmController extends Controller
      */
     public function ehrActivity(Request $request)
     {
-        $user = auth()->user();
-        $isCustomerCare = $user && $user->role && $user->role->name === 'Customer Care';
-        $facilityId = $isCustomerCare ? $user->facility_id : $request->get('facility_id');
+        $ccFacilityIds = $this->getCustomerCareFacilityIds();
+        $facilityIds = $ccFacilityIds !== null ? $ccFacilityIds : ($request->get('facility_id') ? [$request->get('facility_id')] : null);
         $dateLimit = now()->subDays(15)->startOfDay();
         
         $activities = collect();
@@ -1314,8 +1321,8 @@ class CrmController extends Controller
             ->latest('created_at')
             ->take(20);
         if ($facilityId) {
-            $consultationsQuery->whereHas('encounter', function($q) use ($facilityId) {
-                $q->where('facility_id', $facilityId);
+            $consultationsQuery->whereHas('encounter', function($q) use ($facilityIds) {
+                $q->whereIn('facility_id', $facilityIds);
             });
         }
         foreach ($consultationsQuery->get() as $c) {
@@ -1334,8 +1341,8 @@ class CrmController extends Controller
             ->latest('created_at')
             ->take(20);
         if ($facilityId) {
-            $vitalsQuery->whereHas('encounter', function($q) use ($facilityId) {
-                $q->where('facility_id', $facilityId);
+            $vitalsQuery->whereHas('encounter', function($q) use ($facilityIds) {
+                $q->whereIn('facility_id', $facilityIds);
             });
         }
         foreach ($vitalsQuery->get() as $v) {
@@ -1353,8 +1360,8 @@ class CrmController extends Controller
             ->where('created_at', '>=', $dateLimit)
             ->latest('created_at')
             ->take(20);
-        if ($facilityId) {
-            $labQuery->where('facility_id', $facilityId);
+        if ($facilityIds !== null) {
+            $labQuery->whereIn('facility_id', $facilityIds);
         }
         foreach ($labQuery->get() as $l) {
             $activities->push([
@@ -1371,8 +1378,8 @@ class CrmController extends Controller
             ->latest('created_at')
             ->take(20);
         if ($facilityId) {
-            $rxQuery->whereHas('consultation.encounter', function($q) use ($facilityId) {
-                $q->where('facility_id', $facilityId);
+            $rxQuery->whereHas('consultation.encounter', function($q) use ($facilityIds) {
+                $q->whereIn('facility_id', $facilityIds);
             });
         }
         foreach ($rxQuery->get() as $r) {
@@ -1396,5 +1403,29 @@ class CrmController extends Controller
             'success' => true,
             'data' => $recentActivities
         ]);
+    }
+
+    /**
+     * Get Customer Care facility IDs
+     */
+    private function getCustomerCareFacilityIds()
+    {
+        $user = auth()->user();
+        if (!$user) return [];
+        
+        $isCustomerCare = (method_exists($user, 'hasRole') && $user->hasRole('Customer Care')) ||
+                          (isset($user->role) && $user->role->name === 'Customer Care');
+                          
+        if (!$isCustomerCare) return null; // null means not customer care, don't restrict
+        
+        $facilityIds = [];
+        if (method_exists($user, 'facilities') && $user->facilities()->count() > 0) {
+            $facilityIds = $user->facilities->pluck('id')->toArray();
+        } elseif (isset($user->facility_id) && $user->facility_id) {
+            $facilityIds = [$user->facility_id];
+        }
+        
+        // Return [-1] if customer care but no facility assigned (so they see nothing instead of everything)
+        return empty($facilityIds) ? [-1] : $facilityIds;
     }
 }

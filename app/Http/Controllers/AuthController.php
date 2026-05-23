@@ -55,6 +55,11 @@ class AuthController extends Controller
             
             \Log::info('Staff session set, redirecting');
             
+            // Check if user has Customer Care role and redirect to crm
+            if ($staff->hasRole('Customer Care')) {
+                return redirect()->route('crm.index');
+            }
+            
             // Check if user has BODMA role and redirect to drug-stock-requests
             if ($staff->hasRole('BODMA')) {
                 return redirect()->route('drug-stock-requests.index');
@@ -83,6 +88,11 @@ class AuthController extends Controller
                 session(['user_email' => $request->email]);
                 session()->put('session', date('Y'));
                 session()->put('sector', 'basic');
+                
+                $user = Auth::user();
+                if ($user && method_exists($user, 'hasRole') && $user->hasRole('Customer Care')) {
+                    return redirect()->route('crm.index');
+                }
                 
                 return redirect()->intended('/');
             } else {

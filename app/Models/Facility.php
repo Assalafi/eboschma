@@ -161,4 +161,12 @@ class Facility extends Model
     {
         return $this->hasMany(Ward::class);
     }
+
+    /**
+     * Get staff associated with this facility
+     */
+    public function staff()
+    {
+        return $this->belongsToMany(Staff::class, 'facility_staff', 'facility_id', 'staff_id')->withTimestamps();
+    }
 }

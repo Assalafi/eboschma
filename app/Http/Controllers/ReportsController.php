@@ -187,6 +187,7 @@ class ReportsController extends Controller
         }
         
         $filename = 'enumerator_performance' . $programSuffix . $dateSuffix . '_' . date('Y-m-d_H-i-s') . '.xlsx';
+        $filename = str_replace(['/', '\\'], '-', $filename);
         
         return Excel::download(new EnumeratorsExport($enumeratorId, $programId, $dateFrom, $dateTo), $filename);
     }
@@ -212,6 +213,7 @@ class ReportsController extends Controller
         $enumerator = Staff::findOrFail($id);
         
         $filename = 'enumerator_' . $enumerator->fullname . '_enrollments_' . date('Y-m-d_H-i-s') . '.xlsx';
+        $filename = str_replace(['/', '\\'], '-', $filename);
         
         return Excel::download(new EnumeratorEnrollmentsExport($id, $enumerator->fullname), $filename);
     }
@@ -390,10 +392,12 @@ class ReportsController extends Controller
             // Export specific facility enrollments (detailed records)
             $facility = Facility::findOrFail($facilityId);
             $filename = $facility->name . $programSuffix . $genderSuffix . $dateSuffix . '_enrollments_' . date('Y-m_d_H-i-s') . '.xlsx';
+            $filename = str_replace(['/', '\\'], '-', $filename);
             return Excel::download(new FacilityEnrollmentsExport($facilityId, $facility->name, $programId, $dateFrom, $dateTo, $gender), $filename);
         } else {
             // Export all facilities (summary data)
             $filename = 'facility_performance' . $programSuffix . $lgaSuffix . $dateSuffix . '_' . date('Y-m_d_H-i-s') . '.xlsx';
+            $filename = str_replace(['/', '\\'], '-', $filename);
             return Excel::download(new FacilitiesExport($programId, $lga, $dateFrom, $dateTo), $filename);
         }
     }
@@ -665,24 +669,28 @@ class ReportsController extends Controller
     public function exportEnrollments()
     {
         $filename = 'all_enrollments_' . date('Y-m-d_H-i-s') . '.xlsx';
+        $filename = str_replace(['/', '\\'], '-', $filename);
         return Excel::download(new CategoryEnrollmentsExport('all'), $filename);
     }
 
     public function exportMonthlyEnrollments($month)
     {
         $filename = 'enrollments_' . $month . '_' . date('Y-m-d_H-i-s') . '.xlsx';
+        $filename = str_replace(['/', '\\'], '-', $filename);
         return Excel::download(new MonthlyEnrollmentsExport($month), $filename);
     }
 
     public function exportCategoryEnrollments($category)
     {
         $filename = $category . '_enrollments_' . date('Y-m-d_H-i-s') . '.xlsx';
+        $filename = str_replace(['/', '\\'], '-', $filename);
         return Excel::download(new CategoryEnrollmentsExport($category), $filename);
     }
 
     public function exportStatusEnrollments($status)
     {
         $filename = $status . '_enrollments_' . date('Y-m-d_H-i-s') . '.xlsx';
+        $filename = str_replace(['/', '\\'], '-', $filename);
         return Excel::download(new StatusEnrollmentsExport($status), $filename);
     }
 

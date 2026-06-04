@@ -160,7 +160,7 @@
                 <th width="20%">FULLNAME</th>
                 <th class="center" width="8%">GENDER</th>
                 <th class="center" width="10%">DOB</th>
-                <th class="center" width="12%">MARITAL STATUS</th>
+                <th class="center" width="12%">PROGRAM</th>
                 <th width="12%">PHONE</th>
                 <th width="15%">NIN</th>
                 <th class="center" width="18%">IDNUMBER</th>
@@ -168,17 +168,17 @@
         </thead>
         <tbody>
             @php $serialNumber = 1; @endphp
-            @foreach($groupedBeneficiaries as $ageGroup => $beneficiariesGroup)
+            @foreach($groupedBeneficiaries as $category => $beneficiariesGroup)
                 <tr>
-                    <td colspan="8" class="group-row">AGED {{ $ageGroup }}</td>
+                    <td colspan="8" class="group-row">{{ strtoupper($category) }} [ {{ $beneficiariesGroup->count() }} ]</td>
                 </tr>
                 @foreach($beneficiariesGroup as $beneficiary)
                     <tr>
                         <td class="center">{{ $serialNumber++ }}</td>
                         <td>{{ strtoupper($beneficiary->fullname) }}</td>
-                        <td class="center">{{ strtoupper($beneficiary->gender ?? '') }}</td>
+                        <td class="center">{{ $beneficiary->gender ?? '' }}</td>
                         <td class="center">{{ $beneficiary->date_of_birth ? \Carbon\Carbon::parse($beneficiary->date_of_birth)->format('d/m/Y') : 'N/A' }}</td>
-                        <td class="center">{{ strtoupper($beneficiary->marital_status ?? 'N/A') }}</td>
+                        <td class="center">{{ $beneficiary->program->name ?? 'N/A' }}</td>
                         <td>{{ $beneficiary->phone_no ?? 'N/A' }}</td>
                         <td>{{ $beneficiary->nin ?? 'N/A' }}</td>
                         <td class="center">{{ $beneficiary->boschma_no ?? 'N/A' }}</td>

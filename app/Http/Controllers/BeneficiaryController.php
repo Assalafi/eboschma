@@ -100,28 +100,19 @@ class BeneficiaryController extends Controller
 
                 // Load a lean copy of the query for PDF (only needed columns)
                 $pdfBeneficiaries = (clone $query)
-                    ->select('id', 'fullname', 'gender', 'date_of_birth', 'marital_status', 'phone_no', 'nin', 'boschma_no')
+                    ->with('program')
+                    ->select('id', 'fullname', 'gender', 'date_of_birth', 'marital_status', 'phone_no', 'nin', 'boschma_no', 'program_id', 'category')
                     ->orderBy('fullname')
                     ->get();
 
-                // Group by age bracket
-                $grouped = [
-                    '0-5' => collect(), '6-17' => collect(), '18-35' => collect(),
-                    '36-50' => collect(), '51-64' => collect(), '65+' => collect(),
-                    'Unknown' => collect(),
-                ];
+                // Group by Category
+                $grouped = [];
                 foreach ($pdfBeneficiaries as $b) {
-                    $age = null;
-                    if (!empty($b->date_of_birth)) {
-                        try { $age = \Carbon\Carbon::parse($b->date_of_birth)->age; } catch (\Exception $e) {}
+                    $cat = $b->category ?: 'UNCATEGORIZED';
+                    if (!isset($grouped[$cat])) {
+                        $grouped[$cat] = collect();
                     }
-                    if ($age === null)      $grouped['Unknown']->push($b);
-                    elseif ($age <= 5)      $grouped['0-5']->push($b);
-                    elseif ($age <= 17)     $grouped['6-17']->push($b);
-                    elseif ($age <= 35)     $grouped['18-35']->push($b);
-                    elseif ($age <= 50)     $grouped['36-50']->push($b);
-                    elseif ($age <= 64)     $grouped['51-64']->push($b);
-                    else                    $grouped['65+']->push($b);
+                    $grouped[$cat]->push($b);
                 }
                 $groupedBeneficiaries = array_filter($grouped, fn($g) => $g->count() > 0);
 

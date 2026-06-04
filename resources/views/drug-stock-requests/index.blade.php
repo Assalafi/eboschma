@@ -91,6 +91,38 @@
 
     <div class="page-body">
         <div class="container-xl">
+            <!-- Filter Form -->
+            <form method="GET" action="{{ route('drug-stock-requests.index') }}" class="card mb-3">
+                <div class="card-body py-3">
+                    <div class="row g-3 align-items-end">
+                        @if($isBoschmaAdmin)
+                        <div class="col-md-4">
+                            <label class="form-label">Facility</label>
+                            <select name="facility_id" id="filter-facility" class="form-select">
+                                <option value="">All Facilities</option>
+                                @foreach($facilities as $facility)
+                                    <option value="{{ $facility->id }}" {{ request('facility_id') == $facility->id ? 'selected' : '' }}>{{ $facility->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        @endif
+                        <div class="col-md-3">
+                            <label class="form-label">Date From</label>
+                            <input type="date" name="date_from" id="filter-date-from" class="form-control" value="{{ request('date_from') }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Date To</label>
+                            <input type="date" name="date_to" id="filter-date-to" class="form-control" value="{{ request('date_to') }}">
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="ti-filter me-1"></i>Filter
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+
             <!-- Clickable Status Cards -->
             <div class="row row-deck row-cards mb-3">
                 <div class="col-sm-6 col-lg-3">
@@ -277,6 +309,9 @@
                     data: function(d) {
                         d.view = 'facilities';
                         d.status = selectedStatus;
+                        d.facility_id = $('#filter-facility').length ? $('#filter-facility').val() : '';
+                        d.date_from = $('#filter-date-from').val();
+                        d.date_to = $('#filter-date-to').val();
                     }
                 },
                 columns: [{

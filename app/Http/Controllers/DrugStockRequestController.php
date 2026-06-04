@@ -72,6 +72,13 @@ class DrugStockRequestController extends Controller
                     if ($request->has('facility_id') && !empty($request->get('facility_id')) && $isBoschmaAdmin) {
                         $query->where('facility_id', $request->get('facility_id'));
                     }
+                    
+                    if ($request->filled('date_from')) {
+                        $query->whereDate('requested_at', '>=', $request->get('date_from'));
+                    }
+                    if ($request->filled('date_to')) {
+                        $query->whereDate('requested_at', '<=', $request->get('date_to'));
+                    }
                 })
                 ->addColumn('checkbox', function($request) {
                     $disabled = $request->status !== 'pending' ? 'disabled' : '';
@@ -170,12 +177,33 @@ class DrugStockRequestController extends Controller
         $priorities = DrugStockRequest::getPriorities();
         $facilities = Facility::orderBy('name')->get();
         
+        // Base query for stats to apply filters
+        $statsQuery = DrugStockRequest::query();
+        
+        if (!$isBoschmaAdmin) {
+            if ($user) {
+                $statsQuery->whereIn('status', ['approved', 'dispensed']);
+            } else {
+                $statsQuery->whereRaw('1 = 0');
+            }
+        }
+        
+        if ($request->filled('facility_id') && $isBoschmaAdmin) {
+            $statsQuery->where('facility_id', $request->get('facility_id'));
+        }
+        if ($request->filled('date_from')) {
+            $statsQuery->whereDate('requested_at', '>=', $request->get('date_from'));
+        }
+        if ($request->filled('date_to')) {
+            $statsQuery->whereDate('requested_at', '<=', $request->get('date_to'));
+        }
+
         // Get statistics
         $stats = [
-            'pending' => DrugStockRequest::pending()->count(),
-            'approved' => DrugStockRequest::approved()->count(),
-            'rejected' => DrugStockRequest::rejected()->count(),
-            'dispensed' => DrugStockRequest::dispensed()->count(),
+            'pending' => (clone $statsQuery)->pending()->count(),
+            'approved' => (clone $statsQuery)->approved()->count(),
+            'rejected' => (clone $statsQuery)->rejected()->count(),
+            'dispensed' => (clone $statsQuery)->dispensed()->count(),
         ];
         
         return view('drug-stock-requests.index', compact('statuses', 'priorities', 'facilities', 'stats', 'isBoschmaAdmin'));
@@ -210,10 +238,22 @@ class DrugStockRequestController extends Controller
         if ($request->filled('status')) {
             $query->where('drug_stock_requests.status', $request->get('status'));
         }
+        
+        if ($request->filled('facility_id') && $isBoschmaAdmin) {
+            $query->where('drug_stock_requests.facility_id', $request->get('facility_id'));
+        }
+        if ($request->filled('date_from')) {
+            $query->whereDate('drug_stock_requests.requested_at', '>=', $request->get('date_from'));
+        }
+        if ($request->filled('date_to')) {
+            $query->whereDate('drug_stock_requests.requested_at', '<=', $request->get('date_to'));
+        }
 
         $query->groupBy('facilities.id', 'facilities.name', 'facilities.lga');
 
         $selectedStatus = $request->get('status', '');
+        $dateFrom = $request->get('date_from', '');
+        $dateTo = $request->get('date_to', '');
 
         return DataTables::of($query)
             ->addColumn('facility_info', function ($row) {
@@ -232,8 +272,13 @@ class DrugStockRequestController extends Controller
             ->addColumn('latest_request_fmt', function ($row) {
                 return $row->latest_request ? \Carbon\Carbon::parse($row->latest_request)->format('M j, Y') : '-';
             })
-            ->addColumn('action', function ($row) use ($selectedStatus) {
-                $url = route('drug-stock-requests.facility-requests', $row->facility_id) . '?status=' . $selectedStatus;
+            ->addColumn('action', function ($row) use ($selectedStatus, $dateFrom, $dateTo) {
+                $params = array_filter([
+                    'status' => $selectedStatus,
+                    'date_from' => $dateFrom,
+                    'date_to' => $dateTo,
+                ]);
+                $url = route('drug-stock-requests.facility-requests', $row->facility_id) . '?' . http_build_query($params);
                 return '<a href="' . $url . '" class="btn btn-sm btn-primary"><i class="ti-eye me-1"></i>View Requests</a>';
             })
             ->rawColumns(['facility_info', 'request_count_fmt', 'action'])
@@ -270,6 +315,12 @@ class DrugStockRequestController extends Controller
                     }
                     if ($request->filled('priority')) {
                         $query->where('priority', $request->get('priority'));
+                    }
+                    if ($request->filled('date_from')) {
+                        $query->whereDate('requested_at', '>=', $request->get('date_from'));
+                    }
+                    if ($request->filled('date_to')) {
+                        $query->whereDate('requested_at', '<=', $request->get('date_to'));
                     }
                 })
                 ->addColumn('checkbox', function($req) {
@@ -337,12 +388,21 @@ class DrugStockRequestController extends Controller
         $statuses = DrugStockRequest::getStatuses();
         $priorities = DrugStockRequest::getPriorities();
 
+        // Base stats query
+        $statsQuery = DrugStockRequest::where('facility_id', $facilityId);
+        if ($request->filled('date_from')) {
+            $statsQuery->whereDate('requested_at', '>=', $request->get('date_from'));
+        }
+        if ($request->filled('date_to')) {
+            $statsQuery->whereDate('requested_at', '<=', $request->get('date_to'));
+        }
+
         // Get per-status counts for this facility
         $stats = [
-            'pending' => DrugStockRequest::where('facility_id', $facilityId)->pending()->count(),
-            'approved' => DrugStockRequest::where('facility_id', $facilityId)->approved()->count(),
-            'rejected' => DrugStockRequest::where('facility_id', $facilityId)->rejected()->count(),
-            'dispensed' => DrugStockRequest::where('facility_id', $facilityId)->dispensed()->count(),
+            'pending' => (clone $statsQuery)->pending()->count(),
+            'approved' => (clone $statsQuery)->approved()->count(),
+            'rejected' => (clone $statsQuery)->rejected()->count(),
+            'dispensed' => (clone $statsQuery)->dispensed()->count(),
         ];
 
         return view('drug-stock-requests.facility-requests', compact(

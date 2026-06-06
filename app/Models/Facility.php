@@ -169,4 +169,12 @@ class Facility extends Model
     {
         return $this->belongsToMany(Staff::class, 'facility_staff', 'facility_id', 'staff_id')->withTimestamps();
     }
+
+    /**
+     * Get the wallet associated with this facility
+     */
+    public function wallet()
+    {
+        return $this->hasOne(FacilityWallet::class);
+    }
 }

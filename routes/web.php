@@ -819,6 +819,19 @@ Route::prefix('drug-stock-requests')->name('drug-stock-requests.')->group(functi
     Route::post('/{id}/dispense', [\App\Http\Controllers\DrugStockRequestController::class, 'dispense'])->name('dispense')->middleware('permission:drug-stock-requests.dispense,staff');
 });
 
+// Facility Wallets Management
+Route::prefix('wallets')->name('wallets.')->middleware('auth:staff')->group(function () {
+    Route::get('/', [\App\Http\Controllers\WalletController::class, 'index'])->name('index');
+    Route::get('/create', [\App\Http\Controllers\WalletController::class, 'create'])->name('create');
+    Route::post('/', [\App\Http\Controllers\WalletController::class, 'store'])->name('store');
+    Route::get('/{id}', [\App\Http\Controllers\WalletController::class, 'show'])->name('show');
+    Route::get('/{id}/edit', [\App\Http\Controllers\WalletController::class, 'edit'])->name('edit');
+    Route::put('/{id}', [\App\Http\Controllers\WalletController::class, 'update'])->name('update');
+    Route::get('/{id}/fund', [\App\Http\Controllers\WalletController::class, 'fundForm'])->name('fund-form');
+    Route::post('/{id}/fund', [\App\Http\Controllers\WalletController::class, 'fund'])->name('fund');
+    Route::get('/check-balance/{facilityId}', [\App\Http\Controllers\WalletController::class, 'checkBalance'])->name('check-balance');
+});
+
 // Debug route to check drugs
 Route::get('/debug-drugs', function () {
     echo "Database: " . config('database.default') . "<br>";

@@ -137,6 +137,19 @@
                         </a>
                     </li>
                 @endcan
+
+                {{-- Ensure only Admins or specific roles can see wallets. For now we use drug-store.view or a custom permission if available --}}
+                @can('drug-store.view')
+                    <!-- Wallets -->
+                    <li class="nav-item">
+                        <a class="nav-link @if (request()->routeIs('wallets.*')) active @endif"
+                            href="{{ route('wallets.index') }}">
+                            <i class="fe fe-credit-card sidemenu-icon menu-icon text-dark"></i>
+                            <span class="sidemenu-label text-dark">Facility Wallets</span>
+                        </a>
+                    </li>
+                @endcan
+
                 @can('drug-store.view')
                     <li class="nav-item">
                         <a class="nav-link @if (request()->routeIs('drug-store.index') ||

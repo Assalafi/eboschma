@@ -1178,4 +1178,62 @@ class ReportsController extends Controller
         // Download PDF
         return $pdf->stream($filename);
     }
+
+    public function pharmacyStock(Request $request)
+    {
+        $facilityId = $request->get('facility_id');
+        $dateFrom = $request->get('date_from');
+        $dateTo = $request->get('date_to');
+
+        $facilities = Facility::orderBy('name')->get();
+
+        // Overview of all pharmacy activities
+        $globalStats = [
+            'total_received' => \App\Models\DrugStock::sum('quantity_received'),
+            'total_remaining' => \App\Models\DrugStock::sum('quantity_remaining'),
+            'total_dispensed' => \App\Models\DrugStock::sum(\Illuminate\Support\Facades\DB::raw('quantity_received - quantity_remaining')),
+            'total_value' => \App\Models\DrugStock::sum(\Illuminate\Support\Facades\DB::raw('quantity_remaining * unit_cost')),
+        ];
+
+        $stockRecords = null;
+        $selectedFacility = null;
+        $facilityStats = null;
+
+        if ($facilityId) {
+            $selectedFacility = Facility::find($facilityId);
+            
+            $query = \App\Models\DrugStock::where('facility_id', $facilityId)->with('drug');
+            
+            if ($dateFrom) {
+                $query->whereDate('created_at', '>=', $dateFrom);
+            }
+            if ($dateTo) {
+                $query->whereDate('created_at', '<=', $dateTo);
+            }
+            
+            $stockRecords = $query->orderBy('created_at', 'desc')->paginate(20);
+            $stockRecords->appends($request->all());
+
+            // Stats for selected facility
+            $facilityQuery = \App\Models\DrugStock::where('facility_id', $facilityId);
+            if ($dateFrom) {
+                $facilityQuery->whereDate('created_at', '>=', $dateFrom);
+            }
+            if ($dateTo) {
+                $facilityQuery->whereDate('created_at', '<=', $dateTo);
+            }
+
+            $facilityStats = [
+                'total_received' => (clone $facilityQuery)->sum('quantity_received'),
+                'total_remaining' => (clone $facilityQuery)->sum('quantity_remaining'),
+                'total_dispensed' => (clone $facilityQuery)->sum(\Illuminate\Support\Facades\DB::raw('quantity_received - quantity_remaining')),
+                'total_value' => (clone $facilityQuery)->sum(\Illuminate\Support\Facades\DB::raw('quantity_remaining * unit_cost')),
+            ];
+        }
+
+        return view('reports.pharmacy_stock', compact(
+            'facilities', 'facilityId', 'dateFrom', 'dateTo', 
+            'globalStats', 'stockRecords', 'selectedFacility', 'facilityStats'
+        ));
+    }
 }

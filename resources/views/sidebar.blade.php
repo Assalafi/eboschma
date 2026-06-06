@@ -192,6 +192,9 @@
                             <li class="nav-sub-item">
                                 <a class="nav-sub-link text-dark @if(request()->routeIs('reports.crm')) active @endif"
                                     href="{{ route('reports.crm') }}">CRM Reports</a>
+
+                                <a class="nav-sub-link text-dark @if(request()->routeIs('reports.pharmacy_stock')) active @endif"
+                                    href="{{ route('reports.pharmacy_stock') }}">Pharmacy Stock Report</a>
                             </li>
                         </ul>
                     </li>

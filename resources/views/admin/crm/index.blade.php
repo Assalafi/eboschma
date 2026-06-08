@@ -12,6 +12,9 @@
                             <i class="ti-headphone-alt"></i> Customer Care Tickets
                         </h4>
                         <div style="float: right" class="card-action">
+                            <a href="{{ route('referrals.index') }}" class="btn btn-warning me-2">
+                                <i class="ti-share"></i> Referral Overview
+                            </a>
                             <a href="{{ route('crm.facility-activity') }}" class="btn btn-info me-2">
                                 <i class="ti-pulse"></i> Facility Activity
                             </a>

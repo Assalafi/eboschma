@@ -830,6 +830,8 @@ Route::prefix('wallets')->name('wallets.')->middleware('auth:staff')->group(func
     Route::put('/{id}', [\App\Http\Controllers\WalletController::class, 'update'])->name('update');
     Route::get('/{id}/fund', [\App\Http\Controllers\WalletController::class, 'fundForm'])->name('fund-form');
     Route::post('/{id}/fund', [\App\Http\Controllers\WalletController::class, 'fund'])->name('fund');
+    Route::get('/transactions/{id}/edit', [\App\Http\Controllers\WalletController::class, 'editFund'])->name('edit-fund');
+    Route::put('/transactions/{id}', [\App\Http\Controllers\WalletController::class, 'updateFund'])->name('update-fund');
     Route::get('/check-balance/{facilityId}', [\App\Http\Controllers\WalletController::class, 'checkBalance'])->name('check-balance');
 });
 

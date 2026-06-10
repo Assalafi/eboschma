@@ -29,7 +29,7 @@
                 <div class="col-auto d-print-none">
                     <div class="d-flex gap-2">
                         <a href="{{ route('wallets.fund-form', $wallet->id) }}" class="btn btn-success">
-                            <i class="ti-plus me-1"></i>Fund Wallet
+                            <i class="ti-wallet me-1"></i>Fund / Deduct
                         </a>
                         <a href="{{ route('wallets.edit', $wallet->id) }}" class="btn btn-warning">
                             <i class="ti-pencil me-1"></i>Edit

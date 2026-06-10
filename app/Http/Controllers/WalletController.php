@@ -66,7 +66,7 @@ class WalletController extends Controller
                 ->addColumn('action', function ($wallet) {
                     return '<div class="d-flex gap-1">' .
                         '<a href="' . route('wallets.show', $wallet->id) . '" class="btn btn-sm btn-info" title="View"><i class="ti-eye"></i></a>' .
-                        '<a href="' . route('wallets.fund-form', $wallet->id) . '" class="btn btn-sm btn-success" title="Fund"><i class="ti-plus"></i></a>' .
+                        '<a href="' . route('wallets.fund-form', $wallet->id) . '" class="btn btn-sm btn-success" title="Fund / Deduct"><i class="ti-wallet"></i></a>' .
                         '<a href="' . route('wallets.edit', $wallet->id) . '" class="btn btn-sm btn-warning" title="Edit"><i class="ti-pencil"></i></a>' .
                         '</div>';
                 })
@@ -206,10 +206,16 @@ class WalletController extends Controller
                     }
                     return $desc;
                 })
+                ->addColumn('action', function ($txn) {
+                    if ($txn->type === WalletTransaction::TYPE_FUNDING) {
+                        return '<a href="' . route('wallets.edit-fund', $txn->id) . '" class="btn btn-sm btn-warning" title="Edit Fund"><i class="ti-pencil"></i></a>';
+                    }
+                    return '';
+                })
                 ->order(function ($query) {
                     $query->orderBy('created_at', 'desc');
                 })
-                ->rawColumns(['date_fmt', 'type_badge', 'amount_fmt', 'drug_info', 'description_fmt'])
+                ->rawColumns(['date_fmt', 'type_badge', 'amount_fmt', 'drug_info', 'description_fmt', 'action'])
                 ->make(true);
         }
 
@@ -290,6 +296,7 @@ class WalletController extends Controller
         $wallet = FacilityWallet::findOrFail($id);
 
         $request->validate([
+            'action_type' => 'required|in:fund,deduct',
             'amount' => 'required|numeric|min:1',
             'description' => 'nullable|string|max:1000',
         ]);
@@ -297,20 +304,106 @@ class WalletController extends Controller
         try {
             DB::beginTransaction();
 
-            $wallet->fund(
-                $request->amount,
-                Auth::guard('staff')->user()->id,
-                $request->description
-            );
+            if ($request->action_type === 'fund') {
+                $wallet->fund(
+                    $request->amount,
+                    Auth::guard('staff')->user()->id,
+                    $request->description
+                );
+                $message = 'Wallet funded successfully with ₦' . number_format($request->amount, 2) . '!';
+            } else {
+                $wallet->deduct(
+                    $request->amount,
+                    Auth::guard('staff')->user()->id,
+                    $request->description
+                );
+                $message = '₦' . number_format($request->amount, 2) . ' deducted from wallet successfully!';
+            }
 
             DB::commit();
 
             return redirect()->route('wallets.show', $wallet->id)
-                ->with('success', 'Wallet funded successfully with ₦' . number_format($request->amount, 2) . '!');
+                ->with('success', $message);
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Error funding wallet: ' . $e->getMessage());
             return back()->with('error', 'Failed to fund wallet. ' . $e->getMessage())->withInput();
+        }
+    }
+
+    /**
+     * Show edit fund form for a specific funding transaction.
+     */
+    public function editFund(string $id)
+    {
+        $transaction = WalletTransaction::with('wallet.facility')->findOrFail($id);
+        
+        if ($transaction->type !== WalletTransaction::TYPE_FUNDING) {
+            return back()->with('error', 'Only funding transactions can be edited.');
+        }
+
+        return view('wallets.edit-fund', compact('transaction'));
+    }
+
+    /**
+     * Update the funding transaction.
+     */
+    public function updateFund(Request $request, string $id)
+    {
+        $transaction = WalletTransaction::with('wallet')->findOrFail($id);
+
+        if ($transaction->type !== WalletTransaction::TYPE_FUNDING) {
+            return back()->with('error', 'Only funding transactions can be edited.');
+        }
+
+        $request->validate([
+            'amount' => 'required|numeric|min:1',
+            'description' => 'nullable|string|max:1000',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            $oldAmount = $transaction->amount;
+            $newAmount = $request->amount;
+            $difference = $newAmount - $oldAmount;
+
+            if ($difference != 0) {
+                // Check if reducing the fund would result in a negative wallet balance
+                $wallet = $transaction->wallet;
+                if ($difference < 0 && $wallet->balance < abs($difference)) {
+                    throw new \Exception("Cannot reduce fund amount. The wallet has insufficient balance (₦" . number_format($wallet->balance, 2) . ").");
+                }
+
+                // Update the transaction
+                $transaction->amount = $newAmount;
+                $transaction->balance_after += $difference;
+                
+                // Update the wallet
+                $wallet->balance += $difference;
+                $wallet->total_funded += $difference;
+                $wallet->save();
+
+                // Update all subsequent transactions for this wallet to fix their running balances
+                WalletTransaction::where('wallet_id', $wallet->id)
+                    ->where('created_at', '>', $transaction->created_at)
+                    ->update([
+                        'balance_before' => DB::raw("balance_before + $difference"),
+                        'balance_after' => DB::raw("balance_after + $difference")
+                    ]);
+            }
+
+            $transaction->description = $request->description;
+            $transaction->save();
+
+            DB::commit();
+
+            return redirect()->route('wallets.show', $transaction->wallet->id)
+                ->with('success', 'Funding transaction updated successfully!');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error updating fund transaction: ' . $e->getMessage());
+            return back()->with('error', 'Failed to update transaction. ' . $e->getMessage())->withInput();
         }
     }
 

@@ -137,6 +137,30 @@ class FacilityWallet extends Model
     }
 
     /**
+     * Manually deduct from the wallet (debit).
+     */
+    public function deduct($amount, $performedBy, $description = null)
+    {
+        if (!$this->hasSufficientBalance($amount)) {
+            throw new \Exception("Insufficient wallet balance. Available: ₦" . number_format($this->balance, 2) . ", Required: ₦" . number_format($amount, 2));
+        }
+
+        $balanceBefore = $this->balance;
+        $this->balance -= $amount;
+        $this->total_deducted += $amount;
+        $this->save();
+
+        return $this->transactions()->create([
+            'type' => WalletTransaction::TYPE_ADJUSTMENT,
+            'amount' => -$amount,
+            'balance_before' => $balanceBefore,
+            'balance_after' => $this->balance,
+            'description' => $description ?? 'Manual deduction',
+            'performed_by' => $performedBy,
+        ]);
+    }
+
+    /**
      * Deduct for drug stock request (debit).
      */
     public function deductForStockRequest($amount, $stockRequestId, $performedBy, $description = null)

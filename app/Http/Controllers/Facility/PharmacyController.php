@@ -899,7 +899,9 @@ class PharmacyController extends Controller
             'dispensed' => DrugStockRequest::where('facility_id', $facilityId)->dispensed()->count(),
         ];
         
-        return view('facility.pharmacy.stock-requests', compact('statuses', 'priorities', 'stats'));
+        $hasWallet = \App\Models\FacilityWallet::where('facility_id', $facilityId)->count() > 0;
+        
+        return view('facility.pharmacy.stock-requests', compact('statuses', 'priorities', 'stats', 'hasWallet'));
     }
     
     /**
@@ -971,7 +973,15 @@ class PharmacyController extends Controller
         $priorities = DrugStockRequest::getPriorities();
         $programs = Program::active()->orderBy('name')->get();
         
-        return view('facility.pharmacy.bulk-stock-request', compact('drugs', 'priorities', 'programs'));
+        $walletCount = \App\Models\FacilityWallet::where('facility_id', $facilityId)->count();
+        
+        $walletsByProgram = \App\Models\FacilityWallet::where('facility_id', $facilityId)
+            ->where('status', 'active')
+            ->get()
+            ->keyBy('program_id')
+            ->map(fn($w) => ['balance' => (float) $w->balance, 'wallet_number' => $w->wallet_number]);
+        
+        return view('facility.pharmacy.bulk-stock-request', compact('drugs', 'priorities', 'programs', 'walletCount', 'walletsByProgram'));
     }
     
     /**
@@ -1028,6 +1038,22 @@ class PharmacyController extends Controller
             // Prepare bulk request data
             $bulkQuantity = $request->bulk_quantity;
             $bulkPriority = $request->bulk_priority;
+            
+            // Validate wallet balance
+            $totalCost = 0;
+            foreach ($drugs as $drug) {
+                $totalCost += ($drug->unit_price * $bulkQuantity);
+            }
+            
+            $wallet = \App\Models\FacilityWallet::getForFacilityAndProgram(Auth::guard('web')->user()->facility_id, $request->program_id);
+            if (!$wallet) {
+                return back()->with('error', 'No wallet found for this program.')->withInput();
+            }
+            
+            if ($totalCost > $wallet->balance) {
+                return back()->with('error', "Total estimated cost exceeds wallet balance (₦" . number_format($wallet->balance, 2) . ").")->withInput();
+            }
+            
             $requests = [];
             
             foreach ($drugs as $drug) {
@@ -1111,19 +1137,32 @@ class PharmacyController extends Controller
     /**
      * Show the form for creating a new stock request.
      */
-    public function createStockRequest(): View
+    public function createStockRequest(): View|RedirectResponse
     {
         // Check pharmacy admin permission
         if (!$this->isPharmacyAdmin()) {
             abort(403, 'Access denied. Only pharmacy administrators can create stock requests.');
         }
         
-        $drugs = Drug::orderBy('name')->get();
+        $facilityId = Auth::guard('web')->user()->facility_id;
         
+        // Check if facility has any wallets
+        $walletCount = \App\Models\FacilityWallet::where('facility_id', $facilityId)->count();
+        
+        // Build a map of program_id => wallet for the JS balance lookup
+        $walletsByProgram = \App\Models\FacilityWallet::where('facility_id', $facilityId)
+            ->where('status', 'active')
+            ->get()
+            ->keyBy('program_id')
+            ->map(fn($w) => ['balance' => (float) $w->balance, 'wallet_number' => $w->wallet_number]);
+        
+        $drugs = Drug::orderBy('name')->get();
         $priorities = DrugStockRequest::getPriorities();
         $programs = Program::active()->orderBy('name')->get();
         
-        return view('facility.pharmacy.create-stock-request', compact('drugs', 'priorities', 'programs'));
+        return view('facility.pharmacy.create-stock-request', compact(
+            'drugs', 'priorities', 'programs', 'facilityId', 'walletCount', 'walletsByProgram'
+        ));
     }
     
     /**
@@ -1259,6 +1298,18 @@ class PharmacyController extends Controller
             'reason' => 'required|string|max:1000',
             'notes' => 'nullable|string|max:2000',
         ]);
+        
+        $facilityId = Auth::guard('web')->user()->facility_id;
+        $wallet = \App\Models\FacilityWallet::getForFacilityAndProgram($facilityId, $request->program_id);
+        
+        if (!$wallet) {
+            return back()->withErrors(['program_id' => 'No wallet found for this program. Contact administrator.'])->withInput();
+        }
+        
+        $totalCost = collect($request->requests)->sum('estimated_cost');
+        if ($totalCost > $wallet->balance) {
+            return back()->withErrors(['requests' => "Total cost \u20a6" . number_format($totalCost, 2) . " exceeds wallet balance \u20a6" . number_format($wallet->balance, 2) . "."])->withInput();
+        }
         
         try {
             DB::beginTransaction();

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\FacilityWallet;
 use App\Models\WalletTransaction;
 use App\Models\Facility;
+use App\Models\Program;
 use App\Models\DrugStock;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -20,7 +21,7 @@ class WalletController extends Controller
     public function index(Request $request)
     {
         if ($request->ajax()) {
-            $query = FacilityWallet::with('facility');
+            $query = FacilityWallet::with(['facility', 'program']);
 
             return DataTables::of($query)
                 ->filter(function ($query) use ($request) {
@@ -36,9 +37,10 @@ class WalletController extends Controller
                 })
                 ->addColumn('facility_name', function ($wallet) {
                     $name = $wallet->facility->name ?? 'Unknown';
-                    $lga = $wallet->facility->lga ?? '';
+                    $program = $wallet->program->name ?? 'N/A';
+                    $walletNo = $wallet->wallet_number ?? '-';
                     return '<div class="fw-bold">' . e($name) . '</div>' .
-                        '<div class="text-muted small">' . e($lga) . '</div>';
+                           '<div class="text-muted small">Program: ' . e($program) . ' | Wallet: ' . e($walletNo) . '</div>';
                 })
                 ->addColumn('balance_fmt', function ($wallet) {
                     $color = $wallet->balance > 0 ? 'text-success' : ($wallet->balance < 0 ? 'text-danger' : 'text-muted');
@@ -95,12 +97,10 @@ class WalletController extends Controller
      */
     public function create()
     {
-        // Get facilities that don't already have a wallet
-        $facilities = Facility::whereDoesntHave('wallet')
-            ->orderBy('name')
-            ->get();
+        $facilities = Facility::orderBy('name')->get();
+        $programs = Program::active()->orderBy('name')->get();
 
-        return view('wallets.create', compact('facilities'));
+        return view('wallets.create', compact('facilities', 'programs'));
     }
 
     /**
@@ -109,7 +109,16 @@ class WalletController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'facility_id' => 'required|exists:facilities,id|unique:facility_wallets,facility_id',
+            'facility_id' => 'required|exists:facilities,id',
+            'program_id' => [
+                'required',
+                'exists:programs,id',
+                \Illuminate\Validation\Rule::unique('facility_wallets')->where(function ($query) use ($request) {
+                    return $query->where('facility_id', $request->facility_id)
+                                 ->where('program_id', $request->program_id)
+                                 ->whereNull('deleted_at');
+                })
+            ],
             'bank_name' => 'nullable|string|max:255',
             'account_number' => 'nullable|string|max:50',
             'account_name' => 'nullable|string|max:255',
@@ -122,6 +131,7 @@ class WalletController extends Controller
 
             $wallet = FacilityWallet::create([
                 'facility_id' => $request->facility_id,
+                'program_id' => $request->program_id,
                 'balance' => $request->initial_balance ?? 0,
                 'total_funded' => $request->initial_balance ?? 0,
                 'bank_name' => $request->bank_name,
@@ -255,7 +265,8 @@ class WalletController extends Controller
     public function edit(string $id)
     {
         $wallet = FacilityWallet::with('facility')->findOrFail($id);
-        return view('wallets.edit', compact('wallet'));
+        $programs = \App\Models\Program::active()->orderBy('name')->get();
+        return view('wallets.edit', compact('wallet', 'programs'));
     }
 
     /**
@@ -266,6 +277,15 @@ class WalletController extends Controller
         $wallet = FacilityWallet::findOrFail($id);
 
         $request->validate([
+            'program_id' => [
+                'required',
+                'exists:programs,id',
+                \Illuminate\Validation\Rule::unique('facility_wallets')->where(function ($query) use ($request, $wallet) {
+                    return $query->where('facility_id', $wallet->facility_id)
+                                 ->where('program_id', $request->program_id)
+                                 ->whereNull('deleted_at');
+                })->ignore($wallet->id)
+            ],
             'bank_name' => 'nullable|string|max:255',
             'account_number' => 'nullable|string|max:50',
             'account_name' => 'nullable|string|max:255',
@@ -273,7 +293,11 @@ class WalletController extends Controller
             'notes' => 'nullable|string|max:1000',
         ]);
 
-        $wallet->update($request->only(['bank_name', 'account_number', 'account_name', 'status', 'notes']));
+        if (empty($wallet->wallet_number)) {
+            $wallet->wallet_number = FacilityWallet::generateUniqueWalletNumber();
+        }
+
+        $wallet->update($request->only(['program_id', 'bank_name', 'account_number', 'account_name', 'status', 'notes']));
 
         return redirect()->route('wallets.show', $wallet->id)
             ->with('success', 'Wallet updated successfully!');
@@ -410,9 +434,9 @@ class WalletController extends Controller
     /**
      * Check wallet balance for a facility (AJAX endpoint).
      */
-    public function checkBalance(string $facilityId)
+    public function checkBalance(string $facilityId, string $programId)
     {
-        $wallet = FacilityWallet::getForFacility($facilityId);
+        $wallet = FacilityWallet::getForFacilityAndProgram($facilityId, $programId);
 
         if (!$wallet) {
             return response()->json([

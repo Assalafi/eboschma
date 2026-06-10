@@ -17,6 +17,16 @@
                         <div class="card-header"><h3 class="card-title">{{ $wallet->facility->name ?? 'Unknown' }}</h3></div>
                         <div class="card-body">
                             <div class="mb-3">
+                                <label class="form-label required">Program</label>
+                                <select name="program_id" class="form-select @error('program_id') is-invalid @enderror" required>
+                                    <option value="">Select Program...</option>
+                                    @foreach($programs as $program)
+                                    <option value="{{ $program->id }}" {{ old('program_id', $wallet->program_id) == $program->id ? 'selected' : '' }}>{{ $program->name }}</option>
+                                    @endforeach
+                                </select>
+                                @error('program_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                            </div>
+                            <div class="mb-3">
                                 <label class="form-label required">Status</label>
                                 <select name="status" class="form-select" required>
                                     @foreach(\App\Models\FacilityWallet::getStatuses() as $key => $label)

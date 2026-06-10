@@ -61,6 +61,19 @@
 
     <div class="page-body page-body-padded">
         <div class="container-xl">
+            @if(isset($walletCount) && $walletCount === 0)
+                <div class="alert alert-danger" role="alert">
+                    <div class="d-flex">
+                        <div>
+                            <i class="ti-alert-circle me-2 icon text-danger"></i>
+                        </div>
+                        <div>
+                            <h4 class="alert-title">Cannot Create Request</h4>
+                            <div class="text-secondary">Your facility does not have any wallets set up. Please contact the administrator to create a wallet before making a stock request.</div>
+                        </div>
+                    </div>
+                </div>
+            @else
             <form method="POST" action="{{ route('facility.pharmacy.stock-requests.bulk.store') }}" id="bulkRequestForm">
                 @csrf
 
@@ -77,6 +90,9 @@
                         @error('program_id')
                             <div class="invalid-feedback d-block">{{ $message }}</div>
                         @enderror
+                        <div id="wallet-balance-indicator" class="small mt-1 d-none">
+                            <strong>Wallet Balance:</strong> <span id="wallet-balance-amount" class="text-success">...</span>
+                        </div>
                     </div>
                     <div class="flex-grow-1" style="min-width:180px">
                         <label class="form-label mb-1 small text-muted">Search drugs</label>
@@ -197,6 +213,7 @@
                 <textarea name="reason" id="reasonInput" class="d-none" required>Out of Stock</textarea>
                 <textarea name="notes" id="notesInput" class="d-none"></textarea>
             </form>
+            @endif
         </div>
     </div>
 
@@ -244,6 +261,9 @@
                     </button>
                 </div>
             </div>
+            <div id="budget-warning" class="text-danger small mt-2 d-none text-end">
+                <i class="ti-alert-circle me-1"></i><span id="budget-warning-text"></span>
+            </div>
         </div>
     </div>
 
@@ -276,7 +296,11 @@
 
 @push('scripts')
     <script>
+        const walletsByProgram = @json($walletsByProgram ?? []);
         let selectedDrugs = [];
+        let currentBalance = null;
+        let hasWallet = false;
+        let totalCost = 0;
 
         $(document).ready(function() {
             // Restore selections
@@ -338,10 +362,12 @@
             // Sync program selects
             $('#programBarSelect').on('change', function() {
                 $('select[name="program_id"]').val($(this).val());
+                updateWalletDisplay();
                 validateForm();
             });
             $('select[name="program_id"]').on('change', function() {
                 $('#programBarSelect').val($(this).val());
+                updateWalletDisplay();
                 validateForm();
             });
 
@@ -385,8 +411,37 @@
             });
 
             updateSelectedDrugs();
+            updateWalletDisplay();
             validateForm();
         });
+
+        function updateWalletDisplay() {
+            const programId = $('select[name="program_id"]').val();
+            const indicator = $('#wallet-balance-indicator');
+            const amountSpan = $('#wallet-balance-amount');
+
+            if (!programId) {
+                indicator.addClass('d-none');
+                hasWallet = false;
+                currentBalance = null;
+                return;
+            }
+
+            const wallet = walletsByProgram[programId];
+            if (wallet) {
+                hasWallet = true;
+                currentBalance = wallet.balance;
+                amountSpan.text('₦' + currentBalance.toLocaleString('en-US', {minimumFractionDigits: 2}))
+                    .removeClass('text-danger').addClass('text-success');
+                indicator.removeClass('d-none');
+            } else {
+                hasWallet = false;
+                currentBalance = null;
+                amountSpan.text('No active wallet')
+                    .removeClass('text-success').addClass('text-danger');
+                indicator.removeClass('d-none');
+            }
+        }
 
         function syncSelectAll() {
             const total = $('.drug-row:visible .drug-checkbox').length;
@@ -436,16 +491,39 @@
 
         function calculateTotalCost() {
             const qty = parseInt($('#bulkQuantity').val()) || 0;
-            const total = selectedDrugs.reduce(function(s, d) { return s + d.price * qty; }, 0);
-            $('#totalEstimatedCost').text(total.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}));
+            totalCost = selectedDrugs.reduce(function(s, d) { return s + d.price * qty; }, 0);
+            $('#totalEstimatedCost').text(totalCost.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}));
         }
 
         function validateForm() {
-            const ok = selectedDrugs.length > 0 &&
-                       $('#bulkQuantity').val() > 0 &&
+            const qty = parseInt($('#bulkQuantity').val()) || 0;
+            const programId = $('select[name="program_id"]').val();
+            
+            let ok = selectedDrugs.length > 0 &&
+                       qty > 0 &&
                        $('#bulkPriority').val() &&
-                       $('select[name="program_id"]').val() &&
+                       programId &&
                        $('#reasonInput').val().trim().length > 0;
+            
+            const warnDiv = $('#budget-warning');
+            const warnText = $('#budget-warning-text');
+            const costEl = $('#totalEstimatedCost').parent();
+
+            if (programId && !hasWallet) {
+                ok = false;
+                warnDiv.removeClass('d-none');
+                warnText.text('Selected program has no active wallet.');
+                costEl.css('color', '#dc3545'); // red
+            } else if (hasWallet && totalCost > currentBalance) {
+                ok = false;
+                warnDiv.removeClass('d-none');
+                warnText.text(`Total ₦${totalCost.toLocaleString('en-US',{minimumFractionDigits:2})} exceeds wallet balance ₦${currentBalance.toLocaleString('en-US',{minimumFractionDigits:2})}.`);
+                costEl.css('color', '#dc3545'); // red
+            } else {
+                warnDiv.addClass('d-none');
+                costEl.css('color', '#01542B'); // green
+            }
+
             $('#submitBtn').prop('disabled', !ok);
         }
     </script>

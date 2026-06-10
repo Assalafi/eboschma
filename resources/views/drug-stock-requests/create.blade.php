@@ -31,7 +31,20 @@
                 <div class="col-lg-8">
                     <div class="card">
                         <div class="card-body">
-                            <form method="POST" action="{{ route('drug-stock-requests.store') }}">
+                            @if(isset($walletCount) && $walletCount === 0)
+                                <div class="alert alert-danger" role="alert">
+                                    <div class="d-flex">
+                                        <div>
+                                            <i class="ti-alert-circle me-2 icon text-danger"></i>
+                                        </div>
+                                        <div>
+                                            <h4 class="alert-title">Cannot Create Request</h4>
+                                            <div class="text-secondary">Your facility does not have any wallets set up. Please contact the administrator to create a wallet before making a stock request.</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            @else
+                                <form method="POST" action="{{ route('drug-stock-requests.store') }}">
                                 @csrf
 
                                 <div class="row mb-3">
@@ -50,6 +63,17 @@
                                             @error('program_id')
                                                 <div class="invalid-feedback d-block">{{ $message }}</div>
                                             @enderror
+                                            
+                                            <div id="wallet-balance-container" class="mt-2 d-none">
+                                                <div class="alert alert-info mb-0 py-2">
+                                                    <div class="d-flex align-items-center">
+                                                        <i class="ti-wallet me-2"></i>
+                                                        <div>
+                                                            <strong>Wallet Balance:</strong> <span id="wallet-balance-amount">Loading...</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -142,6 +166,7 @@
                                     </button>
                                 </div>
                             </form>
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -229,11 +254,97 @@
                     const unitPrice = drugPrices[drugId];
                     const estimatedCost = quantity * unitPrice;
                     costInput.value = estimatedCost.toFixed(2);
+                } else {
+                    costInput.value = '';
                 }
+                validateRequest();
             }
 
             drugSelect.addEventListener('change', updateEstimatedCost);
             quantityInput.addEventListener('input', updateEstimatedCost);
+            costInput.addEventListener('input', validateRequest);
+
+            // Wallet Balance Logic
+            const programSelect = document.querySelector('select[name="program_id"]');
+            const submitBtn = document.querySelector('button[type="submit"]');
+            const walletContainer = document.getElementById('wallet-balance-container');
+            const walletAmountSpan = document.getElementById('wallet-balance-amount');
+            const facilityId = '{{ $facilityId }}';
+            
+            let currentWalletBalance = 0;
+            let hasWallet = false;
+
+            programSelect.addEventListener('change', function() {
+                const programId = this.value;
+                if (!programId) {
+                    walletContainer.classList.add('d-none');
+                    hasWallet = false;
+                    validateRequest();
+                    return;
+                }
+                
+                walletContainer.classList.remove('d-none');
+                walletContainer.querySelector('.alert').className = 'alert alert-info mb-0 py-2';
+                walletAmountSpan.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Checking balance...';
+                submitBtn.disabled = true;
+
+                fetch(`/check-balance/${facilityId}/${programId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.has_wallet) {
+                            currentWalletBalance = parseFloat(data.balance);
+                            hasWallet = true;
+                            walletAmountSpan.textContent = '₦' + currentWalletBalance.toLocaleString('en-US', {minimumFractionDigits: 2});
+                            walletContainer.querySelector('.alert').className = 'alert alert-success mb-0 py-2';
+                        } else {
+                            hasWallet = false;
+                            currentWalletBalance = 0;
+                            walletAmountSpan.textContent = 'No wallet found for this program.';
+                            walletContainer.querySelector('.alert').className = 'alert alert-danger mb-0 py-2';
+                        }
+                        validateRequest();
+                    })
+                    .catch(err => {
+                        console.error('Error checking balance:', err);
+                        walletAmountSpan.textContent = 'Error checking balance.';
+                        walletContainer.querySelector('.alert').className = 'alert alert-warning mb-0 py-2';
+                        hasWallet = false;
+                        validateRequest();
+                    });
+            });
+
+            function validateRequest() {
+                const cost = parseFloat(costInput.value) || 0;
+                let feedback = costInput.parentNode.querySelector('.cost-error-feedback');
+                
+                if (!feedback) {
+                    feedback = document.createElement('div');
+                    feedback.className = 'invalid-feedback d-block cost-error-feedback';
+                    costInput.parentNode.appendChild(feedback);
+                }
+
+                if (!hasWallet) {
+                    submitBtn.disabled = true;
+                    costInput.classList.add('is-invalid');
+                    feedback.textContent = 'Cannot make a request without a valid program wallet.';
+                    return;
+                }
+                
+                if (cost > currentWalletBalance) {
+                    submitBtn.disabled = true;
+                    costInput.classList.add('is-invalid');
+                    feedback.textContent = `Estimated cost exceeds wallet balance (₦${currentWalletBalance.toLocaleString('en-US', {minimumFractionDigits: 2})}).`;
+                } else {
+                    submitBtn.disabled = false;
+                    costInput.classList.remove('is-invalid');
+                    feedback.textContent = '';
+                }
+            }
+            
+            // Trigger program check on load if already selected
+            if (programSelect.value) {
+                programSelect.dispatchEvent(new Event('change'));
+            }
 
             // Initialize searchable drug select
             initializeSearchableSelects();

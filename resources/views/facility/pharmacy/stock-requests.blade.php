@@ -23,12 +23,14 @@
                 </div>
                 <div class="col-md-4 d-print-none">
                     <div class="d-flex justify-content-end gap-2">
+                        @if($hasWallet ?? false)
                         <a href="{{ route('facility.pharmacy.stock-requests.bulk') }}" class="btn btn-success">
                             <i class="ti-package me-1"></i>Quick Bulk Request
                         </a>
                         <a href="{{ route('facility.pharmacy.stock-requests.create') }}" class="btn btn-primary">
                             <i class="ti-plus me-1"></i>New Request
                         </a>
+                        @endif
                         <a href="{{ route('facility.pharmacy.index') }}" class="btn btn-secondary">
                             <i class="ti-arrow-left me-1"></i>Back to Pharmacy
                         </a>

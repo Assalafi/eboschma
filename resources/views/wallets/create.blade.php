@@ -28,7 +28,16 @@
                                     @endforeach
                                 </select>
                                 @error('facility_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                                @if($facilities->isEmpty())<div class="text-warning mt-2"><i class="ti-alert-triangle me-1"></i>All facilities already have wallets.</div>@endif
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label required">Program</label>
+                                <select name="program_id" class="form-select @error('program_id') is-invalid @enderror" required>
+                                    <option value="">Select Program...</option>
+                                    @foreach($programs as $program)
+                                    <option value="{{ $program->id }}" {{ old('program_id') == $program->id ? 'selected' : '' }}>{{ $program->name }}</option>
+                                    @endforeach
+                                </select>
+                                @error('program_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Initial Balance (₦)</label>

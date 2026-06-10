@@ -25,6 +25,10 @@
                         <a href="{{ route('wallets.index') }}" class="text-muted">Wallets</a> /
                     </div>
                     <h2 class="page-title">{{ $wallet->facility->name ?? 'Unknown Facility' }}</h2>
+                    <div class="text-muted mt-1">
+                        <strong>Program:</strong> {{ $wallet->program->name ?? 'N/A' }} &bull;
+                        <strong>Wallet ID:</strong> {{ $wallet->wallet_number ?? 'N/A' }}
+                    </div>
                 </div>
                 <div class="col-auto d-print-none">
                     <div class="d-flex gap-2">

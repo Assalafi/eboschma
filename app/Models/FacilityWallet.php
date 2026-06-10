@@ -16,6 +16,8 @@ class FacilityWallet extends Model
 
     protected $fillable = [
         'facility_id',
+        'program_id',
+        'wallet_number',
         'balance',
         'total_funded',
         'total_deducted',
@@ -48,6 +50,9 @@ class FacilityWallet extends Model
             if (empty($model->id)) {
                 $model->id = (string) Str::uuid();
             }
+            if (empty($model->wallet_number)) {
+                $model->wallet_number = self::generateUniqueWalletNumber();
+            }
         });
     }
 
@@ -55,6 +60,11 @@ class FacilityWallet extends Model
     public function facility()
     {
         return $this->belongsTo(Facility::class);
+    }
+
+    public function program()
+    {
+        return $this->belongsTo(Program::class);
     }
 
     public function transactions()
@@ -227,5 +237,27 @@ class FacilityWallet extends Model
     public static function getForFacility($facilityId)
     {
         return self::where('facility_id', $facilityId)->first();
+    }
+
+    /**
+     * Get wallet for a facility and program.
+     */
+    public static function getForFacilityAndProgram($facilityId, $programId)
+    {
+        return self::where('facility_id', $facilityId)
+                   ->where('program_id', $programId)
+                   ->first();
+    }
+
+    /**
+     * Generate a unique wallet number.
+     */
+    public static function generateUniqueWalletNumber()
+    {
+        do {
+            $number = 'WAL-' . strtoupper(Str::random(8));
+        } while (self::where('wallet_number', $number)->exists());
+
+        return $number;
     }
 }

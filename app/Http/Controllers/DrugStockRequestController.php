@@ -413,7 +413,7 @@ class DrugStockRequestController extends Controller
     /**
      * Show the form for creating a new drug stock request.
      */
-    public function create(): View
+    public function create(): View|RedirectResponse
     {
         $user = Auth::guard('staff')->user();
         
@@ -423,6 +423,10 @@ class DrugStockRequestController extends Controller
         }
         
         $facilityId = $user->facility_id;
+        
+        // Check if facility has any wallets
+        $walletCount = \App\Models\FacilityWallet::where('facility_id', $facilityId)->count();
+
         $drugs = Drug::where('facility_id', $facilityId)
                     ->orderBy('name')
                     ->get();
@@ -430,7 +434,7 @@ class DrugStockRequestController extends Controller
         $priorities = DrugStockRequest::getPriorities();
         $programs = Program::active()->orderBy('name')->get();
         
-        return view('drug-stock-requests.create', compact('facilityId', 'drugs', 'priorities', 'programs'));
+        return view('drug-stock-requests.create', compact('facilityId', 'drugs', 'priorities', 'programs', 'walletCount'));
     }
     
     /**
@@ -454,6 +458,16 @@ class DrugStockRequestController extends Controller
             'reason' => 'required|string|max:1000',
             'notes' => 'nullable|string|max:2000',
         ]);
+        
+        $wallet = \App\Models\FacilityWallet::getForFacilityAndProgram($user->facility_id, $request->program_id);
+        
+        if (!$wallet) {
+            return back()->withErrors(['program_id' => 'No wallet found for this program.'])->withInput();
+        }
+        
+        if ($request->estimated_cost > $wallet->balance) {
+            return back()->withErrors(['estimated_cost' => "Estimated cost exceeds wallet balance (₦" . number_format($wallet->balance, 2) . ")."])->withInput();
+        }
         
         try {
             DB::transaction(function () use ($request, $user) {
@@ -1038,6 +1052,21 @@ class DrugStockRequestController extends Controller
             }
             
             Log::info('All stock records created: ' . json_encode($createdStocks));
+            
+            // Deduct from facility wallet
+            Log::info('Deducting from facility wallet');
+            $wallet = \App\Models\FacilityWallet::getForFacilityAndProgram($stockRequest->facility_id, $stockRequest->program_id);
+            if (!$wallet) {
+                throw new \Exception("No wallet found for this facility and program.");
+            }
+            
+            $totalCost = 0;
+            foreach ($request->batches as $batch) {
+                $totalCost += ($batch['quantity_received'] * $batch['unit_cost']);
+            }
+            
+            $wallet->deductForStockRequest($totalCost, $stockRequest->id, Auth::guard('staff')->user()->id, "Drug stock request #{$stockRequest->id} dispensed");
+            Log::info("Deducted ₦{$totalCost} from wallet {$wallet->wallet_number}");
             
             Log::info('Committing database transaction');
             DB::commit();

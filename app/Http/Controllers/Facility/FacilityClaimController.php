@@ -722,6 +722,7 @@ class FacilityClaimController extends Controller
      */
     public function billableItems(Request $request)
     {
+        ini_set('memory_limit', '512M'); // Prevent memory exhaustion for large datasets
         $facilityId = Auth::user()->facility_id;
         $tab = $request->get('tab', 'awaiting');
         $dateFrom = $request->get('date_from');
@@ -1290,7 +1291,8 @@ class FacilityClaimController extends Controller
         $awaitingItems = $allItems->where('tab', 'awaiting')->groupBy('patient_id');
         $referralItems = $allItems->where('tab', 'referrals')->groupBy('patient_id');
         $ongoingItems = $allItems->where('tab', 'ongoing')->groupBy('patient_id');
-        $historyItems = $allItems->where('tab', 'history')->groupBy('patient_id');
+        // Limit history items rendering to prevent massive memory usage in Blade view
+        $historyItems = $allItems->where('tab', 'history')->sortByDesc('date')->take(200)->groupBy('patient_id');
                 
         // Tab counts
         $counts = [

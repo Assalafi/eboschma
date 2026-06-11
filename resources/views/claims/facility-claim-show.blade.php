@@ -212,9 +212,9 @@
                         <td>{{ $med['name'] }}</td>
                         <td>
                             @if($userPermissions['canEditItems'])
-                                <span class="val-display" data-field="rate">{{ number_format($med['cost'] / max(1, $med['quantity']), 0) }}</span>
+                                <span class="val-display" data-field="rate">{{ number_format($med['cost'] / max(1, $med['quantity']), 2) }}</span>
                             @else
-                                {{ number_format($med['cost'] / max(1, $med['quantity']), 0) }}
+                                {{ number_format($med['cost'] / max(1, $med['quantity']), 2) }}
                             @endif
                         </td>
                         <td>
@@ -224,8 +224,8 @@
                                 {{ $med['quantity'] }}
                             @endif
                         </td>
-                        <td>{{ number_format($med['cost'], 0) }}</td>
-                        <td>{{ number_format($med['cost'], 0) }}</td>
+                        <td>{{ number_format($med['cost'], 2) }}</td>
+                        <td>{{ number_format($med['cost'], 2) }}</td>
                         @if($userPermissions['canEditItems'])
                             <td class="d-print-none">
                                 <button class="edit-btn" onclick="editItem('medication', '{{ $med['id'] }}', {{ $med['cost'] / max(1, $med['quantity']) }}, {{ $med['quantity'] }})" title="Edit"><i class="ti-pencil"></i></button>
@@ -238,8 +238,8 @@
                 @endforelse
                 <tr class="sub-total">
                     <td colspan="4" style="text-align:center;font-weight:700">SUB TOTAL</td>
-                    <td style="text-align:center">N {{ number_format(array_sum(array_column($medications, 'cost')), 0) }}</td>
-                    <td style="text-align:center">N {{ number_format(array_sum(array_column($medications, 'cost')), 0) }}</td>
+                    <td style="text-align:center">N {{ number_format(array_sum(array_column($medications, 'cost')), 2) }}</td>
+                    <td style="text-align:center">N {{ number_format(array_sum(array_column($medications, 'cost')), 2) }}</td>
                     @if($userPermissions['canEditItems'])<td class="d-print-none"></td>@endif
                 </tr>
             </table>
@@ -294,14 +294,14 @@
                         </td>
                         <td>
                             @if($userPermissions['canEditItems'])
-                                <span class="val-display" data-field="price">{{ number_format($service['unit_price'] ?? ($service['cost'] / max(1, $service['frequency'] ?? 1)), 0) }}</span>
+                                <span class="val-display" data-field="price">{{ number_format($service['unit_price'] ?? ($service['cost'] / max(1, $service['frequency'] ?? 1)), 2) }}</span>
                             @else
-                                {{ number_format($service['unit_price'] ?? ($service['cost'] / max(1, $service['frequency'] ?? 1)), 0) }}
+                                {{ number_format($service['unit_price'] ?? ($service['cost'] / max(1, $service['frequency'] ?? 1)), 2) }}
                             @endif
                         </td>
                         <td>{{ $service['frequency'] ?? 1 }}</td>
-                        <td>{{ number_format($service['cost'], 0) }}</td>
-                        <td>{{ number_format($service['cost'], 0) }}</td>
+                        <td>{{ number_format($service['cost'], 2) }}</td>
+                        <td>{{ number_format($service['cost'], 2) }}</td>
                         @if($userPermissions['canEditItems'])
                             <td class="d-print-none">
                                 <button class="edit-btn" onclick="editItem('service', '{{ $service['id'] }}', {{ $service['unit_price'] ?? ($service['cost'] / max(1, $service['frequency'] ?? 1)) }}, {{ $service['frequency'] ?? 1 }})" title="Edit"><i class="ti-pencil"></i></button>
@@ -314,8 +314,8 @@
                 @endforelse
                 <tr class="sub-total">
                     <td colspan="4" style="text-align:center;font-weight:700">SUB TOTAL</td>
-                    <td style="text-align:center">N {{ number_format(array_sum(array_column($services, 'cost')), 0) }}</td>
-                    <td style="text-align:center">N {{ number_format(array_sum(array_column($services, 'cost')), 0) }}</td>
+                    <td style="text-align:center">N {{ number_format(array_sum(array_column($services, 'cost')), 2) }}</td>
+                    <td style="text-align:center">N {{ number_format(array_sum(array_column($services, 'cost')), 2) }}</td>
                     @if($userPermissions['canEditItems'])<td class="d-print-none"></td>@endif
                 </tr>
             </table>
@@ -324,8 +324,8 @@
             <table style="margin-top:10px">
                 <tr class="grand-total">
                     <td colspan="4" style="text-align:center">GRAND TOTAL</td>
-                    <td style="text-align:center;width:110px">N {{ number_format($claim->total_amount, 0) }}</td>
-                    <td style="text-align:center;width:110px">N {{ number_format($claim->total_amount, 0) }}</td>
+                    <td style="text-align:center;width:110px">N {{ number_format($claim->total_amount, 2) }}</td>
+                    <td style="text-align:center;width:110px">N {{ number_format($claim->total_amount, 2) }}</td>
                 </tr>
             </table>
 

@@ -72,18 +72,18 @@ td, th { border: 1px solid #666; padding: 5px 8px; }
         <tr class="items">
             <td>{{ $i + 1 }}</td>
             <td style="text-align:left">{{ $med['name'] }}</td>
-            <td>{{ number_format($rate, 0) }}</td>
+            <td>{{ number_format($rate, 2) }}</td>
             <td>{{ $med['quantity'] }}</td>
-            <td>{{ number_format($med['cost'], 0) }}</td>
-            <td>{{ number_format($med['cost'], 0) }}</td>
+            <td>{{ number_format($med['cost'], 2) }}</td>
+            <td>{{ number_format($med['cost'], 2) }}</td>
         </tr>
     @empty
         <tr class="items"><td colspan="6" style="text-align:center;color:#999">No medications</td></tr>
     @endforelse
     <tr class="sub">
         <td colspan="4" style="text-align:center">SUB TOTAL</td>
-        <td style="text-align:center">N {{ number_format($medTotal, 0) }}</td>
-        <td style="text-align:center">N {{ number_format($medTotal, 0) }}</td>
+        <td style="text-align:center">N {{ number_format($medTotal, 2) }}</td>
+        <td style="text-align:center">N {{ number_format($medTotal, 2) }}</td>
     </tr>
 </table>
 
@@ -107,18 +107,18 @@ td, th { border: 1px solid #666; padding: 5px 8px; }
         <tr class="items">
             <td>{{ $i + 1 }}</td>
             <td style="text-align:left">{{ $svc['name'] }}</td>
-            <td>{{ number_format($rate, 0) }}</td>
+            <td>{{ number_format($rate, 2) }}</td>
             <td>{{ $svc['frequency'] ?? 1 }}</td>
-            <td>{{ number_format($svc['cost'], 0) }}</td>
-            <td>{{ number_format($svc['cost'], 0) }}</td>
+            <td>{{ number_format($svc['cost'], 2) }}</td>
+            <td>{{ number_format($svc['cost'], 2) }}</td>
         </tr>
     @empty
         <tr class="items"><td colspan="6" style="text-align:center;color:#999">No rendered services</td></tr>
     @endforelse
     <tr class="sub">
         <td colspan="4" style="text-align:center">SUB TOTAL</td>
-        <td style="text-align:center">N {{ number_format($svcTotal, 0) }}</td>
-        <td style="text-align:center">N {{ number_format($svcTotal, 0) }}</td>
+        <td style="text-align:center">N {{ number_format($svcTotal, 2) }}</td>
+        <td style="text-align:center">N {{ number_format($svcTotal, 2) }}</td>
     </tr>
 </table>
 
@@ -127,8 +127,8 @@ td, th { border: 1px solid #666; padding: 5px 8px; }
 <table style="margin-top:8px">
     <tr class="grand">
         <td colspan="4" style="text-align:center">GRAND TOTAL</td>
-        <td style="text-align:center;width:100px">N {{ number_format($grandTotal, 0) }}</td>
-        <td style="text-align:center;width:100px">N {{ number_format($grandTotal, 0) }}</td>
+        <td style="text-align:center;width:100px">N {{ number_format($grandTotal, 2) }}</td>
+        <td style="text-align:center;width:100px">N {{ number_format($grandTotal, 2) }}</td>
     </tr>
 </table>
 

@@ -2828,6 +2828,8 @@ class ClaimController extends Controller
                             'type' => $item->service_type ?? 'Service',
                             'description' => $item->service_description ?? 'N/A',
                             'cost' => $item->total_price ?? 0,
+                            'unit_price' => $item->unit_price ?? ($item->total_price ?? 0),
+                            'frequency' => $item->frequency ?? 1,
                             'status' => 'approved', // Claim items are typically approved
                             'results' => [], // Results would need to be loaded separately if needed
                         ];

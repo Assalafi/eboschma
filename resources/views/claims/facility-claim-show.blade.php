@@ -294,17 +294,17 @@
                         </td>
                         <td>
                             @if($userPermissions['canEditItems'])
-                                <span class="val-display" data-field="price">{{ number_format($service['cost'], 0) }}</span>
+                                <span class="val-display" data-field="price">{{ number_format($service['unit_price'] ?? ($service['cost'] / max(1, $service['frequency'] ?? 1)), 0) }}</span>
                             @else
-                                {{ number_format($service['cost'], 0) }}
+                                {{ number_format($service['unit_price'] ?? ($service['cost'] / max(1, $service['frequency'] ?? 1)), 0) }}
                             @endif
                         </td>
-                        <td>1</td>
+                        <td>{{ $service['frequency'] ?? 1 }}</td>
                         <td>{{ number_format($service['cost'], 0) }}</td>
                         <td>{{ number_format($service['cost'], 0) }}</td>
                         @if($userPermissions['canEditItems'])
                             <td class="d-print-none">
-                                <button class="edit-btn" onclick="editItem('service', '{{ $service['id'] }}', {{ $service['cost'] }}, 1)" title="Edit"><i class="ti-pencil"></i></button>
+                                <button class="edit-btn" onclick="editItem('service', '{{ $service['id'] }}', {{ $service['unit_price'] ?? ($service['cost'] / max(1, $service['frequency'] ?? 1)) }}, {{ $service['frequency'] ?? 1 }})" title="Edit"><i class="ti-pencil"></i></button>
                                 <button class="del-btn" onclick="deleteItem('service', '{{ $service['id'] }}', '{{ addslashes($service['name']) }}')" title="Delete"><i class="ti-trash"></i></button>
                             </td>
                         @endif

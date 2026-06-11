@@ -100,12 +100,15 @@ td, th { border: 1px solid #666; padding: 5px 8px; }
         <th style="width:100px">Amount Due</th>
     </tr>
     @forelse ($services as $i => $svc)
-        @php $svcTotal += $svc['cost']; @endphp
+        @php 
+            $svcTotal += $svc['cost'];
+            $rate = $svc['unit_price'] ?? ($svc['cost'] / max(1, $svc['frequency'] ?? 1));
+        @endphp
         <tr class="items">
             <td>{{ $i + 1 }}</td>
             <td style="text-align:left">{{ $svc['name'] }}</td>
-            <td>{{ number_format($svc['cost'], 0) }}</td>
-            <td>1</td>
+            <td>{{ number_format($rate, 0) }}</td>
+            <td>{{ $svc['frequency'] ?? 1 }}</td>
             <td>{{ number_format($svc['cost'], 0) }}</td>
             <td>{{ number_format($svc['cost'], 0) }}</td>
         </tr>

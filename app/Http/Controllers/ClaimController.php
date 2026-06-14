@@ -2112,11 +2112,19 @@ class ClaimController extends Controller
     public function getDrugs(Request $request)
     {
         $search = $request->get('q', '');
+        $facilityId = $request->get('facility_id');
         
         $drugs = Drug::when($search, function($query, $search) {
-            return $query->where('name', 'LIKE', "%{$search}%")
-                        ->orWhere('description', 'LIKE', "%{$search}%")
-                        ->orWhere('dosage_form', 'LIKE', "%{$search}%");
+            return $query->where(function($q) use ($search) {
+                $q->where('name', 'LIKE', "%{$search}%")
+                  ->orWhere('description', 'LIKE', "%{$search}%")
+                  ->orWhere('dosage_form', 'LIKE', "%{$search}%");
+            });
+        })
+        ->when($facilityId, function($query, $facilityId) {
+            return $query->where(function($q) use ($facilityId) {
+                $q->where('facility_id', $facilityId)->orWhere('facility_id', 0)->orWhereNull('facility_id');
+            });
         })
         ->select('id', 'name', 'dosage_form', 'strength', 'unit', 'unit_price', 'description')
         ->limit(50)
@@ -2166,11 +2174,22 @@ class ClaimController extends Controller
     public function getServices(Request $request)
     {
         $search = $request->get('q', '');
+        $facilityId = $request->get('facility_id');
         
-        $services = Service::when($search, function($query, $search) {
-            return $query->where('name', 'LIKE', "%{$search}%")
-                        ->orWhere('description', 'LIKE', "%{$search}%")
-                        ->orWhere('type', 'LIKE', "%{$search}%");
+        $services = \App\Models\ServiceItem::when($search, function($query, $search) {
+            return $query->where(function($q) use ($search) {
+                $q->where('name', 'LIKE', "%{$search}%")
+                  ->orWhere('description', 'LIKE', "%{$search}%")
+                  ->orWhere('type', 'LIKE', "%{$search}%");
+            });
+        })
+        ->when($facilityId, function($query, $facilityId) {
+            return $query->whereIn('id', function($q) use ($facilityId) {
+                $q->select('service_item_id')
+                  ->from('facility_services')
+                  ->where('facility_id', $facilityId)
+                  ->where('is_available', true);
+            });
         })
         ->select('id', 'name', 'type', 'price', 'description')
         ->limit(50)
@@ -3115,6 +3134,186 @@ class ClaimController extends Controller
 
             return response()->json(['success' => true, 'message' => 'Item deleted successfully']);
         } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
+        }
+    }
+
+    public function addMedicationToFacilityClaim(Request $request, $claimId)
+    {
+        $user = auth('staff')->user() ?: auth()->user();
+        if (!$user || (!$user->can('claim.edit-items') && !$user->hasRole('Super Admin') && !$user->hasRole('admin'))) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        $request->validate([
+            'drug_id'   => 'required',
+            'dosage'    => 'required|string',
+            'frequency' => 'required|integer|min:1',
+            'duration'  => 'required|integer|min:1',
+        ]);
+
+        try {
+            $claim = DB::table('facility_claims')->where('id', $claimId)->first();
+            if (!$claim) {
+                return response()->json(['success' => false, 'message' => 'Claim not found'], 404);
+            }
+
+            $drug = DB::table('drugs')->where('id', $request->drug_id)->first();
+            if (!$drug) {
+                return response()->json(['success' => false, 'message' => 'Drug not found'], 404);
+            }
+
+            $quantity = (int)$request->frequency * (int)$request->duration;
+            $unitPrice = (float)($drug->unit_price ?? 0);
+            $cost = $unitPrice * $quantity;
+
+            DB::beginTransaction();
+
+            // Build drug name with attributes
+            $drugName = $drug->name;
+            $attrs = array_filter([$drug->strength ?? '', $drug->unit ?? '', $drug->dosage_form ?? '']);
+            if (!empty($attrs)) {
+                $drugName .= ' (' . implode(', ', $attrs) . ')';
+            }
+
+            // If claim has encounter, create EHR records for consistency
+            $prescriptionItemId = null;
+            if (!empty($claim->encounter_id)) {
+                try {
+                    $consultation = \App\Models\ClinicalConsultation::firstOrCreate(
+                        ['encounter_id' => $claim->encounter_id],
+                        ['patient_id' => $claim->patient_id, 'facility_id' => $claim->facility_id, 'status' => 'Completed', 'date' => now()]
+                    );
+                    $prescription = \App\Models\Prescription::firstOrCreate(
+                        ['clinical_consultation_id' => $consultation->id],
+                        ['patient_id' => $claim->patient_id, 'encounter_id' => $claim->encounter_id, 'facility_id' => $claim->facility_id, 'status' => 'dispensed']
+                    );
+                    $prescriptionItem = \App\Models\PrescriptionItem::create([
+                        'prescription_id'   => $prescription->id,
+                        'drug_id'           => $drug->id,
+                        'dosage'            => $request->dosage,
+                        'frequency'         => $request->frequency,
+                        'duration'          => $request->duration,
+                        'quantity'          => $quantity,
+                        'dispensing_status' => 'Dispensed',
+                    ]);
+                    $prescriptionItemId = $prescriptionItem->id;
+                } catch (\Exception $e) {
+                    \Log::warning('Could not create EHR records for claim medication: ' . $e->getMessage());
+                }
+            }
+
+            // Insert into facility_claim_medications with denormalized data
+            DB::table('facility_claim_medications')->insert([
+                'facility_claim_id'    => $claim->id,
+                'prescription_item_id' => $prescriptionItemId,
+                'drug_name'            => $drugName,
+                'dosage'               => $request->dosage,
+                'days'                 => $request->duration,
+                'quantity'             => $quantity,
+                'unit_price'           => $unitPrice,
+                'total_price'          => $cost,
+                'notes'                => 'Freq: ' . $request->frequency . 'x/day',
+                'created_at'           => now(),
+                'updated_at'           => now(),
+            ]);
+
+            // Recalculate claim totals
+            $medTotal = DB::table('facility_claim_medications')->where('facility_claim_id', $claim->id)->sum('total_price');
+            $svcTotal = DB::table('facility_claim_services')->where('facility_claim_id', $claim->id)->sum('total_price');
+
+            DB::table('facility_claims')->where('id', $claimId)->update([
+                'pharmacy_amount' => $medTotal,
+                'services_amount' => $svcTotal,
+                'total_amount'    => $medTotal + $svcTotal,
+            ]);
+
+            DB::commit();
+
+            return response()->json(['success' => true, 'message' => 'Medication "' . $drug->name . '" added successfully']);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('addMedicationToFacilityClaim error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
+        }
+    }
+
+    public function addServiceToFacilityClaim(Request $request, $claimId)
+    {
+        $user = auth('staff')->user() ?: auth()->user();
+        if (!$user || (!$user->can('claim.edit-items') && !$user->hasRole('Super Admin') && !$user->hasRole('admin'))) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        $request->validate([
+            'service_item_id' => 'required',
+        ]);
+
+        try {
+            $claim = DB::table('facility_claims')->where('id', $claimId)->first();
+            if (!$claim) {
+                return response()->json(['success' => false, 'message' => 'Claim not found'], 404);
+            }
+
+            $serviceItem = DB::table('service_items')->where('id', $request->service_item_id)->first();
+            if (!$serviceItem) {
+                return response()->json(['success' => false, 'message' => 'Service item not found'], 404);
+            }
+
+            $cost = (float)($serviceItem->price ?? 0);
+
+            DB::beginTransaction();
+
+            // If claim has encounter, create EHR records
+            $serviceOrderItemId = null;
+            if (!empty($claim->encounter_id)) {
+                try {
+                    $serviceOrder = \App\Models\ServiceOrder::firstOrCreate(
+                        ['encounter_id' => $claim->encounter_id, 'facility_id' => $claim->facility_id],
+                        ['patient_id' => $claim->patient_id, 'order_date' => now(), 'status' => 'completed']
+                    );
+                    $serviceOrderItem = \App\Models\ServiceOrderItem::create([
+                        'service_order_id' => $serviceOrder->id,
+                        'service_item_id'  => $serviceItem->id,
+                        'status'           => 'completed',
+                    ]);
+                    $serviceOrderItemId = $serviceOrderItem->id;
+                } catch (\Exception $e) {
+                    \Log::warning('Could not create EHR service order records: ' . $e->getMessage());
+                }
+            }
+
+            // Insert into facility_claim_services with denormalized data
+            DB::table('facility_claim_services')->insert([
+                'facility_claim_id'     => $claim->id,
+                'service_order_item_id' => $serviceOrderItemId,
+                'service_name'          => $serviceItem->name,
+                'service_type'          => $serviceItem->type ?? 'Service',
+                'service_description'   => $serviceItem->description ?? '',
+                'unit_price'            => $cost,
+                'frequency'             => 1,
+                'total_price'           => $cost,
+                'notes'                 => null,
+                'created_at'            => now(),
+                'updated_at'            => now(),
+            ]);
+
+            // Recalculate claim totals
+            $medTotal = DB::table('facility_claim_medications')->where('facility_claim_id', $claim->id)->sum('total_price');
+            $svcTotal = DB::table('facility_claim_services')->where('facility_claim_id', $claim->id)->sum('total_price');
+
+            DB::table('facility_claims')->where('id', $claimId)->update([
+                'pharmacy_amount' => $medTotal,
+                'services_amount' => $svcTotal,
+                'total_amount'    => $medTotal + $svcTotal,
+            ]);
+
+            DB::commit();
+
+            return response()->json(['success' => true, 'message' => 'Service "' . $serviceItem->name . '" added successfully']);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('addServiceToFacilityClaim error: ' . $e->getMessage());
             return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
         }
     }

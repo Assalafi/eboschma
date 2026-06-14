@@ -1344,6 +1344,60 @@ class FacilityClaimController extends Controller
         if (empty($drugItems) && empty($serviceItems) && empty($adminItems)) {
             return back()->with('error', 'Please select at least one item to claim.');
         }
+
+        // --- Duplication Check ---
+        if (!empty($drugItems)) {
+            $existingDrugs = \App\Models\FacilityClaimMedication::whereIn('prescription_item_id', array_keys($drugItems))
+                ->whereHas('claim', function($q) {
+                    $q->whereNull('deleted_at');
+                })->exists();
+            if ($existingDrugs) {
+                return back()->with('error', 'One or more selected drug items have already been claimed.');
+            }
+        }
+        
+        if (!empty($serviceItems)) {
+            $existingServices = \App\Models\FacilityClaimService::whereIn('service_order_item_id', array_keys($serviceItems))
+                ->whereHas('claim', function($q) {
+                    $q->whereNull('deleted_at');
+                })->exists();
+            if ($existingServices) {
+                return back()->with('error', 'One or more selected service items have already been claimed.');
+            }
+        }
+        
+        if (!empty($adminItems)) {
+            // Admin items keys are formatted as {encounter_id}_{chargeType}
+            $existingAdmin = false;
+            foreach (array_keys($adminItems) as $adminItemId) {
+                $parts = explode('_', $adminItemId);
+                $encounterId = $parts[0];
+                
+                $chargeType = end($parts);
+                if (count($parts) > 2) {
+                    $chargeType = implode('_', array_slice($parts, -2));
+                    if (!in_array($chargeType, ['specialist_review', 'nursing_care', 'bed_occupancy'])) {
+                        $chargeType = end($parts);
+                    }
+                }
+                
+                $exists = \App\Models\FacilityClaimService::whereHas('claim', function($q) use ($encounterId) {
+                    $q->where('encounter_id', $encounterId)->whereNull('deleted_at');
+                })->where('service_type', $chargeType)
+                  ->whereNull('service_order_item_id')
+                  ->exists();
+                  
+                if ($exists) {
+                    $existingAdmin = true;
+                    break;
+                }
+            }
+            
+            if ($existingAdmin) {
+                return back()->with('error', 'One or more selected admin charges have already been claimed.');
+            }
+        }
+        // --- End Duplication Check ---
         
         try {
             DB::beginTransaction();

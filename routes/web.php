@@ -592,8 +592,10 @@ Route::middleware(['auth:staff,web'])->group(function () {
     Route::get('claims/facility/{facilityId}', [ClaimController::class, 'facilityShow'])->name('claims.facility.show')->middleware('permission:claim.view');
     Route::get('claims/facility-claim/{claimId}', [ClaimController::class, 'showFacilityClaim'])->name('claims.facility-claim.show')->middleware('permission:claim.view');
     Route::get('claims/facility-claim/{claimId}/download-pdf', [ClaimController::class, 'downloadFacilityClaimPdf'])->name('claims.facility-claim.download-pdf')->middleware('permission:claim.view');
-    Route::post('claims/facility-claim/{claimId}/update-item', [ClaimController::class, 'updateFacilityClaimItem'])->name('claims.facility-claim.update-item')->middleware('permission:claim.edit-items');
-    Route::post('claims/facility-claim/{claimId}/delete-item', [ClaimController::class, 'deleteFacilityClaimItem'])->name('claims.facility-claim.delete-item')->middleware('permission:claim.edit-items');
+    Route::post('claims/facility-claim/{claimId}/update-item', [ClaimController::class, 'updateFacilityClaimItem'])->name('claims.facility-claim.update-item')->middleware('permission:claim.edit-items,staff');
+    Route::post('claims/facility-claim/{claimId}/delete-item', [ClaimController::class, 'deleteFacilityClaimItem'])->name('claims.facility-claim.delete-item')->middleware('permission:claim.edit-items,staff');
+    Route::post('claims/facility-claim/{claimId}/add-medication', [ClaimController::class, 'addMedicationToFacilityClaim'])->name('claims.facility-claim.add-medication')->middleware('permission:claim.edit-items,staff');
+    Route::post('claims/facility-claim/{claimId}/add-service', [ClaimController::class, 'addServiceToFacilityClaim'])->name('claims.facility-claim.add-service')->middleware('permission:claim.edit-items,staff');
     Route::post('claims/facility-claims/batch-approve', [ClaimController::class, 'batchApproveFacilityClaims'])->name('claims.facility-claims.batch-approve')->middleware('permission:claim.view');
     Route::get('claims/facility-claim/{claimId}/download', [ClaimController::class, 'downloadFacilityClaim'])->name('claims.facility.download')->middleware('permission:claim.view');
     Route::get('claims/{facility}/list', [ClaimController::class, 'facilityList'])->name('claims.facility.list')->middleware('permission:claim.view');

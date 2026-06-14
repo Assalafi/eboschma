@@ -193,7 +193,14 @@
             {{-- MEDICATIONS --}}
             <table style="margin-top:-1px">
                 <tr class="section-header">
-                    <td colspan="{{ $userPermissions['canEditItems'] ? 7 : 6 }}" style="text-align:center">Services Provided<br>Medication(s)</td>
+                    <td colspan="{{ $userPermissions['canEditItems'] ? 7 : 6 }}" style="text-align:center; position: relative;">
+                        Services Provided<br>Medication(s)
+                        @if($userPermissions['canEditItems'])
+                            <button type="button" class="btn btn-sm btn-light d-print-none" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); padding: 2px 8px; font-weight: bold; border-radius: 4px; color: var(--g);" onclick="showAddMedicationModal()">
+                                <i class="ti-plus"></i> Add
+                            </button>
+                        @endif
+                    </td>
                 </tr>
                 <tr class="items-head">
                     <th style="width:50px">S/N</th>
@@ -247,7 +254,14 @@
             {{-- RENDERED SERVICES --}}
             <table style="margin-top:-1px">
                 <tr class="section-header">
-                    <td colspan="{{ $userPermissions['canEditItems'] ? 7 : 6 }}" style="text-align:center">Services Provided<br>Rendered Service(s)</td>
+                    <td colspan="{{ $userPermissions['canEditItems'] ? 7 : 6 }}" style="text-align:center; position: relative;">
+                        Services Provided<br>Rendered Service(s)
+                        @if($userPermissions['canEditItems'])
+                            <button type="button" class="btn btn-sm btn-light d-print-none" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); padding: 2px 8px; font-weight: bold; border-radius: 4px; color: var(--g);" onclick="showAddServiceModal()">
+                                <i class="ti-plus"></i> Add
+                            </button>
+                        @endif
+                    </td>
                 </tr>
                 <tr class="items-head">
                     <th style="width:50px">S/N</th>
@@ -486,6 +500,117 @@
         </div>
     </div>
 
+    <!-- Edit Item Modal -->
+    <div class="modal fade" id="editItemModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Item</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="editItemType">
+                    <input type="hidden" id="editItemId">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Unit Price (₦)</label>
+                        <input type="number" class="form-control" id="editItemPrice" step="0.01" min="0">
+                    </div>
+                    <div class="mb-3" id="editQtyGroup">
+                        <label class="form-label fw-semibold">Quantity</label>
+                        <input type="number" class="form-control" id="editItemQty" min="1">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary btn-sm" id="editItemSaveBtn">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal fade" id="deleteItemModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">Confirm Delete</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to remove <strong id="deleteItemName"></strong> from this claim?</p>
+                    <input type="hidden" id="deleteItemType">
+                    <input type="hidden" id="deleteItemId">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger btn-sm" id="deleteItemConfirmBtn">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Medication Modal -->
+    <div class="modal fade" id="addMedicationModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form id="addMedicationForm">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Add Medication</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Drug</label>
+                            <select class="form-select select2-ajax-drugs" name="drug_id" required style="width: 100%"></select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Dosage</label>
+                            <input type="text" class="form-control" name="dosage" required>
+                        </div>
+                        <div class="row">
+                            <div class="col-6 mb-3">
+                                <label class="form-label">Frequency (per day)</label>
+                                <input type="number" class="form-control" name="frequency" required min="1">
+                            </div>
+                            <div class="col-6 mb-3">
+                                <label class="form-label">Duration (days)</label>
+                                <input type="number" class="form-control" name="duration" required min="1">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-success" id="addMedicationBtn">Add</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Service Modal -->
+    <div class="modal fade" id="addServiceModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form id="addServiceForm">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Add Service / Investigation</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Service</label>
+                            <select class="form-select select2-ajax-services" name="service_item_id" required style="width: 100%"></select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-success" id="addServiceBtn">Add</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <script>
     function showApprovalModal(type, message) {
         document.getElementById('approvalType').value = type;
@@ -503,12 +628,6 @@
         modal.show();
     }
 
-    document.getElementById('confirmActionSubmitBtn').addEventListener('click', function() {
-        const btn = this;
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Processing...';
-        document.getElementById('approvalForm').submit();
-    });
     function toggleRejectBox() {
         var box = document.getElementById('rejectBox');
         box.style.display = box.style.display === 'block' ? 'none' : 'block';
@@ -524,54 +643,218 @@
     }
 
     @if($userPermissions['canEditItems'])
-    function editItem(type, index, currentPrice, currentQty) {
-        var newPrice = prompt('Enter new unit price:', currentPrice);
-        if (newPrice === null) return;
-        var newQty = currentQty;
-        if (type === 'medication') {
-            newQty = prompt('Enter new quantity:', currentQty);
-            if (newQty === null) return;
-        }
-        fetch('{{ route("claims.facility-claim.update-item", $claim->id) }}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify({
-                item_type: type,
-                item_index: index,
-                price: parseFloat(newPrice),
-                quantity: parseInt(newQty)
-            })
-        })
-        .then(r => r.json())
-        .then(data => {
-            if (data.success) { location.reload(); }
-            else { alert(data.message); }
-        })
-        .catch(e => alert('Error: ' + e.message));
+    function editItem(type, id, currentUnitPrice, currentQty) {
+        document.getElementById('editItemType').value = type;
+        document.getElementById('editItemId').value = id;
+        document.getElementById('editItemPrice').value = parseFloat(currentUnitPrice).toFixed(2);
+        document.getElementById('editItemQty').value = parseInt(currentQty);
+        // Show/hide qty field for services
+        document.getElementById('editQtyGroup').style.display = (type === 'medication') ? '' : 'none';
+        var modal = new bootstrap.Modal(document.getElementById('editItemModal'));
+        modal.show();
     }
 
-    function deleteItem(type, index, name) {
-        if (!confirm('Delete "' + name + '" from this claim?')) return;
-        fetch('{{ route("claims.facility-claim.delete-item", $claim->id) }}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify({ item_type: type, item_index: index })
-        })
-        .then(r => r.json())
-        .then(data => {
-            if (data.success) { location.reload(); }
-            else { alert(data.message); }
-        })
-        .catch(e => alert('Error: ' + e.message));
+    function deleteItem(type, id, name) {
+        document.getElementById('deleteItemType').value = type;
+        document.getElementById('deleteItemId').value = id;
+        document.getElementById('deleteItemName').textContent = name;
+        var modal = new bootstrap.Modal(document.getElementById('deleteItemModal'));
+        modal.show();
     }
     @endif
+
+    function showAddMedicationModal() {
+        var modal = new bootstrap.Modal(document.getElementById('addMedicationModal'));
+        modal.show();
+    }
+
+    function showAddServiceModal() {
+        var modal = new bootstrap.Modal(document.getElementById('addServiceModal'));
+        modal.show();
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Safe-guard: only add listener if the button exists
+        var confirmBtn = document.getElementById('confirmActionSubmitBtn');
+        if (confirmBtn) {
+            confirmBtn.addEventListener('click', function() {
+                this.disabled = true;
+                this.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
+                document.getElementById('approvalForm').submit();
+            });
+        }
+
+        // Edit Item Save
+        var editSaveBtn = document.getElementById('editItemSaveBtn');
+        if (editSaveBtn) {
+            editSaveBtn.addEventListener('click', function() {
+                var type  = document.getElementById('editItemType').value;
+                var id    = document.getElementById('editItemId').value;
+                var price = parseFloat(document.getElementById('editItemPrice').value);
+                var qty   = parseInt(document.getElementById('editItemQty').value) || 1;
+                if (isNaN(price) || price < 0) { alert('Please enter a valid price.'); return; }
+                editSaveBtn.disabled = true;
+                editSaveBtn.textContent = 'Saving...';
+                fetch('{{ route("claims.facility-claim.update-item", $claim->id) }}', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' },
+                    body: JSON.stringify({ item_type: type, item_index: id, price: price, quantity: qty })
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) { location.reload(); }
+                    else { alert('Error: ' + data.message); editSaveBtn.disabled = false; editSaveBtn.textContent = 'Save Changes'; }
+                })
+                .catch(e => { alert('Request failed: ' + e.message); editSaveBtn.disabled = false; editSaveBtn.textContent = 'Save Changes'; });
+            });
+        }
+
+        // Delete Item Confirm
+        var deleteConfirmBtn = document.getElementById('deleteItemConfirmBtn');
+        if (deleteConfirmBtn) {
+            deleteConfirmBtn.addEventListener('click', function() {
+                var type = document.getElementById('deleteItemType').value;
+                var id   = document.getElementById('deleteItemId').value;
+                deleteConfirmBtn.disabled = true;
+                deleteConfirmBtn.textContent = 'Deleting...';
+                fetch('{{ route("claims.facility-claim.delete-item", $claim->id) }}', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' },
+                    body: JSON.stringify({ item_type: type, item_index: id })
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) { location.reload(); }
+                    else { alert('Error: ' + data.message); deleteConfirmBtn.disabled = false; deleteConfirmBtn.textContent = 'Delete'; }
+                })
+                .catch(e => { alert('Request failed: ' + e.message); deleteConfirmBtn.disabled = false; deleteConfirmBtn.textContent = 'Delete'; });
+            });
+        }
+
+        if (typeof $ !== 'undefined' && $.fn.select2) {
+            // Drugs select2 — initialize on modal open so dropdownParent works correctly
+            $('#addMedicationModal').on('shown.bs.modal', function () {
+                var $drugSelect = $('.select2-ajax-drugs');
+                if (!$drugSelect.hasClass('select2-hidden-accessible')) {
+                    $drugSelect.select2({
+                        dropdownParent: $('#addMedicationModal'),
+                        placeholder: '— Search drug name —',
+                        minimumInputLength: 0,
+                        cache: true,
+                        ajax: {
+                            url: '{{ route("claims.master.drugs") }}',
+                            dataType: 'json',
+                            delay: 300,
+                            data: function (params) {
+                                return { search: params.term || '', page: params.page || 1, facility_id: '{{ $claim->facility_id }}' };
+                            },
+                            processResults: function (data) {
+                                return { results: data.results || data.items || [] };
+                            },
+                            error: function(xhr) {
+                                console.error('Drug search error:', xhr.status, xhr.responseText);
+                            }
+                        }
+                    });
+                }
+            });
+
+            // Services select2 — initialize on modal open
+            $('#addServiceModal').on('shown.bs.modal', function () {
+                var $svcSelect = $('.select2-ajax-services');
+                if (!$svcSelect.hasClass('select2-hidden-accessible')) {
+                    $svcSelect.select2({
+                        dropdownParent: $('#addServiceModal'),
+                        placeholder: '— Search service name —',
+                        minimumInputLength: 0,
+                        cache: true,
+                        ajax: {
+                            url: '{{ route("claims.master.services") }}',
+                            dataType: 'json',
+                            delay: 300,
+                            data: function (params) {
+                                return { search: params.term || '', page: params.page || 1, facility_id: '{{ $claim->facility_id }}' };
+                            },
+                            processResults: function (data) {
+                                return { results: data.results || data.items || [] };
+                            },
+                            error: function(xhr) {
+                                console.error('Service search error:', xhr.status, xhr.responseText);
+                            }
+                        }
+                    });
+                }
+            });
+        }
+
+        // Add Medication form submission
+        document.getElementById('addMedicationForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            var btn = document.getElementById('addMedicationBtn');
+            btn.disabled = true;
+            btn.textContent = 'Adding...';
+
+            var drugId = document.querySelector('#addMedicationForm [name="drug_id"]').value;
+            var dosage = document.querySelector('#addMedicationForm [name="dosage"]').value;
+            var frequency = document.querySelector('#addMedicationForm [name="frequency"]').value;
+            var duration = document.querySelector('#addMedicationForm [name="duration"]').value;
+
+            if (!drugId) {
+                alert('Please select a drug.');
+                btn.disabled = false;
+                btn.textContent = 'Add';
+                return;
+            }
+
+            fetch('{{ route("claims.facility-claim.add-medication", $claim->id) }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({ drug_id: drugId, dosage: dosage, frequency: parseInt(frequency), duration: parseInt(duration) })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) { location.reload(); }
+                else { alert('Error: ' + data.message); btn.disabled = false; btn.textContent = 'Add'; }
+            })
+            .catch(e => { alert('Request failed: ' + e.message); btn.disabled = false; btn.textContent = 'Add'; });
+        });
+
+        // Add Service form submission
+        document.getElementById('addServiceForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            var btn = document.getElementById('addServiceBtn');
+            btn.disabled = true;
+            btn.textContent = 'Adding...';
+
+            var serviceItemId = document.querySelector('#addServiceForm [name="service_item_id"]').value;
+
+            if (!serviceItemId) {
+                alert('Please select a service.');
+                btn.disabled = false;
+                btn.textContent = 'Add';
+                return;
+            }
+
+            fetch('{{ route("claims.facility-claim.add-service", $claim->id) }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({ service_item_id: serviceItemId })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) { location.reload(); }
+                else { alert('Error: ' + data.message); btn.disabled = false; btn.textContent = 'Add'; }
+            })
+            .catch(e => { alert('Request failed: ' + e.message); btn.disabled = false; btn.textContent = 'Add'; });
+        });
+    });
     </script>
 @endsection

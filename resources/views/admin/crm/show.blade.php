@@ -129,14 +129,14 @@
                                                         @if ($ticket->phone)
                                                             <button class="btn btn-xs btn-success rounded-circle p-0 d-inline-flex align-items-center justify-content-center" 
                                                                     style="width: 24px; height: 24px; min-width: 24px; cursor: pointer;" 
-                                                                    onclick="initiateZohoCall('{{ $ticket->phone }}')" 
-                                                                    title="Call via Zoho Voice">
+                                                                    onclick="initiateTwilioCall('{{ $ticket->phone }}', '{{ $ticket->name }}')" 
+                                                                    title="Call via Twilio">
                                                                 <i class="ti-mobile" style="font-size: 0.8rem;"></i>
                                                             </button>
                                                             <button class="btn btn-xs btn-info rounded-circle p-0 d-inline-flex align-items-center justify-content-center" 
                                                                     style="width: 24px; height: 24px; min-width: 24px; cursor: pointer;" 
-                                                                    onclick="openZohoSmsModal('{{ $ticket->phone }}')" 
-                                                                    title="Send SMS via Zoho Voice">
+                                                                    onclick="openTwilioSmsModal('{{ $ticket->phone }}')" 
+                                                                    title="Send SMS via Twilio">
                                                                 <i class="ti-comment" style="font-size: 0.8rem;"></i>
                                                             </button>
                                                         @endif
@@ -827,7 +827,7 @@
                                 @endif
                         </div>
 
-                        <!-- Zoho Voice Telephony Section -->
+                        <!-- Twilio Telephony Section -->
                         <div class="card border-0 shadow-sm mb-4">
                             <div class="card-header bg-light d-flex align-items-center justify-content-between">
                                 <div class="d-flex align-items-center">
@@ -836,13 +836,13 @@
                                         <i class="ti-mobile" style="font-size: 0.875rem;"></i>
                                     </div>
                                     <div>
-                                        <h6 class="mb-0 fw-semibold text-dark">Zoho Telephony Logs</h6>
-                                        <small class="text-muted">Outbound calling and recording records</small>
+                                        <h6 class="mb-0 fw-semibold text-dark">Twilio Telephony Logs</h6>
+                                        <small class="text-muted">Outbound calling and recording records via Twilio</small>
                                     </div>
                                 </div>
-                                <div id="zoho-auth-indicator">
-                                    <!-- Dynamic status badge loaded via AJAX status API -->
-                                    <span class="badge bg-secondary">Checking Zoho Connection...</span>
+                                <div id="twilio-auth-indicator">
+                                    <!-- Dynamic status badge loaded via AJAX -->
+                                    <span class="badge bg-secondary">Checking Twilio Connection...</span>
                                 </div>
                             </div>
                             <div class="card-body">
@@ -1742,57 +1742,65 @@
             }, 300);
         }
 
-        // Zoho Voice Telephony Integrations
+        // Twilio Voice Telephony Integrations
         document.addEventListener('DOMContentLoaded', function() {
             const ticketId = "{{ $ticket->id }}";
             let callTimerInterval = null;
             let callSeconds = 0;
+            let activeCallSid = null;
 
-            function checkZohoConnectionStatus() {
-                const indicator = document.getElementById('zoho-auth-indicator');
+            function checkTwilioConnectionStatus() {
+                const indicator = document.getElementById('twilio-auth-indicator');
                 if (!indicator) return;
 
-                fetch('/zoho/oauth/status')
+                fetch('/twilio/status')
                     .then(response => response.json())
                     .then(data => {
                         if (data.connected) {
-                            indicator.innerHTML = `<span class="badge bg-success" title="Expires in ${data.time_left}"><i class="ti-check"></i> Zoho Voice Connected</span>`;
+                            indicator.innerHTML = `<span class="badge bg-success"><i class="ti-check"></i> Twilio Connected</span>`;
                         } else {
-                            indicator.innerHTML = `<a href="/zoho/oauth/redirect" class="btn btn-xs btn-outline-danger"><i class="ti-link"></i> Connect Zoho Voice</a>`;
+                            indicator.innerHTML = `<span class="badge bg-danger"><i class="ti-alert"></i> Twilio Disconnected</span>`;
                         }
                     })
                     .catch(err => {
-                        console.error('Error fetching Zoho status:', err);
+                        console.error('Error fetching Twilio status:', err);
                         indicator.innerHTML = `<span class="badge bg-warning text-dark"><i class="ti-alert"></i> Connection Offline</span>`;
                     });
             }
 
-            window.initiateZohoCall = function(phone) {
-                // Initialize calling modal
-                document.getElementById('zohoCallPhone').textContent = phone;
-                document.getElementById('zohoCallStatus').textContent = 'Connecting via Zoho SIP Line...';
-                document.getElementById('zohoCallTimer').textContent = '00:00';
-                
-                const callModal = new bootstrap.Modal(document.getElementById('zohoCallModal'));
-                callModal.show();
+            window.initiateTwilioCall = function(phone, name) {
+                // Show call modal
+                document.getElementById('twilioCallPhone').textContent = phone;
+                document.getElementById('twilioCallName').textContent = name || phone;
+                document.getElementById('twilioCallStatus').textContent = 'Initiating call via Twilio...';
+                document.getElementById('twilioCallTimer').textContent = '00:00';
 
+                const callModal = new bootstrap.Modal(document.getElementById('twilioCallModal'));
+                callModal.show();
                 callSeconds = 0;
 
-                // Simulate connecting, ringing and answer
-                const statusTexts = [
-                    { delay: 1000, text: 'Ringing customer...' },
-                    { delay: 2500, text: 'Call Answered (Connected)' }
-                ];
-
-                statusTexts.forEach(item => {
-                    setTimeout(() => {
-                        if (document.getElementById('zohoCallStatus').textContent !== 'Call Completed') {
-                            document.getElementById('zohoCallStatus').textContent = item.text;
-                            if (item.text.includes('Connected')) {
-                                startCallTimer();
-                            }
-                        }
-                    }, item.delay);
+                // Fire Twilio REST outbound call
+                fetch('/twilio/call', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    },
+                    body: JSON.stringify({ to: phone, name: name, ticket_id: ticketId })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        activeCallSid = data.sid;
+                        document.getElementById('twilioCallStatus').textContent = 'Ringing... (' + data.call_status + ')';
+                        startCallTimer();
+                    } else {
+                        document.getElementById('twilioCallStatus').textContent = 'Failed: ' + (data.message || 'Unknown error');
+                    }
+                })
+                .catch(err => {
+                    document.getElementById('twilioCallStatus').textContent = 'Error: Could not connect to Twilio.';
+                    console.error('Twilio call error:', err);
                 });
             };
 
@@ -1802,77 +1810,46 @@
                     callSeconds++;
                     const minutes = Math.floor(callSeconds / 60).toString().padStart(2, '0');
                     const secs = (callSeconds % 60).toString().padStart(2, '0');
-                    document.getElementById('zohoCallTimer').textContent = `${minutes}:${secs}`;
+                    document.getElementById('twilioCallTimer').textContent = `${minutes}:${secs}`;
                 }, 1000);
             }
 
-            window.hangupZohoCall = function() {
+            window.hangupTwilioCall = function() {
                 clearInterval(callTimerInterval);
-                document.getElementById('zohoCallStatus').textContent = 'Call Completed';
-                
-                // Show closing state
+                document.getElementById('twilioCallStatus').textContent = 'Call Ended';
+
                 setTimeout(() => {
-                    const callModal = bootstrap.Modal.getInstance(document.getElementById('zohoCallModal'));
+                    const callModal = bootstrap.Modal.getInstance(document.getElementById('twilioCallModal'));
                     if (callModal) callModal.hide();
-
-                    // Automatically submit Call Completed event to Zoho webhook to log the call!
-                    // This provides a fully functional real-time mock & API backup trigger
-                    const payload = {
-                        event: 'call.completed',
-                        call_id: 'ZVC-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
-                        caller: 'BOSCHMA Support',
-                        receiver: document.getElementById('zohoCallPhone').textContent,
-                        direction: 'outbound',
-                        duration: callSeconds,
-                        recording_url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3' // sample audio url for playback
-                    };
-
-                    fetch('/api/zoho/webhook/call', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                        },
-                        body: JSON.stringify(payload)
-                    })
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data.success) {
-                            // Reload page to show logged calls and new timeline reply
-                            window.location.reload();
-                        }
-                    })
-                    .catch(err => {
-                        console.error('Failed to report Zoho Voice call completion:', err);
-                    });
+                    window.location.reload();
                 }, 1200);
             };
 
-            window.openZohoSmsModal = function(phone) {
-                document.getElementById('zohoSmsRecipient').value = phone;
-                document.getElementById('zohoSmsMessage').value = '';
-                document.getElementById('zohoSmsCharCount').textContent = '0';
-                
-                const smsModal = new bootstrap.Modal(document.getElementById('zohoSmsModal'));
+            window.openTwilioSmsModal = function(phone) {
+                document.getElementById('twilioSmsRecipient').value = phone;
+                document.getElementById('twilioSmsMessage').value = '';
+                document.getElementById('twilioSmsCharCount').textContent = '0';
+
+                const smsModal = new bootstrap.Modal(document.getElementById('twilioSmsModal'));
                 smsModal.show();
             };
 
             // SMS character counter
-            document.getElementById('zohoSmsMessage').addEventListener('input', function() {
-                document.getElementById('zohoSmsCharCount').textContent = this.value.length;
+            document.getElementById('twilioSmsMessage').addEventListener('input', function() {
+                document.getElementById('twilioSmsCharCount').textContent = this.value.length;
             });
 
             // SMS form submission
-            document.getElementById('zohoSmsForm').addEventListener('submit', function(e) {
+            document.getElementById('twilioSmsForm').addEventListener('submit', function(e) {
                 e.preventDefault();
-                const phone = document.getElementById('zohoSmsRecipient').value;
-                const message = document.getElementById('zohoSmsMessage').value;
-                const submitBtn = document.getElementById('zohoSmsSubmitBtn');
+                const phone = document.getElementById('twilioSmsRecipient').value;
+                const message = document.getElementById('twilioSmsMessage').value;
+                const submitBtn = document.getElementById('twilioSmsSubmitBtn');
 
                 submitBtn.disabled = true;
-                submitBtn.innerHTML = '<i class="ti-reload rotate-animation me-1"></i> Dispatches...';
+                submitBtn.innerHTML = '<i class="ti-reload rotate-animation me-1"></i> Sending...';
 
-                fetch('/crm/zoho/sms', {
+                fetch('/crm/twilio/sms', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1884,52 +1861,52 @@
                 .then(data => {
                     submitBtn.disabled = false;
                     submitBtn.innerHTML = '<i class="ti-share me-1"></i> Dispatch SMS';
-                    
-                    const smsModal = bootstrap.Modal.getInstance(document.getElementById('zohoSmsModal'));
+
+                    const smsModal = bootstrap.Modal.getInstance(document.getElementById('twilioSmsModal'));
                     if (smsModal) smsModal.hide();
 
                     if (data.success) {
-                        alert('SMS dispatched successfully via Zoho Voice!');
+                        alert('✅ SMS dispatched successfully via Twilio!');
                         window.location.reload();
                     } else {
-                        alert('Error dispatching SMS: ' + data.message);
+                        alert('❌ Error dispatching SMS: ' + data.message);
                     }
                 })
                 .catch(err => {
                     submitBtn.disabled = false;
                     submitBtn.innerHTML = '<i class="ti-share me-1"></i> Dispatch SMS';
-                    alert('An error occurred while communicating with Zoho Voice API.');
+                    alert('An error occurred while communicating with Twilio API.');
                 });
             });
 
             // Run status check on load
-            checkZohoConnectionStatus();
+            checkTwilioConnectionStatus();
         });
     </script>
 
-    <!-- Zoho Voice Call Modal -->
-    <div class="modal fade" id="zohoCallModal" tabindex="-1" aria-hidden="true" style="backdrop-filter: blur(5px);">
+    <!-- Twilio Call Modal -->
+    <div class="modal fade" id="twilioCallModal" tabindex="-1" aria-hidden="true" style="backdrop-filter: blur(5px);">
         <div class="modal-dialog modal-dialog-centered" style="max-width: 380px;">
             <div class="modal-content border-0 shadow-lg" style="border-radius: 20px; background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); color: white;">
                 <div class="modal-body text-center p-5">
                     <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-3" data-bs-dismiss="modal" aria-label="Close" style="background: none; border: none; font-size: 1.5rem; color: white; cursor: pointer;">&times;</button>
-                    
+
                     <div class="mb-4">
                         <div class="d-inline-flex align-items-center justify-content-center bg-white text-primary rounded-circle shadow-lg pulse-animation" style="width: 80px; height: 80px;">
                             <i class="ti-headphone-alt" style="font-size: 2.5rem;"></i>
                         </div>
                     </div>
 
-                    <h4 class="fw-bold mb-1" id="zohoCallName">{{ $ticket->name }}</h4>
-                    <p class="text-white-50 mb-4" id="zohoCallPhone">{{ $ticket->phone }}</p>
+                    <h4 class="fw-bold mb-1" id="twilioCallName">{{ $ticket->name }}</h4>
+                    <p class="text-white-50 mb-4" id="twilioCallPhone">{{ $ticket->phone }}</p>
 
                     <div class="bg-white bg-opacity-10 rounded-3 p-3 mb-4" style="background-color: rgba(255,255,255,0.1);">
-                        <div class="small text-white-50 mb-1" id="zohoCallStatus">Initiating Call...</div>
-                        <h3 class="fw-mono mb-0" id="zohoCallTimer">00:00</h3>
+                        <div class="small text-white-50 mb-1" id="twilioCallStatus">Initiating call via Twilio...</div>
+                        <h3 class="fw-mono mb-0" id="twilioCallTimer">00:00</h3>
                     </div>
 
                     <div class="d-flex justify-content-center gap-3">
-                        <button class="btn btn-danger btn-lg rounded-pill px-4 shadow" id="zohoHangupBtn" onclick="hangupZohoCall()" style="border-radius: 50px;">
+                        <button class="btn btn-danger btn-lg rounded-pill px-4 shadow" id="twilioHangupBtn" onclick="hangupTwilioCall()" style="border-radius: 50px;">
                             <i class="ti-close me-2"></i> End Call
                         </button>
                     </div>
@@ -1938,28 +1915,28 @@
         </div>
     </div>
 
-    <!-- Zoho Voice SMS Modal -->
-    <div class="modal fade" id="zohoSmsModal" tabindex="-1" aria-hidden="true">
+    <!-- Twilio SMS Modal -->
+    <div class="modal fade" id="twilioSmsModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content" style="border-radius: 15px;">
                 <div class="modal-header bg-primary text-white" style="border-top-left-radius: 15px; border-top-right-radius: 15px;">
-                    <h5 class="modal-title fw-bold"><i class="ti-comment me-2"></i> Send SMS via Zoho Voice</h5>
+                    <h5 class="modal-title fw-bold"><i class="ti-comment me-2"></i> Send SMS via Twilio</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" style="background: none; border: none; font-size: 1.25rem; color: white; cursor: pointer;">&times;</button>
                 </div>
                 <div class="modal-body p-4">
-                    <form id="zohoSmsForm">
+                    <form id="twilioSmsForm">
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Recipient Number</label>
-                            <input type="text" class="form-control" id="zohoSmsRecipient" readonly>
+                            <input type="text" class="form-control" id="twilioSmsRecipient" readonly>
                         </div>
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Message Body</label>
-                            <textarea class="form-control" id="zohoSmsMessage" rows="4" placeholder="Type your message here..." required></textarea>
-                            <div class="form-text text-muted text-end mt-1"><span id="zohoSmsCharCount">0</span> / 160 characters</div>
+                            <textarea class="form-control" id="twilioSmsMessage" rows="4" placeholder="Type your message here..." required></textarea>
+                            <div class="form-text text-muted text-end mt-1"><span id="twilioSmsCharCount">0</span> / 160 characters</div>
                         </div>
                         <div class="d-flex justify-content-end gap-2">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                            <button type="submit" class="btn btn-primary" id="zohoSmsSubmitBtn">
+                            <button type="submit" class="btn btn-primary" id="twilioSmsSubmitBtn">
                                 <i class="ti-share me-1"></i> Dispatch SMS
                             </button>
                         </div>

@@ -218,14 +218,14 @@ class CrmController extends Controller
             );
         }
 
-        // Automated SMS notification via Zoho Voice
+        // Automated SMS notification via Twilio
         if (!empty($ticket->phone)) {
             try {
-                $zohoService = resolve(\App\Services\ZohoVoiceService::class);
+                $smsService = resolve(\App\Services\TwilioService::class);
                 $smsMessage = "BOSCHMA Support: Hello {$ticket->name}, your ticket {$ticket->ticket_id} has been successfully raised. An agent is reviewing it. Thank you.";
-                $zohoService->sendSmsV2($ticket->phone, $smsMessage);
+                $smsService->sendSmsV2($ticket->phone, $smsMessage);
             } catch (\Exception $e) {
-                \Log::error("Zoho SMS creation alert failed: " . $e->getMessage());
+                \Log::error("Twilio SMS creation alert failed: " . $e->getMessage());
             }
         }
 
@@ -396,11 +396,11 @@ class CrmController extends Controller
         // Automated SMS notification when ticket is resolved
         if (!empty($ticket->phone)) {
             try {
-                $zohoService = resolve(\App\Services\ZohoVoiceService::class);
+                $smsService = resolve(\App\Services\TwilioService::class);
                 $smsMessage = "BOSCHMA Support: Hello {$ticket->name}, your ticket {$ticket->ticket_id} has been marked as completed/resolved. Thank you.";
-                $zohoService->sendSmsV2($ticket->phone, $smsMessage);
+                $smsService->sendSmsV2($ticket->phone, $smsMessage);
             } catch (\Exception $e) {
-                \Log::error("Zoho SMS completion alert failed: " . $e->getMessage());
+                \Log::error("Twilio SMS completion alert failed: " . $e->getMessage());
             }
         }
 
@@ -492,11 +492,11 @@ class CrmController extends Controller
         // Automated SMS notification to client if replied by agent
         if (Auth::id() !== $ticket->created_by && !empty($ticket->phone)) {
             try {
-                $zohoService = resolve(\App\Services\ZohoVoiceService::class);
+                $smsService = resolve(\App\Services\TwilioService::class);
                 $smsMessage = "BOSCHMA Support: Hello {$ticket->name}, support agent " . Auth::user()->fullname . " has updated your ticket {$ticket->ticket_id}.";
-                $zohoService->sendSmsV2($ticket->phone, $smsMessage);
+                $smsService->sendSmsV2($ticket->phone, $smsMessage);
             } catch (\Exception $e) {
-                \Log::error("Zoho SMS reply alert failed: " . $e->getMessage());
+                \Log::error("Twilio SMS reply alert failed: " . $e->getMessage());
             }
         }
 
@@ -807,7 +807,7 @@ class CrmController extends Controller
     }
 
     /**
-     * Send custom SMS to enrollee via Zoho Voice.
+     * Send custom SMS to enrollee via Twilio.
      */
     public function sendCustomSms(Request $request)
     {
@@ -818,13 +818,13 @@ class CrmController extends Controller
         ]);
 
         try {
-            $zohoService = resolve(\App\Services\ZohoVoiceService::class);
-            $response = $zohoService->sendSmsV2($request->phone, $request->message);
+            $smsService = resolve(\App\Services\TwilioService::class);
+            $response = $smsService->sendSmsV2($request->phone, $request->message);
 
             // Log SMS dispatch in ticket timeline
             $ticket = Ticket::findOrFail($request->ticket_id);
             $ticket->addReply(
-                "💬 **SMS Sent via Zoho Voice**\n" .
+                "💬 **SMS Sent via Twilio**\n" .
                 "* **Recipient**: {$request->phone}\n" .
                 "* **Message**: {$request->message}",
                 Auth::id(),

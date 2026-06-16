@@ -32,6 +32,14 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 // Route::post('/update-session', [SessionController::class, 'updateSession']);
 
+// ─── Twilio Public Webhook Routes (no auth — Twilio must reach these) ─────────
+Route::post('/twilio/voice/inbound', [\App\Http\Controllers\TwilioVoiceController::class, 'inboundTwiml'])->name('twilio.voice.inbound');
+Route::get('/twilio/voice/outbound-twiml', [\App\Http\Controllers\TwilioVoiceController::class, 'outboundTwiml'])->name('twilio.voice.outbound-twiml');
+Route::post('/twilio/webhook/call-status', [\App\Http\Controllers\TwilioVoiceController::class, 'callStatusCallback'])->name('twilio.webhook.call-status');
+Route::get('/twilio/lookup', [\App\Http\Controllers\TwilioVoiceController::class, 'lookupBeneficiary'])->name('twilio.lookup');
+Route::post('/twilio/voice/client-outbound', [\App\Http\Controllers\TwilioVoiceController::class, 'clientOutboundTwiml'])->name('twilio.voice.client-outbound');
+// ─────────────────────────────────────────────────────────────────────────────
+
 // Protected Routes
 Route::middleware(['auth:staff,web'])->group(function () {
     // Dashboard
@@ -484,11 +492,11 @@ Route::middleware(['auth:staff,web'])->group(function () {
         ->name('crm.validate.boschma_no')
         ->where('boschmaNo', '.*'); // Allow any characters including slashes
         
-        // Zoho Voice Routes
-        Route::get('zoho/oauth/redirect', [\App\Http\Controllers\ZohoOAuthController::class, 'redirectToZoho'])->name('zoho.oauth.redirect');
-        Route::get('zoho/oauth/callback', [\App\Http\Controllers\ZohoOAuthController::class, 'handleZohoCallback'])->name('zoho.oauth.callback');
-        Route::get('zoho/oauth/status', [\App\Http\Controllers\ZohoOAuthController::class, 'status'])->name('zoho.oauth.status');
-        Route::post('crm/zoho/sms', [CrmController::class, 'sendCustomSms'])->name('crm.zoho.sms');
+        // Twilio Voice Routes
+        Route::get('twilio/status', [\App\Http\Controllers\TwilioVoiceController::class, 'status'])->name('twilio.voice.status');
+        Route::get('twilio/token', [\App\Http\Controllers\TwilioVoiceController::class, 'generateToken'])->name('twilio.voice.token');
+        Route::post('twilio/call', [\App\Http\Controllers\TwilioVoiceController::class, 'makeCall'])->name('twilio.voice.call');
+        Route::post('crm/twilio/sms', [CrmController::class, 'sendCustomSms'])->name('crm.twilio.sms');
     });
     
     Route::middleware(['permission:crm.create,staff'])->group(function () {

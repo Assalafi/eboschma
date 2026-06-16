@@ -19,6 +19,7 @@
         "spatie/browsershot": "^5.0",
         "spatie/laravel-permission": "^6.22",
         "tecnickcom/tcpdf": "^6.10",
+        "twilio/sdk": "*",
         "yajra/laravel-datatables-oracle": "^12.6"
     },
     "require-dev": {

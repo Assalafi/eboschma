@@ -91,7 +91,6 @@ Route::prefix('auth')->group(function () {
     });
 });
 
-// Zoho Voice Integration API Webhook & Lookup Routes
-Route::post('/zoho/webhook/call', [\App\Http\Controllers\ZohoWebhookController::class, 'handleCallWebhook']);
-Route::get('/zoho/lookup', [\App\Http\Controllers\ZohoWebhookController::class, 'lookupBeneficiary']);
-
+// Twilio Voice Integration - Call Status Callback & Lookup Routes
+Route::post('/twilio/webhook/call-status', [\App\Http\Controllers\TwilioVoiceController::class, 'callStatusCallback']);
+Route::get('/twilio/lookup', [\App\Http\Controllers\TwilioVoiceController::class, 'lookupBeneficiary']);

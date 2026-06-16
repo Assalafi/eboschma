@@ -752,10 +752,21 @@
         window.hangupTwilioCall = function() {
             if (activeCall) {
                 activeCall.disconnect();
-            } else if (twilioDevice) {
-                twilioDevice.disconnectAll();
+                activeCall = null;
             }
             document.getElementById('twilioDialerStatusText').textContent = 'Ready for Outbound Call';
+        }
+
+        // Make an internal call directly to a staff member
+        window.callActiveStaff = function(staffId) {
+            // Open the dialer if it's closed
+            if (!dialerOpen) {
+                toggleTwilioDialer();
+            }
+            // Set the target identity
+            document.getElementById('twilioDialerDisplay').value = 'staff_' + staffId;
+            // Automatically initiate the call
+            dialWithTwilio();
         };
 
         window.simulateIncomingCall = function() {
@@ -872,9 +883,9 @@
                                         <td>${staff.role}</td>
                                         <td><span class="badge bg-success"><i class="ti-control-record"></i> ${staff.status}</span></td>
                                         <td>
-                                            <a href="tel:${staff.phone}" class="btn btn-sm btn-outline-primary" title="Call">
+                                            <button class="btn btn-sm btn-outline-primary" onclick="callActiveStaff('${staff.id}')" title="Call via WebRTC">
                                                 <i class="ti-mobile"></i> Call
-                                            </a>
+                                            </button>
                                             <button class="btn btn-sm btn-outline-info ms-1" onclick="openInternalMessageModal('${staff.id}', '${staff.name.replace(/'/g, "\\'")}')" title="Message">
                                                 <i class="ti-comment-alt"></i> Message
                                             </button>

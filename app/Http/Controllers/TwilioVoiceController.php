@@ -44,6 +44,8 @@ class TwilioVoiceController extends Controller
         $token = $this->twilio->generateClientToken($identity);
         
         if (!$token) {
+            return response()->json(['error' => 'Unable to generate Twilio Client token.'], 500);
+        }
 
         return response()->json([
             'identity' => $identity,

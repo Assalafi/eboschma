@@ -200,6 +200,17 @@
                                             </select>
                                         </div>
                                         <div class="col-lg-2 col-md-6 mb-2">
+                                            <label class="small mb-1" style="color: #01542B;">Category</label>
+                                            <select name="category" id="category" class="form-control form-control-sm">
+                                                <option value="">All Categories</option>
+                                                @foreach ($categories ?? [] as $cat)
+                                                    <option value="{{ $cat->name }}" {{ request('category') == $cat->name ? 'selected' : '' }}>
+                                                        {{ $cat->name }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                        <div class="col-lg-2 col-md-6 mb-2">
                                             <label class="small mb-1" style="color: #01542B;">Gender</label>
                                             <select name="gender" id="gender" class="form-control form-control-sm">
                                                 <option value="">All</option>
@@ -236,7 +247,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    @if (request()->hasAny(['search', 'status', 'program_id', 'facility_id', 'gender']))
+                                    @if (request()->hasAny(['search', 'status', 'program_id', 'facility_id', 'gender', 'category']))
                                         <div class="mt-2">
                                             <a href="{{ route('beneficiaries.index') }}"
                                                 class="btn btn-sm btn-outline-secondary">
@@ -299,6 +310,7 @@
                                         <th>Full Name</th>
                                         <th>Facility</th>
                                         <th>Gender</th>
+                                        <th>Category</th>
                                         <th>Phone</th>
                                         <th>Dependents</th>
                                         <th>Status</th>
@@ -335,6 +347,13 @@
                                                 @endif
                                             </td>
                                             <td>{{ $beneficiary->gender }}</td>
+                                            <td>
+                                                @if ($beneficiary->category)
+                                                    <span class="badge bg-light text-dark border">{{ $beneficiary->category }}</span>
+                                                @else
+                                                    <span class="text-muted small">None</span>
+                                                @endif
+                                            </td>
                                             <td>{{ $beneficiary->phone_no }}</td>
                                             <td>
                                                 @php

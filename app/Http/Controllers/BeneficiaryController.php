@@ -73,6 +73,10 @@ class BeneficiaryController extends Controller
             $query->where('gender', $request->gender);
         }
 
+        if ($request->filled('category')) {
+            $query->where('category', $request->category);
+        }
+
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
@@ -132,11 +136,13 @@ class BeneficiaryController extends Controller
         $beneficiaries = $query->latest()->paginate(20)->withQueryString();
         $facilities = Facility::orderBy('name')->get();
         $programs = Program::orderBy('name')->get();
+        $categories = \App\Models\BeneficiaryCategory::orderBy('name')->get();
 
         return view('admin.beneficiaries.index', [
             'beneficiaries' => $beneficiaries,
             'facilities' => $facilities,
             'programs' => $programs,
+            'categories' => $categories,
             'statusCounts' => $statusCounts,
         ]);
     }

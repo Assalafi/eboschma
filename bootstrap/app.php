@@ -24,6 +24,11 @@ return Application::configure(basePath: dirname(__DIR__))
             }
             return route('login');
         });
+
+        $middleware->validateCsrfTokens(except: [
+            'twilio/*',
+            'api/twilio/*',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

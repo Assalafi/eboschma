@@ -14,9 +14,9 @@ class VerifyCsrfToken extends Middleware
      * @var array<int, string>
      */
     protected $except = [
-        '/twilio/voice/inbound',
-        '/twilio/voice/client-outbound',
-        '/twilio/webhook/call-status',
-        '/api/twilio/webhook/call-status',
+        'twilio/voice/inbound',
+        'twilio/voice/client-outbound',
+        'twilio/webhook/call-status',
+        'api/twilio/webhook/call-status',
     ];
 }

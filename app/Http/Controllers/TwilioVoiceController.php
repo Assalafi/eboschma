@@ -38,9 +38,8 @@ class TwilioVoiceController extends Controller
      */
     public function generateToken(Request $request)
     {
-        // Identity is whoever is logged in, or a random string if unauthenticated
-        $identity = auth()->check() ? 'staff_' . auth()->id() : 'user_' . rand(1000, 9999);
-        
+        // Use a fixed identity so we can easily route incoming calls from the public to all active agents
+        $identity = 'boschma_support_agent';
         $token = $this->twilio->generateClientToken($identity);
 
         if (!$token) {
@@ -140,10 +139,13 @@ class TwilioVoiceController extends Controller
 
         $response = new VoiceResponse();
         $response->say(
-            "Hello {$name}. Thank you for calling BOSCHMA Support. Please hold while we connect you to an available agent.",
+            "Hello {$name}. Please hold while we connect you to an available support agent.",
             ['voice' => 'alice', 'language' => 'en-US']
         );
-        $response->play('https://com.twilio.music.classical.s3.amazonaws.com/ClockworkWaltz.mp3');
+        
+        // Route the call to the WebRTC browser client!
+        $dial = $response->dial('', ['timeout' => 30]);
+        $dial->client('boschma_support_agent');
 
         return response($response, 200)->header('Content-Type', 'text/xml');
     }

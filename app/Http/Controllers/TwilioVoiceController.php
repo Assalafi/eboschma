@@ -38,13 +38,12 @@ class TwilioVoiceController extends Controller
      */
     public function generateToken(Request $request)
     {
-        // Use a fixed identity so we can easily route incoming calls from the public to all active agents
-        $identity = 'boschma_support_agent';
+        // Give each logged-in agent a unique identity so they can call each other.
+        // E.g., User ID 1 becomes 'staff_1', User ID 2 becomes 'staff_2'
+        $identity = auth()->check() ? 'staff_' . auth()->id() : 'user_' . rand(1000, 9999);
         $token = $this->twilio->generateClientToken($identity);
-
+        
         if (!$token) {
-            return response()->json(['error' => 'Unable to generate Twilio Client token.'], 500);
-        }
 
         return response()->json([
             'identity' => $identity,
@@ -64,14 +63,18 @@ class TwilioVoiceController extends Controller
         $response = new VoiceResponse();
         
         if ($to) {
-            // Normalize the phone number
-            $normalizedTo = $this->normalizePhone($to);
-            
-            // Log the client outbound call
-            Log::info("Twilio Client outbound call: raw={$to} normalized={$normalizedTo}");
-
             $dial = $response->dial('', ['callerId' => $from]);
-            $dial->number($normalizedTo);
+            
+            // Check if the user is dialing another agent (e.g., 'staff_2')
+            if (str_starts_with($to, 'staff_') || str_starts_with($to, 'user_')) {
+                Log::info("Twilio Client-to-Client call: from={$request->input('From')} to={$to}");
+                $dial->client($to);
+            } else {
+                // Otherwise, they are dialing a real phone number
+                $normalizedTo = $this->normalizePhone($to);
+                Log::info("Twilio Client outbound call: raw={$to} normalized={$normalizedTo}");
+                $dial->number($normalizedTo);
+            }
         } else {
             $response->say('Thanks for calling. No destination number was provided.', ['voice' => 'alice']);
         }
@@ -144,8 +147,9 @@ class TwilioVoiceController extends Controller
         );
         
         // Route the call to the WebRTC browser client!
+        // We are ringing 'staff_1' (the first registered admin). In a real call center, you would add multiple <Client> tags here or use TaskRouter.
         $dial = $response->dial('', ['timeout' => 30]);
-        $dial->client('boschma_support_agent');
+        $dial->client('staff_1');
 
         return response($response, 200)->header('Content-Type', 'text/xml');
     }

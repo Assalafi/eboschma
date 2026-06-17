@@ -126,6 +126,76 @@
                             </div>
                         </div>
 
+                        <!-- ====== LIVE PRESENCE PANEL (Real-time — who's on this page RIGHT NOW) ====== -->
+                        <div class="card mb-4 shadow-sm" style="border: 2px solid #22c55e;">
+                            <div class="card-header d-flex justify-content-between align-items-center" style="background: linear-gradient(135deg,#15803d,#16a34a); cursor:pointer;" data-bs-toggle="collapse" data-bs-target="#livePresenceCollapse">
+                                <h5 class="card-title mb-0 text-white d-flex align-items-center gap-2">
+                                    <!-- Pulsing live dot -->
+                                    <span id="livePresenceDot" style="display:inline-block;width:12px;height:12px;background:#4ade80;border-radius:50%;box-shadow:0 0 0 0 rgba(74,222,128,.7);animation:livePulse 1.4s infinite;"></span>
+                                    Live on This Page
+                                    <span class="badge ms-1 px-2 py-1" id="livePresenceCount" style="background:rgba(255,255,255,.2);font-size:.8rem;">0</span>
+                                </h5>
+                                <div class="d-flex align-items-center gap-2">
+                                    <small class="text-white opacity-75" id="livePresenceUpdated" style="font-size:.75rem;"></small>
+                                    <button class="btn btn-sm btn-light text-success me-1" onclick="event.stopPropagation(); fetchLivePresence()" title="Refresh now">
+                                        <i class="ti-reload"></i>
+                                    </button>
+                                    <i class="ti-angle-down text-white"></i>
+                                </div>
+                            </div>
+                            <div id="livePresenceCollapse" class="collapse show">
+                                <div class="card-body p-0">
+                                    <div id="livePresenceList" class="p-3">
+                                        <!-- Filled by JS -->
+                                        <div class="text-center text-muted py-2">
+                                            <div class="spinner-border spinner-border-sm text-success me-1" role="status"></div>
+                                            Detecting presence…
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Active Users Panel (Admin / SuperAdmin / Customer — last 30 min via sessions) -->
+                        <div class="card mb-4 border-warning shadow-sm">
+                            <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center" data-bs-toggle="collapse" data-bs-target="#activeUsersCollapse" style="cursor: pointer;">
+                                <h5 class="card-title mb-0">
+                                    <i class="ti-id-badge me-2"></i> Active Users (Last 30 Min)
+                                    <span class="badge bg-dark ms-2" id="activeUsersBadge" style="font-size:0.75rem;"></span>
+                                </h5>
+                                <div>
+                                    <button class="btn btn-sm btn-dark me-2" onclick="event.stopPropagation(); fetchActiveUsers()">
+                                        <i class="ti-reload"></i> Refresh
+                                    </button>
+                                    <i class="ti-angle-down"></i>
+                                </div>
+                            </div>
+                            <div id="activeUsersCollapse" class="collapse show">
+                                <div class="card-body p-0">
+                                    <div class="table-responsive">
+                                        <table class="table table-hover mb-0">
+                                            <thead class="bg-light">
+                                                <tr>
+                                                    <th>Name</th>
+                                                    <th>Role</th>
+                                                    <th>Status</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="activeUsersList">
+                                                <tr>
+                                                    <td colspan="4" class="text-center py-3">
+                                                        <div class="spinner-border spinner-border-sm text-warning" role="status"></div>
+                                                        Loading active users...
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Active Staff Panel -->
                         <div class="card mb-4 border-success shadow-sm">
                             <div class="card-header bg-success text-white d-flex justify-content-between align-items-center" data-bs-toggle="collapse" data-bs-target="#activeStaffCollapse" style="cursor: pointer;">
@@ -600,7 +670,62 @@
                 box-shadow: 0 0 0 0 rgba(100, 116, 139, 0);
             }
         }
+        /* Live presence pulsing dot */
+        @keyframes livePulse {
+            0%   { box-shadow: 0 0 0 0 rgba(74,222,128,.7); }
+            70%  { box-shadow: 0 0 0 10px rgba(74,222,128,0); }
+            100% { box-shadow: 0 0 0 0 rgba(74,222,128,0); }
+        }
+        /* Presence avatar chips */
+        .presence-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            border-radius: 999px;
+            padding: 4px 12px 4px 6px;
+            margin: 4px;
+            font-size: .85rem;
+            font-weight: 500;
+            transition: box-shadow .2s;
+        }
+        .presence-chip:hover { box-shadow: 0 2px 8px rgba(0,0,0,.1); }
+        .presence-chip .avatar {
+            width: 28px; height: 28px;
+            border-radius: 50%;
+            background: linear-gradient(135deg,#16a34a,#4ade80);
+            color: #fff;
+            font-size: .75rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .presence-chip.is-me {
+            background: #eff6ff;
+            border-color: #bfdbfe;
+        }
+        .presence-chip.is-me .avatar {
+            background: linear-gradient(135deg,#1d4ed8,#60a5fa);
+        }
+        .presence-live-dot {
+            width: 8px; height: 8px;
+            background: #22c55e;
+            border-radius: 50%;
+            display: inline-block;
+            animation: livePulse 1.4s infinite;
+            flex-shrink: 0;
+        }
+        .presence-empty {
+            text-align: center;
+            color: #6b7280;
+            padding: 16px 0;
+            font-size: .875rem;
+        }
     </style>
+
 
     <!-- Twilio Voice SDK -->
     <script src="https://unpkg.com/@twilio/voice-sdk@2.10.1/dist/twilio.min.js"></script>
@@ -902,8 +1027,140 @@
             };
 
             fetchActiveStaff();
-            
-            // EHR Activity fetch
+
+            // Active Users fetch (admin / superadmin / customer roles)
+            window.fetchActiveUsers = function() {
+                const listBody = document.getElementById('activeUsersList');
+                const badge = document.getElementById('activeUsersBadge');
+                listBody.innerHTML = '<tr><td colspan="4" class="text-center py-3"><div class="spinner-border spinner-border-sm text-warning"></div> Loading...</td></tr>';
+
+                fetch('{{ route("crm.active-users") }}')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            if (data.data.length === 0) {
+                                listBody.innerHTML = '<tr><td colspan="4" class="text-center py-3 text-muted">No active admin/customer users in the last 30 minutes.</td></tr>';
+                                badge.textContent = '';
+                                return;
+                            }
+
+                            badge.textContent = data.data.length;
+
+                            let html = '';
+                            data.data.forEach(user => {
+                                const roleColor = (() => {
+                                    const r = (user.role || '').toLowerCase();
+                                    if (r.includes('superadmin') || r.includes('super admin')) return 'danger';
+                                    if (r.includes('admin')) return 'warning';
+                                    return 'info';
+                                })();
+                                html += `
+                                    <tr>
+                                        <td class="fw-bold">${user.name}</td>
+                                        <td><span class="badge bg-${roleColor}">${user.role}</span></td>
+                                        <td><span class="badge bg-success"><i class="ti-control-record"></i> ${user.status}</span></td>
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-primary" onclick="callActiveStaff('${user.id}')" title="Call via WebRTC">
+                                                <i class="ti-mobile"></i> Call
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-info ms-1" onclick="openInternalMessageModal('${user.id}', '${(user.name || '').replace(/'/g, "\\'")}')" title="Message">
+                                                <i class="ti-comment-alt"></i> Message
+                                            </button>
+                                        </td>
+                                    </tr>
+                                `;
+                            });
+                            listBody.innerHTML = html;
+                        }
+                    })
+                    .catch(error => {
+                        listBody.innerHTML = '<tr><td colspan="4" class="text-center py-3 text-danger">Failed to load active users.</td></tr>';
+                    });
+            };
+
+            fetchActiveUsers();
+
+            // =====================================================================
+            // REAL-TIME LIVE PRESENCE (who is on /crm RIGHT NOW)
+            // =====================================================================
+
+            const HEARTBEAT_URL  = '{{ route("crm.heartbeat") }}';
+            const PRESENCE_URL   = '{{ route("crm.live-presence") }}';
+            const CSRF_TOKEN     = document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}';
+
+            // Send a heartbeat to register this user on the page
+            window.sendHeartbeat = function() {
+                fetch(HEARTBEAT_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': CSRF_TOKEN,
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify({ page: '/crm' })
+                }).catch(() => {}); // Silent fail — non-critical
+            };
+
+            // Fetch and render who's live on this page right now
+            window.fetchLivePresence = function() {
+                fetch(PRESENCE_URL + '?page=/crm', {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.success) return;
+
+                    const countEl   = document.getElementById('livePresenceCount');
+                    const listEl    = document.getElementById('livePresenceList');
+                    const updatedEl = document.getElementById('livePresenceUpdated');
+
+                    countEl.textContent = data.count;
+                    const now = new Date();
+                    updatedEl.textContent = 'Updated ' + now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+
+                    if (data.count === 0) {
+                        listEl.innerHTML = '<div class="presence-empty"><i class="ti-user me-1"></i> Nobody else here right now</div>';
+                        return;
+                    }
+
+                    let html = '<div class="d-flex flex-wrap align-items-center p-2">';
+                    data.data.forEach(user => {
+                        const initials = user.name.split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase();
+                        const meClass  = user.is_me ? ' is-me' : '';
+                        const meBadge  = user.is_me ? '<span class="badge bg-primary ms-1" style="font-size:.6rem;">YOU</span>' : '';
+                        const roleBadge = `<small class="text-muted" style="font-size:.72rem;">${user.role}</small>`;
+
+                        html += `
+                            <div class="presence-chip${meClass}" title="${user.role} — last seen ${user.last_seen}">
+                                <div class="avatar">${initials}</div>
+                                <span class="presence-live-dot"></span>
+                                <span>${user.name}${meBadge}</span>
+                                ${roleBadge}
+                                ${!user.is_me ? `
+                                <span class="ms-1 d-flex gap-1">
+                                    <button class="btn btn-xs btn-outline-primary py-0 px-1" style="font-size:.7rem;" onclick="callActiveStaff('${user.id}')" title="Call">
+                                        <i class="ti-mobile"></i>
+                                    </button>
+                                    <button class="btn btn-xs btn-outline-info py-0 px-1" style="font-size:.7rem;" onclick="openInternalMessageModal('${user.id}','${user.name.replace(/'/g,"\\'")}')" title="Message">
+                                        <i class="ti-comment-alt"></i>
+                                    </button>
+                                </span>` : ''}
+                            </div>
+                        `;
+                    });
+                    html += '</div>';
+                    listEl.innerHTML = html;
+                })
+                .catch(() => {});
+            };
+
+            // Register presence on page load — refresh manually via the button in the card header
+            sendHeartbeat();
+            fetchLivePresence();
+
+            // =====================================================================
+
             window.fetchEhrActivity = function() {
                 const listBody = document.getElementById('ehrActivityList');
                 listBody.innerHTML = '<tr><td colspan="4" class="text-center py-3"><div class="spinner-border spinner-border-sm text-info"></div> Loading...</td></tr>';

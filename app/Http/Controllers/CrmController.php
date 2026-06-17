@@ -1240,44 +1240,199 @@ class CrmController extends Controller
     }
 
     /**
+     * Heartbeat — called by the CRM page every 30s to record presence.
+     * Upserts one row per (user_id, page) in page_presence.
+     */
+    public function heartbeat(Request $request)
+    {
+        $page = $request->input('page', '/crm');
+
+        // Identify the current user (staff guard first, then web guard)
+        $staffUser = auth('staff')->user();
+        $webUser   = auth()->user();
+
+        if ($staffUser) {
+            $roleName = 'Staff';
+            if (method_exists($staffUser, 'getRoleNames')) {
+                $roleName = $staffUser->getRoleNames()->first() ?? 'Staff';
+            }
+            DB::table('page_presence')->upsert(
+                [
+                    'user_id'    => $staffUser->id,
+                    'guard_type' => 'staff',
+                    'user_name'  => $staffUser->fullname,
+                    'user_role'  => $roleName,
+                    'user_phone' => $staffUser->phone ?? null,
+                    'page'       => $page,
+                    'last_seen_at' => now(),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ],
+                ['user_id', 'page'],
+                ['guard_type', 'user_name', 'user_role', 'user_phone', 'last_seen_at', 'updated_at']
+            );
+        } elseif ($webUser) {
+            $roleName = 'User';
+            if ($webUser->role) {
+                $roleName = $webUser->role->name;
+            } elseif ($webUser->staffPosition) {
+                $roleName = $webUser->staffPosition->name;
+            } elseif (method_exists($webUser, 'getRoleNames')) {
+                $roleName = $webUser->getRoleNames()->first() ?? 'User';
+            }
+            DB::table('page_presence')->upsert(
+                [
+                    'user_id'    => $webUser->id,
+                    'guard_type' => 'web',
+                    'user_name'  => $webUser->name,
+                    'user_role'  => $roleName,
+                    'user_phone' => $webUser->phone ?? null,
+                    'page'       => $page,
+                    'last_seen_at' => now(),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ],
+                ['user_id', 'page'],
+                ['guard_type', 'user_name', 'user_role', 'user_phone', 'last_seen_at', 'updated_at']
+            );
+        } else {
+            return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+        }
+
+        return response()->json(['success' => true]);
+    }
+
+    /**
+     * Live presence — returns users seen on a given page in the last 2 minutes.
+     * This is used to power real-time "who's viewing this page" indicators.
+     */
+    public function livePresence(Request $request)
+    {
+        $page   = $request->input('page', '/crm');
+        $cutoff = now()->subMinutes(2);
+
+        $present = DB::table('page_presence')
+            ->where('page', $page)
+            ->where('last_seen_at', '>=', $cutoff)
+            ->orderBy('last_seen_at', 'desc')
+            ->get(['user_id', 'user_name', 'user_role', 'user_phone', 'last_seen_at', 'guard_type']);
+
+        $currentUserId = auth('staff')->id() ?? auth()->id();
+
+        $data = $present->map(function ($p) use ($currentUserId) {
+            return [
+                'id'         => $p->user_id,
+                'name'       => $p->user_name,
+                'role'       => $p->user_role ?? 'User',
+                'phone'      => $p->user_phone,
+                'last_seen'  => \Carbon\Carbon::parse($p->last_seen_at)->diffForHumans(),
+                'is_me'      => $p->user_id === $currentUserId,
+                'guard_type' => $p->guard_type,
+            ];
+        })->values()->all();
+
+        return response()->json([
+            'success' => true,
+            'count'   => count($data),
+            'data'    => $data,
+        ]);
+    }
+
+    /**
      * Get active staff (active in the last 30 minutes)
+
      */
     public function activeStaff(Request $request)
     {
-        $activeSessionUserIds = DB::table('sessions')
-            ->whereNotNull('user_id')
-            ->where('last_activity', '>=', now()->subMinutes(30)->timestamp)
-            ->pluck('user_id')
-            ->unique();
+        [$webUserIds, $staffGuardIds] = $this->getActiveSessionIds();
 
         $facilityIds = $this->getCustomerCareFacilityIds();
 
         $activeStaffList = [];
 
-        // Fetch from staff table (assuming global if no facility_id exists)
-        if ($facilityIds === null) {
-            $staffMembers = Staff::whereIn('id', $activeSessionUserIds)->get();
-            foreach ($staffMembers as $staff) {
-                $activeStaffList[] = [
-                    'id' => $staff->id,
-                    'name' => $staff->fullname,
-                    'role' => 'Staff', // Default fallback
-                    'phone' => $staff->phone,
-                    'status' => 'Online',
-                ];
+        // Staff guard users (from staff table — decoded from session payload)
+        $staffGuardMembers = Staff::whereIn('id', $staffGuardIds)->get();
+        foreach ($staffGuardMembers as $staff) {
+            $roleName = 'Staff';
+            if (method_exists($staff, 'getRoleNames')) {
+                $roleName = $staff->getRoleNames()->first() ?? 'Staff';
             }
+            $activeStaffList[] = [
+                'id'     => $staff->id,
+                'name'   => $staff->fullname,
+                'role'   => $roleName,
+                'phone'  => $staff->phone,
+                'status' => 'Online',
+            ];
         }
 
-        // Fetch from users table
-        $usersQuery = \App\Models\User::whereIn('id', $activeSessionUserIds)
+        // Web guard users (from users table — stored via user_id column)
+        $usersQuery = \App\Models\User::whereIn('id', $webUserIds)
             ->with(['role', 'staffPosition']);
-            
+
         if ($facilityIds !== null) {
             $usersQuery->whereIn('facility_id', $facilityIds);
         }
-        
-        $users = $usersQuery->get();
-            
+
+        foreach ($usersQuery->get() as $user) {
+            $roleName = 'User';
+            if ($user->role) {
+                $roleName = $user->role->name;
+            } elseif ($user->staffPosition) {
+                $roleName = $user->staffPosition->name;
+            }
+            $activeStaffList[] = [
+                'id'     => $user->id,
+                'name'   => $user->name,
+                'role'   => $roleName,
+                'phone'  => $user->phone,
+                'status' => 'Online',
+            ];
+        }
+
+        $activeStaffList = collect($activeStaffList)->unique('id')->values()->all();
+
+        return response()->json([
+            'success' => true,
+            'data'    => $activeStaffList,
+        ]);
+    }
+
+    /**
+     * Get active users (logged in as admin, superadmin, or customer) in the last 30 minutes
+     */
+    public function activeUsers(Request $request)
+    {
+        [$webUserIds, $staffGuardIds] = $this->getActiveSessionIds();
+
+        $activeUserList = [];
+
+        // --- Staff guard users (staff table) ---
+        $staffMembers = Staff::whereIn('id', $staffGuardIds)->get();
+        foreach ($staffMembers as $staff) {
+            $spatieRoles = method_exists($staff, 'getRoleNames') ? $staff->getRoleNames() : collect();
+            $roleName = $spatieRoles->first() ?? 'Staff';
+            $roleNameLower = strtolower($roleName);
+            $isTargeted = str_contains($roleNameLower, 'admin') ||
+                          str_contains($roleNameLower, 'super admin') ||
+                          str_contains($roleNameLower, 'customer');
+            if (!$isTargeted) continue;
+
+            $activeUserList[] = [
+                'id'     => $staff->id,
+                'name'   => $staff->fullname,
+                'role'   => $roleName,
+                'phone'  => $staff->phone ?? null,
+                'status' => 'Online',
+                'type'   => 'staff',
+            ];
+        }
+
+        // --- Web guard users (users table) ---
+        $users = \App\Models\User::whereIn('id', $webUserIds)
+            ->with(['role', 'staffPosition'])
+            ->get();
+
         foreach ($users as $user) {
             $roleName = 'User';
             if ($user->role) {
@@ -1285,22 +1440,44 @@ class CrmController extends Controller
             } elseif ($user->staffPosition) {
                 $roleName = $user->staffPosition->name;
             }
-            
-            $activeStaffList[] = [
-                'id' => $user->id,
-                'name' => $user->name,
-                'role' => $roleName,
-                'phone' => $user->phone,
+
+            $roleNameLower = strtolower($roleName);
+            $isTargeted = str_contains($roleNameLower, 'admin') ||
+                          str_contains($roleNameLower, 'super admin') ||
+                          str_contains($roleNameLower, 'customer');
+
+            if (!$isTargeted && method_exists($user, 'getRoleNames')) {
+                $spatieRoles = $user->getRoleNames()->map(fn($r) => strtolower($r));
+                $isTargeted = $spatieRoles->contains(fn($r) =>
+                    str_contains($r, 'admin') ||
+                    str_contains($r, 'super admin') ||
+                    str_contains($r, 'customer')
+                );
+                if ($isTargeted && $roleName === 'User') {
+                    $roleName = $user->getRoleNames()->first() ?? 'User';
+                }
+            }
+
+            if (!$isTargeted) continue;
+
+            $alreadyAdded = collect($activeUserList)->contains('id', $user->id);
+            if ($alreadyAdded) continue;
+
+            $activeUserList[] = [
+                'id'     => $user->id,
+                'name'   => $user->name,
+                'role'   => $roleName,
+                'phone'  => $user->phone ?? null,
                 'status' => 'Online',
+                'type'   => 'user',
             ];
         }
 
-        // Ensure unique by ID (in case someone is in both or we had overlap somehow)
-        $activeStaffList = collect($activeStaffList)->unique('id')->values()->all();
+        $activeUserList = collect($activeUserList)->unique('id')->values()->all();
 
         return response()->json([
             'success' => true,
-            'data' => $activeStaffList
+            'data'    => $activeUserList,
         ]);
     }
 
@@ -1403,6 +1580,50 @@ class CrmController extends Controller
             'success' => true,
             'data' => $recentActivities
         ]);
+    }
+
+    /**
+     * Get active session user IDs for both web (default) and staff guards.
+     *
+     * Laravel only writes `user_id` to the sessions table for the default web guard.
+     * Staff guard users are stored as NULL user_id, with the staff ID serialised inside
+     * the encrypted session payload. This helper decodes those payloads to extract both sets.
+     *
+     * @return array{0: \Illuminate\Support\Collection, 1: \Illuminate\Support\Collection}
+     *   [webUserIds, staffGuardIds]
+     */
+    private function getActiveSessionIds(): array
+    {
+        $cutoff = now()->subMinutes(30)->timestamp;
+
+        $sessions = DB::table('sessions')
+            ->where('last_activity', '>=', $cutoff)
+            ->get(['user_id', 'payload']);
+
+        $webUserIds    = collect();
+        $staffGuardIds = collect();
+
+        foreach ($sessions as $session) {
+            if ($session->user_id) {
+                // Standard web guard — user_id is stored directly
+                $webUserIds->push($session->user_id);
+            } else {
+                // Staff guard — decode the serialised payload and look for login_staff_* key
+                try {
+                    $raw = base64_decode($session->payload);
+                    // PHP serialisation format: "login_staff_<hash>";s:36:"<uuid>"
+                    if (preg_match_all('/"(login_staff_[a-f0-9]+)";\s*s:\d+:"([a-f0-9\-]{36})"/i', $raw, $matches)) {
+                        foreach ($matches[2] as $staffId) {
+                            $staffGuardIds->push($staffId);
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    // Skip unreadable sessions
+                }
+            }
+        }
+
+        return [$webUserIds->unique(), $staffGuardIds->unique()];
     }
 
     /**

@@ -483,6 +483,9 @@ Route::middleware(['auth:staff,web'])->group(function () {
             ->where('id', '.*');
         Route::get('crm/facility-activity', [CrmController::class, 'facilityActivity'])->name('crm.facility-activity');
         Route::get('crm/active-staff', [CrmController::class, 'activeStaff'])->name('crm.active-staff');
+        Route::get('crm/active-users', [CrmController::class, 'activeUsers'])->name('crm.active-users');
+        Route::get('crm/live-presence', [CrmController::class, 'livePresence'])->name('crm.live-presence');
+        Route::post('crm/heartbeat', [CrmController::class, 'heartbeat'])->name('crm.heartbeat');
         Route::get('crm/ehr-activity', [CrmController::class, 'ehrActivity'])->name('crm.ehr-activity');
         Route::get('crm/{ticket}', [CrmController::class, 'show'])->name('crm.show');
         Route::get('crm/{ticket}/edit', [CrmController::class, 'edit'])->name('crm.edit');

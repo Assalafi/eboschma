@@ -18,6 +18,7 @@ use App\Exports\CrmExport;
 use App\Exports\MonthlyEnrollmentsExport;
 use App\Exports\CategoryEnrollmentsExport;
 use App\Exports\StatusEnrollmentsExport;
+use App\Exports\BeneficiariesReportExport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -1235,5 +1236,132 @@ class ReportsController extends Controller
             'facilities', 'facilityId', 'dateFrom', 'dateTo', 
             'globalStats', 'stockRecords', 'selectedFacility', 'facilityStats'
         ));
+    }
+
+    public function beneficiaries(Request $request)
+    {
+        $programId = $request->get('program_id');
+        $lga = $request->get('lga');
+        $gender = $request->get('gender');
+        $dateFrom = $request->get('date_from');
+        $dateTo = $request->get('date_to');
+        
+        $programs = \App\Models\Program::orderBy('name')->get();
+        $lgas = Beneficiary::whereNotNull('lga')->distinct()->pluck('lga')->sort();
+
+        // Facilities Query for the table
+        $facilitiesQuery = \App\Models\Facility::query();
+
+        if ($lga) {
+            $facilitiesQuery->where('lga', $lga);
+        }
+
+        $dateFromSql = $dateFrom ? $dateFrom . ' 00:00:00' : null;
+        $dateToSql = $dateTo ? $dateTo . ' 23:59:59' : null;
+
+        $facilities = $facilitiesQuery->withCount(['beneficiaries' => function($query) use ($programId, $gender, $dateFromSql, $dateToSql) {
+                $query->where('status', '!=', 'draft');
+                if ($programId) $query->where('program_id', $programId);
+                if ($gender) $query->where('gender', $gender);
+                if ($dateFromSql && $dateToSql) $query->whereBetween('beneficiaries.created_at', [$dateFromSql, $dateToSql]);
+            }])
+            ->withCount(['spouses' => function($query) use ($programId, $gender, $dateFromSql, $dateToSql) {
+                $query->whereColumn('facility_id', 'facilities.id');
+                if ($gender) $query->where('gender', $gender);
+                if ($programId) {
+                    $query->whereHas('beneficiary', function($q) use ($programId) {
+                        $q->where('program_id', $programId);
+                    });
+                }
+                if ($dateFromSql && $dateToSql) {
+                    $query->whereHas('beneficiary', function($q) use ($dateFromSql, $dateToSql) {
+                        $q->whereBetween('created_at', [$dateFromSql, $dateToSql]);
+                    });
+                }
+            }])
+            ->withCount(['children' => function($query) use ($programId, $gender, $dateFromSql, $dateToSql) {
+                $query->whereColumn('facility_id', 'facilities.id');
+                if ($gender) $query->where('gender', $gender);
+                if ($programId) {
+                    $query->whereHas('beneficiary', function($q) use ($programId) {
+                        $q->where('program_id', $programId);
+                    });
+                }
+                if ($dateFromSql && $dateToSql) {
+                    $query->whereHas('beneficiary', function($q) use ($dateFromSql, $dateToSql) {
+                        $q->whereBetween('created_at', [$dateFromSql, $dateToSql]);
+                    });
+                }
+            }])
+            ->havingRaw('(beneficiaries_count + spouses_count + children_count) > 0')
+            ->orderByDesc('beneficiaries_count')
+            ->paginate(20);
+
+        $facilities->appends($request->all());
+
+        // Base Query for Stats (no pagination)
+        $statsQuery = Beneficiary::where('status', '!=', 'draft');
+        if ($programId) $statsQuery->where('program_id', $programId);
+        if ($lga) $statsQuery->where('lga', $lga);
+        if ($gender) $statsQuery->where('gender', $gender);
+        if ($dateFrom) $statsQuery->whereDate('created_at', '>=', $dateFrom);
+        if ($dateTo) $statsQuery->whereDate('created_at', '<=', $dateTo);
+
+        $totalPrincipals = (clone $statsQuery)->count();
+        
+        // Calculate dependent counts based on the filtered principals
+        // We will just do a join to count spouses and children for these principals
+        $principalIdsQuery = (clone $statsQuery)->select('id');
+        $totalSpouses = \App\Models\Spouse::whereIn('beneficiary_id', $principalIdsQuery)->count();
+        $totalChildren = \App\Models\Child::whereIn('beneficiary_id', $principalIdsQuery)->count();
+        $totalEnrollments = $totalPrincipals + $totalSpouses + $totalChildren;
+
+        // Program Stats Breakdown
+        $programStats = DB::table('programs')
+            ->leftJoin('beneficiaries', function ($join) use ($lga, $gender, $dateFrom, $dateTo) {
+                $join->on('programs.id', '=', 'beneficiaries.program_id')
+                     ->where('beneficiaries.status', '!=', 'draft');
+                if ($lga) $join->where('beneficiaries.lga', '=', $lga);
+                if ($gender) $join->where('beneficiaries.gender', '=', $gender);
+                if ($dateFrom) $join->whereDate('beneficiaries.created_at', '>=', $dateFrom);
+                if ($dateTo) $join->whereDate('beneficiaries.created_at', '<=', $dateTo);
+            })
+            ->leftJoin('spouses', 'beneficiaries.id', '=', 'spouses.beneficiary_id')
+            ->leftJoin('children', 'beneficiaries.id', '=', 'children.beneficiary_id')
+            ->select(
+                'programs.name as program_name',
+                DB::raw('COUNT(DISTINCT beneficiaries.id) as beneficiaries'),
+                DB::raw('COUNT(DISTINCT spouses.id) as spouses'),
+                DB::raw('COUNT(DISTINCT children.id) as children'),
+                DB::raw('(COUNT(DISTINCT beneficiaries.id) + COUNT(DISTINCT spouses.id) + COUNT(DISTINCT children.id)) as total')
+            )
+            ->groupBy('programs.id', 'programs.name')
+            ->orderByDesc('total')
+            ->get();
+
+        $selectedProgram = $programId ? \App\Models\Program::find($programId) : null;
+
+        return view('reports.beneficiaries', compact(
+            'facilities', 'programs', 'lgas', 'programId', 'selectedProgram',
+            'totalPrincipals', 'totalSpouses', 'totalChildren', 'totalEnrollments', 'programStats'
+        ));
+    }
+
+    public function exportBeneficiaries(Request $request)
+    {
+        $programId = $request->get('program_id');
+        $lga = $request->get('lga');
+        $gender = $request->get('gender');
+        $dateFrom = $request->get('date_from');
+        $dateTo = $request->get('date_to');
+
+        $program = $programId ? \App\Models\Program::find($programId) : null;
+        $programSuffix = $program ? '_' . str_replace(' ', '_', $program->name) : '';
+        $lgaSuffix = $lga ? '_' . str_replace(' ', '_', $lga) : '';
+        
+        $filename = 'beneficiaries_report' . $programSuffix . $lgaSuffix . '_' . date('Y-m_d_H-i-s') . '.xlsx';
+        $filename = str_replace(['/', '\\'], '-', $filename);
+        
+        return Excel::download(new BeneficiariesReportExport($programId, $lga, $gender, $dateFrom, $dateTo), $filename);
     }
 }

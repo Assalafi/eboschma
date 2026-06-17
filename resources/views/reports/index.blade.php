@@ -182,8 +182,56 @@
                                         <line x1="9" y1="9" x2="15" y2="9"></line>
                                         <line x1="9" y1="15" x2="15" y2="15"></line>
                                     </svg>
-                                    4 Active Reports
+                                    5 Active Reports
                                 </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card border-0 shadow-sm hover-lift h-100">
+                            <div class="card-body">
+                                <div class="d-flex align-items-start mb-3">
+                                    <div class="avatar avatar-lg bg-indigo bg-gradient text-white rounded-3 me-3">
+                                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round">
+                                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                            <circle cx="9" cy="7" r="4"></circle>
+                                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                                        </svg>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <h4 class="card-title mb-1">Beneficiaries Report</h4>
+                                        <div class="badge bg-indigo bg-opacity-10 text-indigo mb-2">Detailed Analytics</div>
+                                    </div>
+                                </div>
+                                <p class="text-muted mb-4">Detailed statistical report of all beneficiaries, programs, and dependents</p>
+                                <div class="row g-3">
+                                    <div class="col-6">
+                                        <div class="text-center">
+                                            <div class="h4 mb-1 text-indigo">{{ $stats['total_beneficiaries'] }}</div>
+                                            <div class="text-muted small">Total Principals</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="text-center">
+                                            <div class="h4 mb-1 text-indigo">Active</div>
+                                            <div class="text-muted small">Status</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-footer bg-transparent border-0 pt-0">
+                                <a href="{{ route('reports.beneficiaries') }}" class="btn btn-indigo w-100">
+                                    View Beneficiaries Report
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                        stroke="currentColor" stroke-width="2" class="ms-1">
+                                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                                        <polyline points="12,5 19,12 12,19"></polyline>
+                                    </svg>
+                                </a>
                             </div>
                         </div>
                     </div>

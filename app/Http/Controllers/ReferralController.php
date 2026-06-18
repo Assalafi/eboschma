@@ -96,8 +96,8 @@ class ReferralController extends Controller
         // Get statistics for all referrals (admin sees everything)
         $stats = [
             'total' => ServiceReferral::count(),
-            'outgoing' => ServiceReferral::count(), // All referrals for admin
-            'incoming' => ServiceReferral::count(), // All referrals for admin  
+            'accepted' => ServiceReferral::where('status', ServiceReferral::STATUS_ACCEPTED)->count(),
+            'completed' => ServiceReferral::where('status', ServiceReferral::STATUS_COMPLETED)->count(),
             'pending' => ServiceReferral::where('status', ServiceReferral::STATUS_PENDING)->count(),
         ];
 

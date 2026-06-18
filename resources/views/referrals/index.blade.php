@@ -26,7 +26,7 @@
                                 </div>
                                 <div class="h1 mb-3">{{ $stats['total'] ?? 0 }}</div>
                                 <div class="d-flex mb-2">
-                                    <div>All referrals (in/out)</div>
+                                    <div>All system referrals</div>
                                 </div>
                             </div>
                         </div>
@@ -35,11 +35,11 @@
                         <div class="card border-0 shadow-sm hover-lift" style="border-radius: 12px;">
                             <div class="card-body">
                                 <div class="d-flex align-items-center">
-                                    <div class="subheader">Outgoing</div>
+                                    <div class="subheader">Accepted</div>
                                 </div>
-                                <div class="h1 mb-3">{{ $stats['outgoing'] ?? 0 }}</div>
+                                <div class="h1 mb-3">{{ $stats['accepted'] ?? 0 }}</div>
                                 <div class="d-flex mb-2">
-                                    <div>📤 Referred to other facilities</div>
+                                    <div>✅ Referrals accepted</div>
                                 </div>
                             </div>
                         </div>
@@ -48,11 +48,11 @@
                         <div class="card border-0 shadow-sm hover-lift" style="border-radius: 12px;">
                             <div class="card-body">
                                 <div class="d-flex align-items-center">
-                                    <div class="subheader">Incoming</div>
+                                    <div class="subheader">Completed</div>
                                 </div>
-                                <div class="h1 mb-3">{{ $stats['incoming'] ?? 0 }}</div>
+                                <div class="h1 mb-3">{{ $stats['completed'] ?? 0 }}</div>
                                 <div class="d-flex mb-2">
-                                    <div>📥 Referred to this facility</div>
+                                    <div>🎉 Successfully completed</div>
                                 </div>
                             </div>
                         </div>

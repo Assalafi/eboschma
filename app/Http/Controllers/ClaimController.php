@@ -3443,7 +3443,13 @@ class ClaimController extends Controller
      */
     public function downloadFacilityClaimPdf($claimId)
     {
-        $claim = DB::table('facility_claims')->where('id', $claimId)->first();
+        $claim = DB::table('facility_claims as fc')
+            ->join('facilities as f', 'fc.facility_id', '=', 'f.id')
+            ->where('fc.id', $claimId)
+            ->whereNull('fc.deleted_at')
+            ->select('fc.*', 'f.name as facility_name')
+            ->first();
+
         if (!$claim) {
             abort(404, 'Claim not found');
         }

@@ -742,12 +742,12 @@
                         minimumInputLength: 0,
                         cache: true,
                         ajax: {
-                            url: '{{ route("claims.master.drugs") }}',
-                            dataType: 'json',
-                            delay: 300,
-                            data: function (params) {
-                                return { search: params.term || '', page: params.page || 1, facility_id: '{{ $claim->facility_id }}' };
-                            },
+                                url: '{{ route("claims.master.drugs") }}',
+                                dataType: 'json',
+                                delay: 300,
+                                data: function (params) {
+                                    return { q: params.term || '', page: params.page || 1, facility_id: '{{ $claim->facility_id }}' };
+                                },
                             processResults: function (data) {
                                 return { results: data.results || data.items || [] };
                             },
@@ -769,12 +769,12 @@
                         minimumInputLength: 0,
                         cache: true,
                         ajax: {
-                            url: '{{ route("claims.master.services") }}',
-                            dataType: 'json',
-                            delay: 300,
-                            data: function (params) {
-                                return { search: params.term || '', page: params.page || 1, facility_id: '{{ $claim->facility_id }}' };
-                            },
+                                url: '{{ route("claims.master.services") }}',
+                                dataType: 'json',
+                                delay: 300,
+                                data: function (params) {
+                                    return { q: params.term || '', page: params.page || 1, facility_id: '{{ $claim->facility_id }}' };
+                                },
                             processResults: function (data) {
                                 return { results: data.results || data.items || [] };
                             },

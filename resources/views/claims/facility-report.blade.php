@@ -49,6 +49,19 @@
                             </tr>
                         @endforelse
                     </tbody>
+                    @if($monthly->count() > 0)
+                    <tfoot class="bg-light">
+                        <tr class="fw-bold">
+                            <td>TOTAL</td>
+                            <td class="text-center">{{ number_format($monthly->sum('claim_count')) }}</td>
+                            <td class="text-end">₦{{ number_format($monthly->sum('admin_charges'), 2) }}</td>
+                            <td class="text-end">₦{{ number_format($monthly->sum('pharmacy'), 2) }}</td>
+                            <td class="text-end">₦{{ number_format($monthly->sum('laboratory'), 2) }}</td>
+                            <td class="text-end">₦{{ number_format($monthly->sum('services'), 2) }}</td>
+                            <td class="text-end text-primary">₦{{ number_format($monthly->sum('total_amount'), 2) }}</td>
+                        </tr>
+                    </tfoot>
+                    @endif
                 </table>
             </div>
         </div>

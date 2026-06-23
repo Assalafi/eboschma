@@ -1208,7 +1208,7 @@ class ClaimController extends Controller
             $baseQuery->whereDate('service_date', '<=', $dateTo);
         }
         if ($statusFilter) {
-            $baseQuery->where('status', $statusFilter);
+            $baseQuery->where('facility_claims.status', $statusFilter);
         }
         if ($programId) {
             $baseQuery->join('encounters as e', 'facility_claims.encounter_id', '=', 'e.id')
@@ -1223,13 +1223,13 @@ class ClaimController extends Controller
 
         $overallStats = [
             'total_claims' => (clone $allClaimsQuery)->count(),
-            'pending' => (clone $allClaimsQuery)->whereIn('status', ['draft', 'submitted'])->count(),
-            'verified' => (clone $allClaimsQuery)->where('status', 'verified')->count(),
-            'approved' => (clone $allClaimsQuery)->whereIn('status', ['approved', 'es_approved'])->count(),
-            'paid' => (clone $allClaimsQuery)->where('status', 'paid')->count(),
-            'rejected' => (clone $allClaimsQuery)->where('status', 'rejected')->count(),
-            'total_amount' => (clone $allClaimsQuery)->sum('total_amount'),
-            'paid_amount' => (clone $allClaimsQuery)->where('status', 'paid')->sum('total_amount'),
+            'pending' => (clone $allClaimsQuery)->whereIn('facility_claims.status', ['draft', 'submitted'])->count(),
+            'verified' => (clone $allClaimsQuery)->where('facility_claims.status', 'verified')->count(),
+            'approved' => (clone $allClaimsQuery)->whereIn('facility_claims.status', ['approved', 'es_approved'])->count(),
+            'paid' => (clone $allClaimsQuery)->where('facility_claims.status', 'paid')->count(),
+            'rejected' => (clone $allClaimsQuery)->where('facility_claims.status', 'rejected')->count(),
+            'total_amount' => (clone $allClaimsQuery)->sum('facility_claims.total_amount'),
+            'paid_amount' => (clone $allClaimsQuery)->where('facility_claims.status', 'paid')->sum('facility_claims.total_amount'),
         ];
 
         // Paid claims per facility with amount breakdown

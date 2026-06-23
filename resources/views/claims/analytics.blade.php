@@ -66,7 +66,7 @@
                                         <i class="ti-filter me-1"></i> Filter
                                     </button>
                                     <a href="{{ route('claims.analytics') }}" class="btn btn-outline-secondary">
-                                        <i class="ti ti-x"></i>
+                                        <i class="ti ti-x text-dark"></i>
                                     </a>
                                 </div>
                             </div>

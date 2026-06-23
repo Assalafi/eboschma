@@ -1301,6 +1301,7 @@ class ClaimController extends Controller
         $programId = $request->input('program_id');
         $dateFrom = $request->input('date_from');
         $dateTo = $request->input('date_to');
+        $format = $request->input('format', 'html'); // html, pdf
 
         if (!$dateFrom && !$dateTo) {
             $dateTo = now()->format('Y-m-d');
@@ -1330,6 +1331,12 @@ class ClaimController extends Controller
         $facility = null;
         if ($facilityId) {
             $facility = DB::table('facilities')->where('id', $facilityId)->first();
+        }
+
+        if ($format === 'pdf') {
+            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('claims.facility-report-pdf', compact('monthly', 'facility', 'dateFrom', 'dateTo'));
+            $filename = ($facility ? str_slug($facility->name) : 'report') . '_' . now()->format('Y-m-d_His') . '.pdf';
+            return $pdf->download($filename);
         }
 
         return view('claims.facility-report', compact('monthly', 'facility', 'dateFrom', 'dateTo'));

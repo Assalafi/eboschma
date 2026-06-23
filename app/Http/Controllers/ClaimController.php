@@ -1211,14 +1211,15 @@ class ClaimController extends Controller
             $baseQuery->where('status', $statusFilter);
         }
         if ($programId) {
-            $baseQuery->where('program_id', $programId);
+            $baseQuery->join('encounters as e', 'facility_claims.encounter_id', '=', 'e.id')
+                ->where('e.program_id', $programId);
         }
 
         // Overall statistics (all statuses, respecting program filter)
         $allClaimsQuery = DB::table('facility_claims')->whereNull('deleted_at');
         if ($dateFrom) $allClaimsQuery->whereDate('service_date', '>=', $dateFrom);
         if ($dateTo) $allClaimsQuery->whereDate('service_date', '<=', $dateTo);
-        if ($programId) $allClaimsQuery->where('program_id', $programId);
+        if ($programId) $allClaimsQuery->join('encounters as e', 'facility_claims.encounter_id', '=', 'e.id')->where('e.program_id', $programId);
 
         $overallStats = [
             'total_claims' => (clone $allClaimsQuery)->count(),
@@ -1310,7 +1311,7 @@ class ClaimController extends Controller
 
         $query = DB::table('facility_claims')->whereNull('deleted_at');
         if ($facilityId) $query->where('facility_id', $facilityId);
-        if ($programId) $query->where('program_id', $programId);
+        if ($programId) $query->join('encounters as e', 'facility_claims.encounter_id', '=', 'e.id')->where('e.program_id', $programId);
         if ($dateFrom) $query->whereDate('service_date', '>=', $dateFrom);
         if ($dateTo) $query->whereDate('service_date', '<=', $dateTo);
 

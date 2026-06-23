@@ -62,11 +62,11 @@
                             </div>
                             <div class="col-md-2">
                                 <div class="d-flex gap-2">
-                                    <button type="submit" class="btn btn-primary w-100">
+                                    <button type="submit" class="btn btn-primary w-100 d-inline-flex align-items-center justify-content-center">
                                         <i class="ti-filter me-1"></i> Filter
                                     </button>
-                                    <a href="{{ route('claims.analytics') }}" class="btn btn-outline-secondary">
-                                        <i class="ti ti-x me-1"></i> Clear
+                                    <a href="{{ route('claims.analytics') }}" class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center">
+                                        <i class="ti-x me-1"></i> Clear
                                     </a>
                                 </div>
                             </div>

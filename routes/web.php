@@ -582,6 +582,7 @@ Route::middleware(['auth:staff,web'])->group(function () {
     Route::get('claims/bulk-upload', [ClaimController::class, 'bulkUpload'])->name('claims.bulk.upload')->middleware('permission:claim.edit');
     Route::get('claims/template', [ClaimController::class, 'downloadTemplate'])->name('claims.template')->middleware('permission:claim.edit');
     Route::get('claims/analytics', [ClaimController::class, 'analytics'])->name('claims.analytics')->middleware('permission:claim.edit');
+    Route::get('claims/analytics/facility-report', [ClaimController::class, 'facilityReport'])->name('claims.analytics.facility-report')->middleware('permission:claim.view');
     Route::get('claims/audit-report', [ClaimController::class, 'auditReport'])->name('claims.audit.report')->middleware('permission:claim.edit');
     Route::get('claims/export-audit-trail', [ClaimController::class, 'exportAuditTrail'])->name('claims.audit.export')->middleware('permission:claim.edit');
     Route::get('claims/notifications', [ClaimController::class, 'notifications'])->name('claims.notifications')->middleware('permission:claim.edit');

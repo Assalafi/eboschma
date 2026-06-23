@@ -1187,7 +1187,16 @@ class ClaimController extends Controller
     {
         $dateFrom = $request->input('date_from');
         $dateTo = $request->input('date_to');
-        $statusFilter = $request->input('status', 'paid');
+        // default to last 3 months when no dates are provided
+        if (!$dateFrom && !$dateTo) {
+            $dateTo = now()->format('Y-m-d');
+            $dateFrom = now()->subMonths(3)->format('Y-m-d');
+        }
+        $statusFilter = $request->input('status', null);
+        $programId = $request->input('program_id');
+
+        // programs list for filter
+        $programs = \App\Models\Program::orderBy('name')->get();
 
         // Base query for facility_claims
         $baseQuery = DB::table('facility_claims')->whereNull('deleted_at');
@@ -1201,11 +1210,15 @@ class ClaimController extends Controller
         if ($statusFilter) {
             $baseQuery->where('status', $statusFilter);
         }
+        if ($programId) {
+            $baseQuery->where('program_id', $programId);
+        }
 
-        // Overall statistics (all statuses, ignoring status filter)
+        // Overall statistics (all statuses, respecting program filter)
         $allClaimsQuery = DB::table('facility_claims')->whereNull('deleted_at');
         if ($dateFrom) $allClaimsQuery->whereDate('service_date', '>=', $dateFrom);
         if ($dateTo) $allClaimsQuery->whereDate('service_date', '<=', $dateTo);
+        if ($programId) $allClaimsQuery->where('program_id', $programId);
 
         $overallStats = [
             'total_claims' => (clone $allClaimsQuery)->count(),
@@ -1271,11 +1284,55 @@ class ClaimController extends Controller
             ->orderBy('claim_count', 'desc')
             ->get();
 
+        // include programs and selected program
         return view('claims.analytics', compact(
             'overallStats', 'facilityBreakdown', 'grandTotals',
             'monthlyTrends', 'claimsByType',
-            'dateFrom', 'dateTo', 'statusFilter'
+            'dateFrom', 'dateTo', 'statusFilter', 'programs', 'programId'
         ));
+    }
+
+    /**
+     * Printable facility report — monthly cumulative (or last 3 months by default)
+     */
+    public function facilityReport(Request $request)
+    {
+        $facilityId = $request->input('facility_id');
+        $programId = $request->input('program_id');
+        $dateFrom = $request->input('date_from');
+        $dateTo = $request->input('date_to');
+
+        if (!$dateFrom && !$dateTo) {
+            $dateTo = now()->format('Y-m-d');
+            $dateFrom = now()->subMonths(3)->format('Y-m-d');
+        }
+
+        $query = DB::table('facility_claims')->whereNull('deleted_at');
+        if ($facilityId) $query->where('facility_id', $facilityId);
+        if ($programId) $query->where('program_id', $programId);
+        if ($dateFrom) $query->whereDate('service_date', '>=', $dateFrom);
+        if ($dateTo) $query->whereDate('service_date', '<=', $dateTo);
+
+        $monthly = (clone $query)
+            ->select(
+                DB::raw('DATE_FORMAT(service_date, "%Y-%m") as month'),
+                DB::raw('COUNT(*) as claim_count'),
+                DB::raw('SUM(consultation_amount) as admin_charges'),
+                DB::raw('SUM(pharmacy_amount) as pharmacy'),
+                DB::raw('SUM(laboratory_amount) as laboratory'),
+                DB::raw('SUM(services_amount) as services'),
+                DB::raw('SUM(total_amount) as total_amount')
+            )
+            ->groupBy('month')
+            ->orderBy('month')
+            ->get();
+
+        $facility = null;
+        if ($facilityId) {
+            $facility = DB::table('facilities')->where('id', $facilityId)->first();
+        }
+
+        return view('claims.facility-report', compact('monthly', 'facility', 'dateFrom', 'dateTo'));
     }
 
     /**

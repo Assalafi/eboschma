@@ -48,6 +48,15 @@
                                 <input type="date" name="date_from" class="form-control" value="{{ $dateFrom }}">
                             </div>
                             <div class="col-md-2">
+                                <label class="form-label">Program</label>
+                                <select name="program_id" class="form-select">
+                                    <option value="">All Programs</option>
+                                    @foreach($programs as $program)
+                                        <option value="{{ $program->id }}" {{ (isset($programId) && $programId == $program->id) ? 'selected' : '' }}>{{ $program->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-md-2">
                                 <label class="form-label">Date To</label>
                                 <input type="date" name="date_to" class="form-control" value="{{ $dateTo }}">
                             </div>
@@ -147,9 +156,18 @@
                                     <tr>
                                         <td class="align-middle text-muted">{{ $index + 1 }}</td>
                                         <td class="align-middle">
-                                            <a href="{{ route('claims.facility.show', $row->facility_id) }}" class="fw-semibold text-reset">
-                                                {{ $row->facility_name }}
-                                            </a>
+                                            <div class="d-flex align-items-center justify-content-between">
+                                                <div>
+                                                    <a href="{{ route('claims.facility.show', $row->facility_id) }}" class="fw-semibold text-reset">
+                                                        {{ $row->facility_name }}
+                                                    </a>
+                                                </div>
+                                                <div class="d-print-none">
+                                                    <a href="{{ route('claims.analytics.facility-report') }}?facility_id={{ $row->facility_id }}&program_id={{ $programId ?? '' }}&date_from={{ $dateFrom }}&date_to={{ $dateTo }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                                        <i class="ti-printer me-1"></i> Report
+                                                    </a>
+                                                </div>
+                                            </div>
                                         </td>
                                         <td class="align-middle text-center">
                                             <span class="badge bg-blue-lt">{{ number_format($row->claim_count) }}</span>

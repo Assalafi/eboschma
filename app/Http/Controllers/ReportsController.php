@@ -1192,8 +1192,8 @@ class ReportsController extends Controller
         $globalStats = [
             'total_received' => \App\Models\DrugStock::sum('quantity_received'),
             'total_remaining' => \App\Models\DrugStock::sum('quantity_remaining'),
-            'total_dispensed' => \App\Models\DrugStock::sum(\Illuminate\Support\Facades\DB::raw('quantity_received - quantity_remaining')),
-            'total_value' => \App\Models\DrugStock::sum(\Illuminate\Support\Facades\DB::raw('quantity_remaining * unit_cost')),
+            'total_dispensed' => \App\Models\DrugStock::sum(\Illuminate\Support\Facades\DB::raw('CAST(quantity_received AS SIGNED) - CAST(quantity_remaining AS SIGNED)')),
+            'total_value' => \App\Models\DrugStock::sum(\Illuminate\Support\Facades\DB::raw('CAST(quantity_remaining AS SIGNED) * CAST(unit_cost AS SIGNED)')),
         ];
 
         $stockRecords = null;
@@ -1227,8 +1227,8 @@ class ReportsController extends Controller
             $facilityStats = [
                 'total_received' => (clone $facilityQuery)->sum('quantity_received'),
                 'total_remaining' => (clone $facilityQuery)->sum('quantity_remaining'),
-                'total_dispensed' => (clone $facilityQuery)->sum(\Illuminate\Support\Facades\DB::raw('quantity_received - quantity_remaining')),
-                'total_value' => (clone $facilityQuery)->sum(\Illuminate\Support\Facades\DB::raw('quantity_remaining * unit_cost')),
+                'total_dispensed' => (clone $facilityQuery)->sum(\Illuminate\Support\Facades\DB::raw('CAST(quantity_received AS SIGNED) - CAST(quantity_remaining AS SIGNED)')),
+                'total_value' => (clone $facilityQuery)->sum(\Illuminate\Support\Facades\DB::raw('CAST(quantity_remaining AS SIGNED) * CAST(unit_cost AS SIGNED)')),
             ];
         }
 

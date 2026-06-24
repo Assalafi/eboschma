@@ -501,6 +501,12 @@
             hiddenInputs.innerHTML += '<input type="hidden" name="' + prefix + '[' + nameKey + ']" value="' + name + '">';
             hiddenInputs.innerHTML += '<input type="hidden" name="' + prefix + '[quantity]" value="' + qty + '">';
             hiddenInputs.innerHTML += '<input type="hidden" name="' + prefix + '[patient_id]" value="' + patientId + '">';
+            if (type === 'service') {
+                var serviceTypeName = cb.dataset.serviceType || 'Service';
+                var serviceCategoryName = cb.dataset.serviceCategory || 'Category';
+                hiddenInputs.innerHTML += '<input type="hidden" name="' + prefix + '[service_type_name]" value="' + serviceTypeName + '">';
+                hiddenInputs.innerHTML += '<input type="hidden" name="' + prefix + '[service_category_name]" value="' + serviceCategoryName + '">';
+            }
         });
 
         document.getElementById('modalTotalAmount').textContent = '₦' + total.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');

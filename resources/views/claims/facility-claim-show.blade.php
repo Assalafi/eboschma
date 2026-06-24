@@ -601,6 +601,10 @@
                             <label class="form-label">Service</label>
                             <select class="form-select select2-ajax-services" name="service_item_id" required style="width: 100%"></select>
                         </div>
+                        <div class="mb-3">
+                            <label class="form-label">Frequency</label>
+                            <input type="number" class="form-control" name="frequency" value="1" min="1" required>
+                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -831,6 +835,7 @@
             btn.textContent = 'Adding...';
 
             var serviceItemId = document.querySelector('#addServiceForm [name="service_item_id"]').value;
+            var frequency = document.querySelector('#addServiceForm [name="frequency"]').value;
 
             if (!serviceItemId) {
                 alert('Please select a service.');
@@ -846,7 +851,7 @@
                     'X-CSRF-TOKEN': '{{ csrf_token() }}',
                     'Accept': 'application/json'
                 },
-                body: JSON.stringify({ service_item_id: serviceItemId })
+                body: JSON.stringify({ service_item_id: serviceItemId, frequency: parseInt(frequency) })
             })
             .then(r => r.json())
             .then(data => {

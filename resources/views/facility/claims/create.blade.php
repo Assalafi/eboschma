@@ -427,6 +427,12 @@
                                                                             <input type="hidden"
                                                                                 name="services[{{ $index }}][service_name]"
                                                                                 value="{{ $srv['service']->name ?? 'N/A' }}">
+                                                                            <input type="hidden"
+                                                                                name="services[{{ $index }}][service_type]"
+                                                                                value="{{ $srv['service_type_name'] ?? 'Service' }}">
+                                                                            <input type="hidden"
+                                                                                name="services[{{ $index }}][service_category]"
+                                                                                value="{{ $srv['service_category_name'] ?? 'Category' }}">
                                                                         </td>
                                                                     </tr>
                                                                 @endforeach

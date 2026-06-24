@@ -73,7 +73,9 @@
                                         data-cost="{{ $item['cost'] }}"
                                         data-quantity="{{ $item['quantity'] }}"
                                         data-source="{{ $item['source_type'] }}"
-                                        data-from-facility="{{ $item['from_facility_name'] ?? '' }}">
+                                        data-from-facility="{{ $item['from_facility_name'] ?? '' }}"
+                                        data-service-type="{{ $item['service_type_name'] ?? 'Service' }}"
+                                        data-service-category="{{ $item['service_category_name'] ?? 'Category' }}">
                                 @endif
                             </td>
                         @endif

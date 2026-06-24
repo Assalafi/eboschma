@@ -299,7 +299,7 @@ class FacilityClaimController extends Controller
             'consultations.diagnoses.icdCode',
             'consultations.prescriptions.prescriptionItems.drug.dispensations',
             'actions',
-            'serviceOrders.serviceOrderItems.serviceItem'
+            'serviceOrders.serviceOrderItems.serviceItem.serviceType.serviceCategory'
         ])->findOrFail($encounterId);
 
         // Get patient details
@@ -376,7 +376,9 @@ class FacilityClaimController extends Controller
                     'item' => $orderItem,
                     'service' => $serviceItem,
                     'price' => $price,
-                    'status' => $status
+                    'status' => $status,
+                    'service_type_name' => $serviceItem->serviceType->name ?? 'Service',
+                    'service_category_name' => $serviceItem->serviceType->serviceCategory->name ?? 'Category',
                 ];
                 
                 // Only add to total if completed/approved
@@ -420,10 +422,21 @@ class FacilityClaimController extends Controller
             $patient = $encounter->patient;
             $enrolleeDetails = $patient->enrolleeDetails; // This is an accessor, not a relationship
 
-            // Calculate totals
+            // Calculate totals — split laboratory from other services
             $pharmacyAmount = collect($request->medications ?? [])->sum('amount');
-            $servicesAmount = collect($request->services ?? [])->sum('amount');
-            $totalAmount = $pharmacyAmount + $servicesAmount;
+            $laboratoryAmount = 0;
+            $servicesAmount = 0;
+            foreach ($request->services ?? [] as $svc) {
+                $amount = floatval($svc['amount'] ?? 0);
+                $isLabType = stripos($svc['service_type'] ?? '', 'lab') !== false;
+                $isLabCat = stripos($svc['service_category'] ?? '', 'lab') !== false;
+                if ($isLabType || $isLabCat) {
+                    $laboratoryAmount += $amount;
+                } else {
+                    $servicesAmount += $amount;
+                }
+            }
+            $totalAmount = $pharmacyAmount + $laboratoryAmount + $servicesAmount;
 
             // Create claim
             $claim = FacilityClaim::create([
@@ -442,6 +455,7 @@ class FacilityClaimController extends Controller
                 'claim_type' => $request->claim_type,
                 'service_date' => $encounter->visit_date,
                 'pharmacy_amount' => $pharmacyAmount,
+                'laboratory_amount' => $laboratoryAmount,
                 'services_amount' => $servicesAmount,
                 'total_amount' => $totalAmount,
                 'status' => FacilityClaim::STATUS_SUBMITTED,
@@ -492,6 +506,7 @@ class FacilityClaimController extends Controller
                         $claim->services()->create([
                             'service_order_item_id' => null, // Don't store UUID in bigint field
                             'service_name' => $service['service_name'] ?? 'N/A',
+                            'service_type' => $service['service_type'] ?? 'Service',
                             'frequency' => 1,
                             'unit_price' => $service['amount'],
                             'total_price' => $service['amount'],
@@ -640,15 +655,27 @@ class FacilityClaimController extends Controller
         try {
             DB::beginTransaction();
 
-            // Calculate new totals
+            // Calculate new totals — split laboratory from other services
             $pharmacyAmount = collect($request->medications ?? [])->sum('amount');
-            $servicesAmount = collect($request->services ?? [])->sum('amount');
-            $totalAmount = $pharmacyAmount + $servicesAmount;
+            $laboratoryAmount = 0;
+            $servicesAmount = 0;
+            foreach ($request->services ?? [] as $svc) {
+                $amount = floatval($svc['amount'] ?? 0);
+                $isLabType = stripos($svc['service_type'] ?? '', 'lab') !== false;
+                $isLabCat = stripos($svc['service_category'] ?? '', 'lab') !== false;
+                if ($isLabType || $isLabCat) {
+                    $laboratoryAmount += $amount;
+                } else {
+                    $servicesAmount += $amount;
+                }
+            }
+            $totalAmount = $pharmacyAmount + $laboratoryAmount + $servicesAmount;
 
             // Update main claim
             $claim->update([
                 'claim_type' => $request->claim_type,
                 'pharmacy_amount' => $pharmacyAmount,
+                'laboratory_amount' => $laboratoryAmount,
                 'services_amount' => $servicesAmount,
                 'total_amount' => $totalAmount,
             ]);
@@ -679,6 +706,7 @@ class FacilityClaimController extends Controller
                         $claim->services()->create([
                             'service_order_item_id' => null,
                             'service_name' => $service['service_name'] ?? 'N/A',
+                            'service_type' => $service['service_type'] ?? 'Service',
                             'frequency' => 1,
                             'unit_price' => $service['amount'],
                             'total_price' => $service['amount'],
@@ -814,7 +842,7 @@ class FacilityClaimController extends Controller
             })
             ->with([
                 'serviceOrder.encounter.patient',
-                'serviceItem',
+                'serviceItem.serviceType.serviceCategory',
             ]);
         
         if ($dateFrom) {
@@ -1018,6 +1046,8 @@ class FacilityClaimController extends Controller
                 'tab' => $tabCategory,
                 'all_drugs_dispensed' => $allDrugsDispensed,
                 'has_drugs_in_encounter' => $hasDrugsInEncounter,
+                'service_type_name' => $serviceItem->serviceType->name ?? 'Service',
+                'service_category_name' => $serviceItem->serviceType->serviceCategory->name ?? 'Category',
                 'claim_number' => null, // Will be populated for claimed items
             ]);
         }
@@ -1455,6 +1485,7 @@ class FacilityClaimController extends Controller
                 // Calculate totals for this patient
                 $pharmacyAmount = 0;
                 $servicesAmount = 0;
+                $consultationAmount = 0;
                 $drugRecords = [];
                 $serviceRecords = [];
                 
@@ -1473,14 +1504,22 @@ class FacilityClaimController extends Controller
                     }
                 }
                 
-                // Process service items for this patient
+                // Process service items for this patient — split laboratory from other services
+                $laboratoryAmount = 0;
                 foreach ($patientItems['services'] as $serviceOrderItemId => $data) {
                     $cost = floatval($data['cost'] ?? 0);
                     if ($cost > 0) {
-                        $servicesAmount += $cost;
+                        $isLabType = stripos($data['service_type_name'] ?? '', 'lab') !== false;
+                        $isLabCat = stripos($data['service_category_name'] ?? '', 'lab') !== false;
+                        if ($isLabType || $isLabCat) {
+                            $laboratoryAmount += $cost;
+                        } else {
+                            $servicesAmount += $cost;
+                        }
                         $serviceRecords[] = [
                             'service_order_item_id' => $serviceOrderItemId,
                             'service_name' => $data['service_name'] ?? 'N/A',
+                            'service_type' => $data['service_type_name'] ?? 'Service',
                             'frequency' => 1,
                             'unit_price' => $cost,
                             'total_price' => $cost,
@@ -1492,7 +1531,7 @@ class FacilityClaimController extends Controller
                 foreach (($patientItems['admin'] ?? []) as $adminItemId => $data) {
                     $cost = floatval($data['cost'] ?? 0);
                     if ($cost > 0) {
-                        $servicesAmount += $cost;
+                        $consultationAmount += $cost;
                         // Extract charge type from admin item ID (format: encounter_id_chargeType)
                         $parts = explode('_', $adminItemId);
                         $chargeType = end($parts);
@@ -1514,7 +1553,7 @@ class FacilityClaimController extends Controller
                     }
                 }
                 
-                $patientTotal = $pharmacyAmount + $servicesAmount;
+                $patientTotal = $pharmacyAmount + $laboratoryAmount + $servicesAmount + $consultationAmount;
                 
                 if ($patientTotal <= 0) {
                     continue; // Skip patients with zero total
@@ -1538,7 +1577,9 @@ class FacilityClaimController extends Controller
                     'date_of_birth' => $enrolleeDetails->date_of_birth ?? $enrolleeDetails->dob ?? null,
                     'claim_type' => $request->claim_type,
                     'service_date' => $latestEncounter ? $latestEncounter->visit_date : now(),
+                    'consultation_amount' => $consultationAmount,
                     'pharmacy_amount' => $pharmacyAmount,
+                    'laboratory_amount' => $laboratoryAmount,
                     'services_amount' => $servicesAmount,
                     'total_amount' => $patientTotal,
                     'status' => FacilityClaim::STATUS_SUBMITTED,

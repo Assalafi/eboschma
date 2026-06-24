@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <style>
-        body { font-family: Arial, sans-serif; font-size: 11px; line-height: 1.4; margin: 0; padding: 20px; }
+        body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 11px; line-height: 1.4; margin: 0; padding: 20px; }
         h2 { text-align: center; margin-bottom: 5px; font-size: 16px; }
         .report-meta { text-align: center; font-size: 10px; color: #666; margin-bottom: 20px; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
@@ -48,11 +48,11 @@
                 <tr>
                     <td>{{ \Carbon\Carbon::createFromFormat('Y-m', $m->month)->format('F Y') }}</td>
                     <td class="text-center">{{ number_format($m->claim_count) }}</td>
-                    <td class="text-end">₦{{ number_format($m->admin_charges, 2) }}</td>
-                    <td class="text-end">₦{{ number_format($m->pharmacy, 2) }}</td>
-                    <td class="text-end">₦{{ number_format($m->laboratory, 2) }}</td>
-                    <td class="text-end">₦{{ number_format($m->services, 2) }}</td>
-                    <td class="text-end total-column">₦{{ number_format($m->total_amount, 2) }}</td>
+                    <td class="text-end"><span style="font-family: 'DejaVu Sans', sans-serif;">&#8358;</span>{{ number_format($m->admin_charges, 2) }}</td>
+                    <td class="text-end"><span style="font-family: 'DejaVu Sans', sans-serif;">&#8358;</span>{{ number_format($m->pharmacy, 2) }}</td>
+                    <td class="text-end"><span style="font-family: 'DejaVu Sans', sans-serif;">&#8358;</span>{{ number_format($m->laboratory, 2) }}</td>
+                    <td class="text-end"><span style="font-family: 'DejaVu Sans', sans-serif;">&#8358;</span>{{ number_format($m->services, 2) }}</td>
+                    <td class="text-end total-column"><span style="font-family: 'DejaVu Sans', sans-serif;">&#8358;</span>{{ number_format($m->total_amount, 2) }}</td>
                 </tr>
             @empty
                 <tr>
@@ -65,11 +65,11 @@
             <tr>
                 <td>TOTAL</td>
                 <td class="text-center">{{ number_format($monthly->sum('claim_count')) }}</td>
-                <td class="text-end">₦{{ number_format($monthly->sum('admin_charges'), 2) }}</td>
-                <td class="text-end">₦{{ number_format($monthly->sum('pharmacy'), 2) }}</td>
-                <td class="text-end">₦{{ number_format($monthly->sum('laboratory'), 2) }}</td>
-                <td class="text-end">₦{{ number_format($monthly->sum('services'), 2) }}</td>
-                <td class="text-end total-column">₦{{ number_format($monthly->sum('total_amount'), 2) }}</td>
+                <td class="text-end"><span style="font-family: 'DejaVu Sans', sans-serif;">&#8358;</span>{{ number_format($monthly->sum('admin_charges'), 2) }}</td>
+                <td class="text-end"><span style="font-family: 'DejaVu Sans', sans-serif;">&#8358;</span>{{ number_format($monthly->sum('pharmacy'), 2) }}</td>
+                <td class="text-end"><span style="font-family: 'DejaVu Sans', sans-serif;">&#8358;</span>{{ number_format($monthly->sum('laboratory'), 2) }}</td>
+                <td class="text-end"><span style="font-family: 'DejaVu Sans', sans-serif;">&#8358;</span>{{ number_format($monthly->sum('services'), 2) }}</td>
+                <td class="text-end total-column"><span style="font-family: 'DejaVu Sans', sans-serif;">&#8358;</span>{{ number_format($monthly->sum('total_amount'), 2) }}</td>
             </tr>
         </tfoot>
         @endif

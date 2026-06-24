@@ -3326,6 +3326,9 @@ class ClaimController extends Controller
             }
 
             $cost = (float)($serviceItem->price ?? 0);
+            $frequency = (int)$request->input('frequency', 1);
+            if ($frequency < 1) $frequency = 1;
+            $totalCost = $cost * $frequency;
 
             DB::beginTransaction();
 
@@ -3356,8 +3359,8 @@ class ClaimController extends Controller
                 'service_type'          => $serviceItem->type ?? 'Service',
                 'service_description'   => $serviceItem->description ?? '',
                 'unit_price'            => $cost,
-                'frequency'             => 1,
-                'total_price'           => $cost,
+                'frequency'             => $frequency,
+                'total_price'           => $totalCost,
                 'notes'                 => null,
                 'created_at'            => now(),
                 'updated_at'            => now(),

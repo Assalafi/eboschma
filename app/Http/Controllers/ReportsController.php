@@ -1185,6 +1185,7 @@ class ReportsController extends Controller
         $facilityId = $request->get('facility_id');
         $dateFrom = $request->get('date_from');
         $dateTo = $request->get('date_to');
+        $search = $request->get('search');
 
         $facilities = Facility::orderBy('name')->get();
 
@@ -1212,6 +1213,15 @@ class ReportsController extends Controller
                 $query->whereDate('created_at', '<=', $dateTo);
             }
             
+            if ($search) {
+                $query->where(function($q) use ($search) {
+                    $q->where('batch_number', 'like', '%' . $search . '%')
+                      ->orWhereHas('drug', function($q2) use ($search) {
+                          $q2->where('name', 'like', '%' . $search . '%');
+                      });
+                });
+            }
+            
             $stockRecords = $query->orderBy('created_at', 'desc')->paginate(20);
             $stockRecords->appends($request->all());
 
@@ -1233,7 +1243,7 @@ class ReportsController extends Controller
         }
 
         return view('reports.pharmacy_stock', compact(
-            'facilities', 'facilityId', 'dateFrom', 'dateTo', 
+            'facilities', 'facilityId', 'dateFrom', 'dateTo', 'search',
             'globalStats', 'stockRecords', 'selectedFacility', 'facilityStats'
         ));
     }

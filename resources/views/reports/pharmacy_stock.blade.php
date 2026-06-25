@@ -124,8 +124,21 @@
                 <div class="row">
                     <div class="col-12">
                         <div class="card">
-                            <div class="card-header">
+                            <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
                                 <h3 class="card-title">Stock Records for {{ $selectedFacility->name ?? 'Facility' }}</h3>
+                                
+                                <!-- Search Bar -->
+                                <form action="{{ route('reports.pharmacy_stock') }}" method="GET" class="d-flex mt-2 mt-md-0">
+                                    <input type="hidden" name="facility_id" value="{{ $facilityId }}">
+                                    @if(request('date_from')) <input type="hidden" name="date_from" value="{{ request('date_from') }}"> @endif
+                                    @if(request('date_to')) <input type="hidden" name="date_to" value="{{ request('date_to') }}"> @endif
+                                    <div class="input-group">
+                                        <input type="text" name="search" class="form-control" placeholder="Search drug or batch..." value="{{ request('search') }}">
+                                        <button class="btn btn-primary" type="submit">
+                                            <i class="ti ti-search"></i>
+                                        </button>
+                                    </div>
+                                </form>
                             </div>
                             <div class="table-responsive">
                                 <table class="table card-table table-vcenter text-nowrap datatable">

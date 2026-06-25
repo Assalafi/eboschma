@@ -258,6 +258,7 @@
                                                 <th>Strength</th>
                                                 <th class="text-end">Quantity</th>
                                                 <th class="text-center">Store Stock</th>
+                                                <th class="text-center">Facility Stock</th>
                                                 <th class="text-center">Status</th>
                                                 <th class="text-end">Cost</th>
                                                 @if ($isBoschmaAdmin && $request->canBeApproved() && !$request->drug_id)
@@ -271,6 +272,9 @@
                                             @foreach ($request->items as $item)
                                                 @php
                                                     $itemAvailable = \App\Models\DrugStoreStock::getAvailableQuantity($item->drug_id);
+                                                    $facilityStock = \App\Models\DrugStock::where('facility_id', $request->facility_id)
+                                                        ->where('drug_id', $item->drug_id)
+                                                        ->sum('quantity_remaining');
                                                 @endphp
                                                 <tr data-item-id="{{ $item->id }}" data-original-quantity="{{ $item->quantity_requested }}" data-unit-price="{{ $item->drug->unit_price }}">
                                                     <td>
@@ -294,6 +298,9 @@
                                                         @else
                                                             <span class="text-success fw-bold">{{ number_format($itemAvailable) }}</span>
                                                         @endif
+                                                    </td>
+                                                    <td class="text-center">
+                                                        <span class="text-info fw-bold">{{ number_format($facilityStock) }}</span>
                                                     </td>
                                                     <td class="text-center">
                                                         @php
@@ -347,7 +354,6 @@
                                             <tr class="fw-bold" style="background:#f8f9fa">
                                                 <td colspan="2">Total ({{ $request->items->count() }} items)</td>
                                                 <td class="text-end" id="totalQuantity">{{ number_format($request->items->sum('quantity_requested')) }}</td>
-                                                <td></td>
                                                 <td class="text-end" id="totalCost">{{ $request->formatted_estimated_cost }}</td>
                                                 @if ($isBoschmaAdmin && $request->canBeApproved() && !$request->drug_id)
                                                     <td></td>

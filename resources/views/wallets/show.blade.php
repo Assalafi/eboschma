@@ -202,6 +202,7 @@
                                     <th>Balance After</th>
                                     <th>Drug Details</th>
                                     <th>Description</th>
+                                    <th>Action</th>
                                 </tr>
                             </thead>
                             <tbody></tbody>
@@ -235,7 +236,8 @@
                     { data: 'amount_fmt', className: 'text-end' },
                     { data: 'balance_after_fmt', className: 'text-end' },
                     { data: 'drug_info' },
-                    { data: 'description_fmt' }
+                    { data: 'description_fmt' },
+                    { data: 'action', orderable: false, searchable: false }
                 ],
                 order: [[0, 'desc']],
                 pageLength: 25,

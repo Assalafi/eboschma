@@ -217,8 +217,8 @@ class WalletController extends Controller
                     return $desc;
                 })
                 ->addColumn('action', function ($txn) {
-                    if ($txn->type === WalletTransaction::TYPE_FUNDING) {
-                        return '<a href="' . route('wallets.edit-fund', $txn->id) . '" class="btn btn-sm btn-warning" title="Edit Fund"><i class="ti-pencil"></i></a>';
+                    if ($txn->type === WalletTransaction::TYPE_DRUG_STOCK_DEDUCTION && $txn->reference) {
+                        return '<a href="' . route('drug-stock-requests.show', $txn->reference) . '" class="btn btn-sm btn-info" title="View Drug Request"><i class="ti-eye me-1"></i>View Request</a>';
                     }
                     return '';
                 })

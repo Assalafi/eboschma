@@ -29,13 +29,7 @@
     .btn-remove-item:hover { background: #dc3545; color: #fff; border-color: #dc3545; }
 
     .items-table-wrap {
-        max-height: 420px;
-        overflow-y: auto !important;
-        overflow-x: hidden !important;
-        padding-right: 1rem;
-    }
-    .items-table-wrap thead th {
-        position: static !important;
+        overflow-x: auto;
     }
 
     .status-ribbon {
@@ -181,7 +175,11 @@
             </div>
 
             <div class="row g-3">
+                @if(!$request->drug_id)
+                <div class="col-12">
+                @else
                 <div class="col-lg-8">
+                @endif
 
                     <!-- Drug Information -->
                     <div class="card mb-3">

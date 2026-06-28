@@ -2390,10 +2390,15 @@ public function getBulkIdCardJobs(Request $request)
             Excel::import($import, $request->file('excel_file'));
             
             $importedCount = $import->getImportedCount();
+            $updatedCount = $import->getUpdatedCount();
             $skippedCount = $import->getSkippedCount();
             $errors = $import->getErrors();
 
             $message = "Import completed: {$importedCount} beneficiaries imported";
+            
+            if ($updatedCount > 0) {
+                $message .= ", {$updatedCount} updated";
+            }
             
             if ($skippedCount > 0) {
                 $message .= ", {$skippedCount} skipped";
@@ -2403,8 +2408,9 @@ public function getBulkIdCardJobs(Request $request)
                 ->with('success', $message)
                 ->with('import_results', [
                     'imported' => $importedCount,
+                    'updated' => $updatedCount,
                     'skipped' => $skippedCount,
-                    'total' => $importedCount + $skippedCount,
+                    'total' => $importedCount + $updatedCount + $skippedCount,
                     'errors' => array_slice($errors, 0, 20), // Limit errors shown
                 ]);
                 

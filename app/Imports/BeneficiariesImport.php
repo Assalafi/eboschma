@@ -17,6 +17,7 @@ class BeneficiariesImport implements ToModel, WithHeadingRow, WithValidation, Sk
     protected $state;
     protected $lga;
     protected $importedCount = 0;
+    protected $updatedCount = 0;
     protected $skippedCount = 0;
     protected $errors = [];
 
@@ -45,21 +46,59 @@ class BeneficiariesImport implements ToModel, WithHeadingRow, WithValidation, Sk
             return null;
         }
 
-        // Check if boschma_no already exists
-        if (Beneficiary::where('boschma_no', $boschmaNo)->exists()) {
-            $this->skippedCount++;
-            $this->errors[] = "Row skipped: BOSCHMA number '{$boschmaNo}' already exists";
-            return null;
-        }
-
-        // Check if NIN already exists (if provided)
         $nin = $this->cleanStringField($row['nin'] ?? null);
-        if (!empty($nin) && Beneficiary::where('nin', $nin)->exists()) {
-            $this->skippedCount++;
-            $this->errors[] = "Row skipped: NIN '{$nin}' already exists";
-            return null;
+
+        // Check if boschma_no already exists - update it
+        $beneficiary = Beneficiary::where('boschma_no', $boschmaNo)->first();
+        
+        if ($beneficiary) {
+            // Update existing beneficiary
+            $beneficiary->update([
+                'fullname' => $this->cleanStringField($row['name'] ?? null) ?? $beneficiary->fullname,
+                'date_of_birth' => $this->parseDate($row['dob'] ?? null) ?? $beneficiary->date_of_birth,
+                'gender' => $this->cleanGender($row['gender'] ?? null) ?? $beneficiary->gender,
+                'phone_no' => $this->cleanStringField($row['phone'] ?? null) ?? $beneficiary->phone_no,
+                'nin' => $nin ?? $beneficiary->nin,
+                'marital_status' => $this->cleanStringField($row['marital_status'] ?? null) ?? $beneficiary->marital_status,
+                'ethnicity' => $this->cleanStringField($row['tribe'] ?? null) ?? $beneficiary->ethnicity,
+                'religion' => $this->cleanStringField($row['religion'] ?? null) ?? $beneficiary->religion,
+                'category' => $this->cleanStringField($row['category'] ?? null) ?? $beneficiary->category,
+                'program_id' => $this->programId,
+                'facility_id' => $this->facilityId,
+                'state' => $this->state,
+                'lga' => $this->lga,
+                'updated_by' => Auth::guard('staff')->id(),
+            ]);
+            $this->updatedCount++;
+            return null; // Return null since we're updating, not creating
         }
 
+        // Check if NIN already exists (if provided) - update it
+        if (!empty($nin)) {
+            $beneficiaryByNin = Beneficiary::where('nin', $nin)->first();
+            if ($beneficiaryByNin) {
+                $beneficiaryByNin->update([
+                    'boschma_no' => $boschmaNo,
+                    'fullname' => $this->cleanStringField($row['name'] ?? null) ?? $beneficiaryByNin->fullname,
+                    'date_of_birth' => $this->parseDate($row['dob'] ?? null) ?? $beneficiaryByNin->date_of_birth,
+                    'gender' => $this->cleanGender($row['gender'] ?? null) ?? $beneficiaryByNin->gender,
+                    'phone_no' => $this->cleanStringField($row['phone'] ?? null) ?? $beneficiaryByNin->phone_no,
+                    'marital_status' => $this->cleanStringField($row['marital_status'] ?? null) ?? $beneficiaryByNin->marital_status,
+                    'ethnicity' => $this->cleanStringField($row['tribe'] ?? null) ?? $beneficiaryByNin->ethnicity,
+                    'religion' => $this->cleanStringField($row['religion'] ?? null) ?? $beneficiaryByNin->religion,
+                    'category' => $this->cleanStringField($row['category'] ?? null) ?? $beneficiaryByNin->category,
+                    'program_id' => $this->programId,
+                    'facility_id' => $this->facilityId,
+                    'state' => $this->state,
+                    'lga' => $this->lga,
+                    'updated_by' => Auth::guard('staff')->id(),
+                ]);
+                $this->updatedCount++;
+                return null; // Return null since we're updating, not creating
+            }
+        }
+
+        // Create new beneficiary
         $this->importedCount++;
 
         return new Beneficiary([
@@ -164,6 +203,14 @@ class BeneficiariesImport implements ToModel, WithHeadingRow, WithValidation, Sk
     public function getImportedCount()
     {
         return $this->importedCount;
+    }
+
+    /**
+     * Get the count of updated records.
+     */
+    public function getUpdatedCount()
+    {
+        return $this->updatedCount;
     }
 
     /**

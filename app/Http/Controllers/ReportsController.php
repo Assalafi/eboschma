@@ -19,6 +19,7 @@ use App\Exports\MonthlyEnrollmentsExport;
 use App\Exports\CategoryEnrollmentsExport;
 use App\Exports\StatusEnrollmentsExport;
 use App\Exports\BeneficiariesReportExport;
+use App\Exports\AllFacilitiesEnrollmentsExport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -1355,6 +1356,192 @@ class ReportsController extends Controller
             'facilities', 'programs', 'lgas', 'programId', 'selectedProgram',
             'totalPrincipals', 'totalSpouses', 'totalChildren', 'totalEnrollments', 'programStats'
         ));
+    }
+
+    public function exportAllFacilitiesEnrollments(Request $request)
+    {
+        $programId = $request->get('program_id');
+        $lga       = $request->get('lga');
+        $gender    = $request->get('gender');
+        $dateFrom  = $request->get('date_from');
+        $dateTo    = $request->get('date_to');
+
+        $program       = $programId ? \App\Models\Program::find($programId) : null;
+        $programSuffix = $program ? '_' . str_replace([' ', '/'], '_', $program->name) : '';
+        $lgaSuffix     = $lga ? '_' . str_replace([' ', '/'], '_', $lga) : '';
+        $genderSuffix  = $gender ? '_' . $gender : '';
+        $dateSuffix    = '';
+        if ($dateFrom || $dateTo) {
+            $dateSuffix = '_' . ($dateFrom ?: 'start') . '_to_' . ($dateTo ?: 'end');
+        }
+
+        $filename = 'all_facilities_enrollments' . $programSuffix . $lgaSuffix . $genderSuffix . $dateSuffix . '_' . date('Y-m-d_H-i-s') . '.csv';
+        $filename  = str_replace(['/', '\\'], '-', $filename);
+
+        $dateFromSql = $dateFrom ? $dateFrom . ' 00:00:00' : null;
+        $dateToSql   = $dateTo   ? $dateTo   . ' 23:59:59' : null;
+
+        // Stream CSV directly to output — constant memory use regardless of row count
+        return response()->streamDownload(function () use ($programId, $lga, $gender, $dateFromSql, $dateToSql) {
+            set_time_limit(0);
+
+            $out = fopen('php://output', 'w');
+
+            // UTF-8 BOM so Excel opens it correctly
+            fwrite($out, "\xEF\xBB\xBF");
+
+            fputcsv($out, [
+                'Type', 'BOSCHMA ID', 'Full Name', 'Gender', 'Date of Birth',
+                'NIN', 'Category', 'Occupation', 'Marital Status',
+                'Facility', 'Facility LGA', 'Phone', 'Email', 'Address',
+                'Status', 'Enrolled By', 'Created At',
+            ]);
+
+            // ── Beneficiaries ────────────────────────────────────────────────
+            $bQuery = DB::table('beneficiaries as b')
+                ->leftJoin('facilities as f', 'f.id', '=', 'b.facility_id')
+                ->leftJoin('staff as s', 's.id', '=', 'b.created_by')
+                ->select([
+                    DB::raw("'Beneficiary' as record_type"),
+                    'b.boschma_no', 'b.fullname as full_name', 'b.gender', 'b.date_of_birth as dob',
+                    'b.nin', 'b.category', 'b.occupation', 'b.marital_status',
+                    'f.name as facility_name', 'f.lga as facility_lga',
+                    'b.phone_no as phone', 'b.email', 'b.contact_address as address',
+                    'b.status', 's.fullname as enrolled_by', 'b.created_at',
+                ])
+                ->where('b.status', '!=', 'draft');
+
+            if ($programId) $bQuery->where('b.program_id', $programId);
+            if ($lga)       $bQuery->where('f.lga', $lga);
+            if ($gender)    $bQuery->where('b.gender', $gender);
+            if ($dateFromSql && $dateToSql) $bQuery->whereBetween('b.created_at', [$dateFromSql, $dateToSql]);
+
+            $bQuery->orderBy('f.name')->orderBy('b.created_at')->chunk(1000, function ($rows) use ($out) {
+                foreach ($rows as $row) {
+                    fputcsv($out, [
+                        'Beneficiary',
+                        $row->boschma_no     ?? '',
+                        $row->full_name      ?? '',
+                        $row->gender         ?? '',
+                        $row->dob            ?? '',
+                        $row->nin            ?? '',
+                        $row->category       ?? '',
+                        $row->occupation     ?? '',
+                        $row->marital_status ?? '',
+                        $row->facility_name  ?? '',
+                        $row->facility_lga   ?? '',
+                        $row->phone          ?? '',
+                        $row->email          ?? '',
+                        $row->address        ?? '',
+                        ucfirst($row->status ?? ''),
+                        $row->enrolled_by    ?? '',
+                        $row->created_at     ?? '',
+                    ]);
+                }
+                ob_flush(); flush();
+            });
+
+            // ── Spouses ──────────────────────────────────────────────────────
+            $sQuery = DB::table('spouses as sp')
+                ->leftJoin('beneficiaries as b', 'b.id', '=', 'sp.beneficiary_id')
+                ->leftJoin('facilities as f', 'f.id', '=', 'sp.facility_id')
+                ->leftJoin('staff as s', 's.id', '=', 'b.created_by')
+                ->select([
+                    DB::raw("'Spouse' as record_type"),
+                    'sp.boschma_no',
+                    DB::raw("sp.name as full_name"),
+                    'sp.gender', 'sp.dob',
+                    'sp.nin',
+                    DB::raw("'N/A' as category"),
+                    DB::raw("'N/A' as occupation"),
+                    DB::raw("'Married' as marital_status"),
+                    'f.name as facility_name', 'f.lga as facility_lga',
+                    'sp.phone', 'sp.email',
+                    DB::raw("'N/A' as address"),
+                    'b.status', 's.fullname as enrolled_by', 'sp.created_at',
+                ]);
+
+            if ($programId) $sQuery->where('b.program_id', $programId);
+            if ($lga)       $sQuery->where('f.lga', $lga);
+            if ($gender)    $sQuery->where('sp.gender', $gender);
+            if ($dateFromSql && $dateToSql) $sQuery->whereBetween('b.created_at', [$dateFromSql, $dateToSql]);
+
+            $sQuery->orderBy('f.name')->orderBy('sp.created_at')->chunk(1000, function ($rows) use ($out) {
+                foreach ($rows as $row) {
+                    fputcsv($out, [
+                        'Spouse',
+                        $row->boschma_no    ?? '',
+                        $row->full_name     ?? '',
+                        $row->gender        ?? '',
+                        $row->dob           ?? '',
+                        $row->nin           ?? '',
+                        'N/A', 'N/A', 'Married',
+                        $row->facility_name ?? '',
+                        $row->facility_lga  ?? '',
+                        $row->phone         ?? '',
+                        $row->email         ?? '',
+                        'N/A',
+                        ucfirst($row->status ?? ''),
+                        $row->enrolled_by   ?? '',
+                        $row->created_at    ?? '',
+                    ]);
+                }
+                ob_flush(); flush();
+            });
+
+            // ── Children ─────────────────────────────────────────────────────
+            $cQuery = DB::table('children as ch')
+                ->leftJoin('beneficiaries as b', 'b.id', '=', 'ch.beneficiary_id')
+                ->leftJoin('facilities as f', 'f.id', '=', 'ch.facility_id')
+                ->leftJoin('staff as s', 's.id', '=', 'b.created_by')
+                ->select([
+                    DB::raw("'Child' as record_type"),
+                    'ch.boschma_no',
+                    DB::raw("ch.name as full_name"),
+                    'ch.gender', 'ch.dob',
+                    'ch.nin',
+                    DB::raw("'N/A' as category"),
+                    DB::raw("'N/A' as occupation"),
+                    DB::raw("'Single' as marital_status"),
+                    'f.name as facility_name', 'f.lga as facility_lga',
+                    DB::raw("'N/A' as phone"),
+                    DB::raw("'N/A' as email"),
+                    DB::raw("'N/A' as address"),
+                    'b.status', 's.fullname as enrolled_by', 'ch.created_at',
+                ]);
+
+            if ($programId) $cQuery->where('b.program_id', $programId);
+            if ($lga)       $cQuery->where('f.lga', $lga);
+            if ($gender)    $cQuery->where('ch.gender', $gender);
+            if ($dateFromSql && $dateToSql) $cQuery->whereBetween('b.created_at', [$dateFromSql, $dateToSql]);
+
+            $cQuery->orderBy('f.name')->orderBy('ch.created_at')->chunk(1000, function ($rows) use ($out) {
+                foreach ($rows as $row) {
+                    fputcsv($out, [
+                        'Child',
+                        $row->boschma_no    ?? '',
+                        $row->full_name     ?? '',
+                        $row->gender        ?? '',
+                        $row->dob           ?? '',
+                        $row->nin           ?? '',
+                        'N/A', 'N/A', 'Single',
+                        $row->facility_name ?? '',
+                        $row->facility_lga  ?? '',
+                        'N/A', 'N/A', 'N/A',
+                        ucfirst($row->status ?? ''),
+                        $row->enrolled_by   ?? '',
+                        $row->created_at    ?? '',
+                    ]);
+                }
+                ob_flush(); flush();
+            });
+
+            fclose($out);
+        }, $filename, [
+            'Content-Type'        => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'X-Accel-Buffering'   => 'no',
+        ]);
     }
 
     public function exportBeneficiaries(Request $request)

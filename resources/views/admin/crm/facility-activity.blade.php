@@ -141,9 +141,8 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     @endphp
+    // No date params — live queue shows ALL active encounters regardless of date
     const baseParams = {
-        date_from: '{{ \Carbon\Carbon::now()->subYears(3)->toDateString() }}',
-        date_to: '{{ \Carbon\Carbon::today()->toDateString() }}',
         @if($isCustomerCare && !empty($facilityIds))
         'facility_id[]': @json($facilityIds),
         @endif

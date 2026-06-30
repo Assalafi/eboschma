@@ -827,6 +827,7 @@ class EhrReportController extends Controller
             $facilityId = explode(',', $facilityId);
         }
         $programId  = $request->get('program_id');
+        $hasDateFilter = $request->has('date_from') && $request->has('date_to');
         $dateFrom   = $request->get('date_from', Carbon::now()->subDays(90)->toDateString());
         $dateTo     = $request->get('date_to', Carbon::now()->toDateString());
         $status     = $request->get('status');
@@ -1227,7 +1228,7 @@ class EhrReportController extends Controller
                         return is_array($facilityId) ? $q->whereIn('e.facility_id', $facilityId) : $q->where('e.facility_id', $facilityId);
                     })
                     ->when($programId, fn($q) => $q->where('e.program_id', $programId))
-                    ->whereBetween('e.visit_date', $dateRange);
+                    ->when($hasDateFilter, fn($q) => $q->whereBetween('e.visit_date', $dateRange));
                 $consultationStatuses = ['In Consultation', 'in_progress', 'In Progress', 'Consultation'];
                 if ($status === 'active') {
                     $query = $query->whereNotIn('e.status', ['Completed', 'Cancelled']);

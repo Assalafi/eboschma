@@ -96,6 +96,32 @@
                         </div>
                     </div>
 
+                    <form method="GET" action="{{ route('staff.index') }}" class="mb-4">
+                        <div class="input-group" style="max-width: 420px;">
+                            <input type="text"
+                                   name="search"
+                                   class="form-control"
+                                   placeholder="Search by name, email or phone..."
+                                   value="{{ $search }}"
+                                   autocomplete="off">
+                            <div class="input-group-append">
+                                <button type="submit" class="btn btn-primary" style="background-color: #01542B; border-color: #01542B;">
+                                    <i class="fe fe-search"></i>
+                                </button>
+                                @if($search)
+                                <a href="{{ route('staff.index') }}" class="btn btn-outline-secondary" title="Clear search">
+                                    <i class="fe fe-x"></i>
+                                </a>
+                                @endif
+                            </div>
+                        </div>
+                        @if($search)
+                        <small class="text-muted mt-1 d-block">
+                            Showing results for <strong>"{{ $search }}"</strong> &mdash; {{ $staff->total() }} found
+                        </small>
+                        @endif
+                    </form>
+
                     @if(session('success'))
                         <div class="alert alert-success alert-dismissible fade show" role="alert">
                             <i class="fe fe-check-circle"></i> {{ session('success') }}

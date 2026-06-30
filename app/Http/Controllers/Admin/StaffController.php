@@ -13,10 +13,22 @@ class StaffController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $staff = Staff::with('roles')->paginate(15);
-        return view('admin.staff.index', compact('staff'));
+        $search = trim($request->get('search', ''));
+
+        $staff = Staff::with('roles')
+            ->when($search, function ($query) use ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('fullname', 'like', '%' . $search . '%')
+                      ->orWhere('email',    'like', '%' . $search . '%')
+                      ->orWhere('phone',    'like', '%' . $search . '%');
+                });
+            })
+            ->paginate(15)
+            ->withQueryString();
+
+        return view('admin.staff.index', compact('staff', 'search'));
     }
 
     /**

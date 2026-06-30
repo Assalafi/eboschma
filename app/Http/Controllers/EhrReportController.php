@@ -538,7 +538,7 @@ class EhrReportController extends Controller
             ->where(function($q) use ($applyFacilityDirect, $facilityId) { return $applyFacilityDirect($q, $facilityId); })
             ->when($programId, fn($q) => $q->where('program_id', $programId))
             ->whereBetween('visit_date', ["$dateFrom 00:00:00", "$dateTo 23:59:59"])
-            ->where('status', 'In Consultation')
+            ->whereIn('status', ['In Consultation', 'in_progress', 'In Progress', 'Consultation'])
             ->count();
 
         $triaged = DB::table('encounters')
@@ -561,11 +561,11 @@ class EhrReportController extends Controller
             ->select('e.facility_id', 'f.name as facility_name',
                 DB::raw("SUM(CASE WHEN e.status = 'Registered' THEN 1 ELSE 0 END) as registered"),
                 DB::raw("SUM(CASE WHEN e.status = 'Triaged' THEN 1 ELSE 0 END) as triaged"),
-                DB::raw("SUM(CASE WHEN e.status = 'In Consultation' THEN 1 ELSE 0 END) as in_consultation"))
+                DB::raw("SUM(CASE WHEN e.status IN ('In Consultation','in_progress','In Progress','Consultation') THEN 1 ELSE 0 END) as in_consultation"))
             ->where(function($q) use ($applyFacility, $facilityId) { return $applyFacility($q, $facilityId); })
             ->when($programId, fn($q) => $q->where('e.program_id', $programId))
             ->whereBetween('e.visit_date', ["$dateFrom 00:00:00", "$dateTo 23:59:59"])
-            ->whereIn('e.status', ['Registered', 'Triaged', 'In Consultation'])
+            ->whereIn('e.status', ['Registered', 'Triaged', 'In Consultation', 'in_progress', 'In Progress', 'Consultation'])
             ->groupBy('e.facility_id', 'f.name')
             ->get()
             ->keyBy('facility_id');
@@ -1228,8 +1228,12 @@ class EhrReportController extends Controller
                     })
                     ->when($programId, fn($q) => $q->where('e.program_id', $programId))
                     ->whereBetween('e.visit_date', $dateRange);
+                $consultationStatuses = ['In Consultation', 'in_progress', 'In Progress', 'Consultation'];
                 if ($status === 'active') {
-                    $query = $query->where('e.status', '!=', 'Completed')->where('e.status', '!=', 'Cancelled');
+                    $query = $query->whereNotIn('e.status', ['Completed', 'Cancelled']);
+                } elseif (in_array($status, $consultationStatuses)) {
+                    // All status values that represent a patient with a doctor
+                    $query = $query->whereIn('e.status', $consultationStatuses);
                 } elseif ($status) {
                     $query = $query->where('e.status', $status);
                 }

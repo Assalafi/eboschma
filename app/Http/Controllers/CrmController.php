@@ -1136,54 +1136,56 @@ class CrmController extends Controller
     public function facilityActivity(Request $request)
     {
         $facilityIds = $this->getCustomerCareFacilityIds();
-        $dateLimit = now()->subDays(15)->startOfDay();
 
-        // Awaiting Pharmacy: pending prescriptions count
+        // All status values that represent a patient "in consultation" with a doctor
+        $consultationStatuses = ['In Consultation', 'in_progress', 'In Progress', 'Consultation'];
+
+        // All statuses that represent an active (non-terminal) encounter in the queue
+        $activeStatuses = array_merge(['Registered', 'Triaged'], $consultationStatuses);
+
+        // Awaiting Pharmacy: pending prescriptions on any non-terminal encounter
         $awaitingPharmacy = DB::table('prescriptions as p')
             ->join('clinical_consultations as cc', 'p.clinical_consultation_id', '=', 'cc.id')
             ->join('encounters as e', 'cc.encounter_id', '=', 'e.id')
             ->when($facilityIds !== null, fn($q) => $q->whereIn('e.facility_id', $facilityIds))
-            ->where('e.visit_date', '>=', $dateLimit)
+            ->whereNotIn('e.status', ['Completed', 'Cancelled'])
             ->where('p.status', 'Pending')
             ->count();
 
-        // Awaiting Lab: pending/authorized lab order items count
+        // Awaiting Lab: pending/authorized lab order items on any non-terminal encounter
         $awaitingLab = DB::table('service_order_items as soi')
             ->join('service_orders as so', 'soi.service_order_id', '=', 'so.id')
             ->join('encounters as e', 'so.encounter_id', '=', 'e.id')
             ->when($facilityIds !== null, fn($q) => $q->whereIn('e.facility_id', $facilityIds))
-            ->where('e.visit_date', '>=', $dateLimit)
+            ->whereNotIn('e.status', ['Completed', 'Cancelled'])
             ->whereIn('soi.status', ['pending', 'authorized'])
             ->count();
 
+        // In Consultation: any status that means the patient is with a doctor
         $inConsultation = DB::table('encounters')
             ->when($facilityIds !== null, fn($q) => $q->whereIn('facility_id', $facilityIds))
-            ->where('visit_date', '>=', $dateLimit)
-            ->where('status', 'In Consultation')
+            ->whereIn('status', $consultationStatuses)
             ->count();
 
         $triaged = DB::table('encounters')
             ->when($facilityIds !== null, fn($q) => $q->whereIn('facility_id', $facilityIds))
-            ->where('visit_date', '>=', $dateLimit)
             ->where('status', 'Triaged')
             ->count();
 
         $registered = DB::table('encounters')
             ->when($facilityIds !== null, fn($q) => $q->whereIn('facility_id', $facilityIds))
-            ->where('visit_date', '>=', $dateLimit)
             ->where('status', 'Registered')
             ->count();
 
-        // Get base facility stats
+        // Get base facility stats — all active encounters grouped by facility
         $baseFacilityStats = DB::table('encounters as e')
             ->join('facilities as f', 'e.facility_id', '=', 'f.id')
             ->select('e.facility_id', 'f.name as facility_name',
                 DB::raw("SUM(CASE WHEN e.status = 'Registered' THEN 1 ELSE 0 END) as registered"),
                 DB::raw("SUM(CASE WHEN e.status = 'Triaged' THEN 1 ELSE 0 END) as triaged"),
-                DB::raw("SUM(CASE WHEN e.status = 'In Consultation' THEN 1 ELSE 0 END) as in_consultation"))
+                DB::raw("SUM(CASE WHEN e.status IN ('In Consultation','in_progress','In Progress','Consultation') THEN 1 ELSE 0 END) as in_consultation"))
             ->when($facilityIds !== null, fn($q) => $q->whereIn('e.facility_id', $facilityIds))
-            ->where('e.visit_date', '>=', $dateLimit)
-            ->whereIn('e.status', ['Registered', 'Triaged', 'In Consultation'])
+            ->whereIn('e.status', $activeStatuses)
             ->groupBy('e.facility_id', 'f.name')
             ->get()
             ->keyBy('facility_id');
@@ -1194,7 +1196,7 @@ class CrmController extends Controller
             ->join('encounters as e', 'cc.encounter_id', '=', 'e.id')
             ->select('e.facility_id', DB::raw('COUNT(*) as awaiting_pharmacy'))
             ->when($facilityIds !== null, fn($q) => $q->whereIn('e.facility_id', $facilityIds))
-            ->where('e.visit_date', '>=', $dateLimit)
+            ->whereNotIn('e.status', ['Completed', 'Cancelled'])
             ->where('p.status', 'Pending')
             ->groupBy('e.facility_id')
             ->get()
@@ -1206,7 +1208,7 @@ class CrmController extends Controller
             ->join('encounters as e', 'so.encounter_id', '=', 'e.id')
             ->select('e.facility_id', DB::raw('COUNT(*) as awaiting_lab'))
             ->when($facilityIds !== null, fn($q) => $q->whereIn('e.facility_id', $facilityIds))
-            ->where('e.visit_date', '>=', $dateLimit)
+            ->whereNotIn('e.status', ['Completed', 'Cancelled'])
             ->whereIn('soi.status', ['pending', 'authorized'])
             ->groupBy('e.facility_id')
             ->get()

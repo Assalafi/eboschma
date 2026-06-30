@@ -142,7 +142,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     @endphp
     const baseParams = {
-        date_from: '{{ \Carbon\Carbon::now()->subDays(15)->toDateString() }}',
+        date_from: '{{ \Carbon\Carbon::now()->subYears(3)->toDateString() }}',
         date_to: '{{ \Carbon\Carbon::today()->toDateString() }}',
         @if($isCustomerCare && !empty($facilityIds))
         'facility_id[]': @json($facilityIds),

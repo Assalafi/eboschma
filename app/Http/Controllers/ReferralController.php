@@ -78,16 +78,34 @@ class ReferralController extends Controller
                     return '<span class="text-muted">General Referral</span>';
                 })
                 ->addColumn('status_badge', function($referral) {
-                    return $referral->status_badge;
+                    $badges = $referral->status_badge;
+                    
+                    if ($referral->approval_status === 'approved') {
+                        $badges .= ' <span class="badge bg-success mt-1">Approved</span>';
+                    } elseif ($referral->approval_status === 'rejected') {
+                        $badges .= ' <span class="badge bg-danger mt-1">Rejected</span>';
+                    } else {
+                        $badges .= ' <span class="badge bg-warning mt-1">Pending Approval</span>';
+                    }
+                    
+                    return $badges;
                 })
                 ->addColumn('date', function($referral) {
                     return $referral->created_at->format('d M Y H:i');
                 })
                 ->addColumn('action', function($referral) {
-                    return '<a href="' . route('referrals.show', $referral->id) . '" 
-                                class="btn btn-sm btn-info" title="View Details">
-                                <i class="ti-eye"></i> View
-                            </a>';
+                    $actions = '<div class="btn-group">';
+                    $actions .= '<a href="' . route('referrals.show', $referral->id) . '" class="btn btn-sm btn-info" title="View Details"><i class="ti-eye"></i></a>';
+                    $actions .= '<a href="' . route('referrals.pdf', $referral->id) . '" class="btn btn-sm btn-primary" title="Download PDF" target="_blank"><i class="ti-download"></i></a>';
+                    
+                    if (Auth::user()->hasRole('Admin') || Auth::user()->hasRole('Super Admin')) {
+                        if ($referral->approval_status === 'pending') {
+                            $actions .= '<form action="'.route('referrals.approve', $referral->id).'" method="POST" style="display:inline;" onsubmit="return confirm(\'Approve this referral?\');">'.csrf_field().'<button type="submit" class="btn btn-sm btn-success" title="Approve"><i class="ti-check"></i></button></form>';
+                            $actions .= '<button type="button" class="btn btn-sm btn-danger" title="Reject" onclick="showRejectModal('.$referral->id.')"><i class="ti-close"></i></button>';
+                        }
+                    }
+                    $actions .= '</div>';
+                    return $actions;
                 })
                 ->rawColumns(['referral_info', 'patient_info', 'facility_info', 'reason', 'status_badge', 'action'])
                 ->make(true);
@@ -96,9 +114,9 @@ class ReferralController extends Controller
         // Get statistics for all referrals (admin sees everything)
         $stats = [
             'total' => ServiceReferral::count(),
-            'accepted' => ServiceReferral::where('status', ServiceReferral::STATUS_ACCEPTED)->count(),
-            'completed' => ServiceReferral::where('status', ServiceReferral::STATUS_COMPLETED)->count(),
-            'pending' => ServiceReferral::where('status', ServiceReferral::STATUS_PENDING)->count(),
+            'accepted' => ServiceReferral::where('approval_status', 'approved')->count(),
+            'completed' => ServiceReferral::where('status', '!=', 'pending')->count(),
+            'pending' => ServiceReferral::where('approval_status', 'pending')->count(),
         ];
 
         return view('referrals.index', compact('stats'));
@@ -208,5 +226,50 @@ class ReferralController extends Controller
             'servicesTotal',
             'totalAmount'
         ));
+    }
+
+    public function approve(Request $request, $id)
+    {
+        $referral = ServiceReferral::findOrFail($id);
+        $referral->approval_status = 'approved';
+        $referral->approved_by = Auth::id();
+        $referral->approved_at = now();
+        $referral->save();
+
+        return redirect()->back()->with('success', 'Referral approved successfully.');
+    }
+
+    public function reject(Request $request, $id)
+    {
+        $request->validate([
+            'rejection_reason' => 'required|string|max:1000'
+        ]);
+
+        $referral = ServiceReferral::findOrFail($id);
+        $referral->approval_status = 'rejected';
+        $referral->rejected_by = Auth::id();
+        $referral->rejected_at = now();
+        $referral->rejection_reason = $request->rejection_reason;
+        $referral->save();
+
+        return redirect()->back()->with('success', 'Referral rejected successfully.');
+    }
+
+    public function downloadPdf($id)
+    {
+        $referral = ServiceReferral::with([
+            'encounter.patient',
+            'fromFacility',
+            'toFacility',
+            'authorization',
+            'encounter.consultations.diagnoses.icdCode',
+        ])->findOrFail($id);
+
+        $data = [
+            'referral' => $referral,
+        ];
+
+        $pdf = app('dompdf.wrapper')->loadView('referrals._referral_pdf', $data);
+        return $pdf->download("referral_{$id}.pdf");
     }
 }

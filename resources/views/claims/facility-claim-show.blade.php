@@ -63,6 +63,15 @@
                 <a href="#" onclick="window.print()" class="btn btn-sm btn-outline-primary">
                     <i class="ti-printer"></i> Print
                 </a>
+                @if (auth()->user()->can('claim.delete'))
+                    <form action="{{ route('claims.facility-claim.destroy', $claim->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this claim?');">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="btn btn-sm btn-danger" title="Delete Claim">
+                            <i class="ti-trash"></i> Delete
+                        </button>
+                    </form>
+                @endif
             </div>
         </div>
 

@@ -307,6 +307,15 @@
                                                     class="btn btn-sm btn-primary" title="View Claim">
                                                     <i class="ti-eye"></i>
                                                 </a>
+                                                @if (auth()->user()->can('claim.delete'))
+                                                    <form action="{{ route('claims.facility-claim.destroy', $claim->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this claim?');">
+                                                        @csrf
+                                                        @method('DELETE')
+                                                        <button type="submit" class="btn btn-sm btn-danger" title="Delete Claim">
+                                                            <i class="ti-trash"></i>
+                                                        </button>
+                                                    </form>
+                                                @endif
                                             </div>
                                         </td>
                                     </tr>

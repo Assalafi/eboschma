@@ -16,10 +16,57 @@
             </div>
             <div class="page-rightheader">
                 <div class="btn-list">
+                    @if(auth()->user()->hasRole('Admin') || auth()->user()->hasRole('Super Admin'))
+                        @if($referral->approval_status === 'pending')
+                            <form action="{{ route('referrals.approve', $referral->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to approve this referral?');">
+                                @csrf
+                                <button type="submit" class="btn btn-success">
+                                    <i class="ti-check mr-1"></i> Approve
+                                </button>
+                            </form>
+                            <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#rejectModal">
+                                <i class="ti-close mr-1"></i> Reject
+                            </button>
+                        @endif
+                    @endif
+                    
+                    <a href="{{ route('referrals.pdf', $referral->id) }}" class="btn btn-primary" target="_blank">
+                        <i class="ti-download mr-1"></i> Download PDF
+                    </a>
+                    
+                    <button type="button" class="btn btn-info" onclick="window.print()">
+                        <i class="ti-printer mr-1"></i> Print
+                    </button>
+                    
                     <a href="{{ route('referrals.index') }}" class="btn btn-secondary">
                         <i class="ti-arrow-left mr-1"></i> Back to List
                     </a>
                 </div>
+            </div>
+        </div>
+
+        <!-- Reject Modal -->
+        <div class="modal fade" id="rejectModal" tabindex="-1" aria-labelledby="rejectModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <form action="{{ route('referrals.reject', $referral->id) }}" method="POST">
+                    @csrf
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="rejectModalLabel">Reject Referral</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="form-group">
+                                <label for="rejection_reason">Rejection Reason <span class="text-danger">*</span></label>
+                                <textarea name="rejection_reason" id="rejection_reason" class="form-control" rows="3" required></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-danger">Confirm Rejection</button>
+                        </div>
+                    </div>
+                </form>
             </div>
         </div>
 
@@ -151,7 +198,16 @@
                                                     </tr>
                                                     <tr>
                                                         <th>Status:</th>
-                                                        <td>{!! $referral->status_badge !!}</td>
+                                                        <td>
+                                                            {!! $referral->status_badge !!}
+                                                            @if($referral->approval_status === 'approved')
+                                                                <span class="badge bg-success ms-1">Approved</span>
+                                                            @elseif($referral->approval_status === 'rejected')
+                                                                <span class="badge bg-danger ms-1">Rejected</span>
+                                                            @else
+                                                                <span class="badge bg-warning ms-1">Pending Approval</span>
+                                                            @endif
+                                                        </td>
                                                     </tr>
                                                     <tr>
                                                         <th>Created:</th>

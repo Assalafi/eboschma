@@ -160,6 +160,38 @@
                     }
                 });
             });
+
+            function showRejectModal(id) {
+                var form = document.getElementById('rejectForm');
+                form.action = '/referrals/' + id + '/reject';
+                var modal = new bootstrap.Modal(document.getElementById('rejectModal'));
+                modal.show();
+            }
         </script>
+        
+        <!-- Reject Modal -->
+        <div class="modal fade" id="rejectModal" tabindex="-1" aria-labelledby="rejectModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <form id="rejectForm" method="POST">
+                    @csrf
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="rejectModalLabel">Reject Referral</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="form-group">
+                                <label for="rejection_reason">Rejection Reason <span class="text-danger">*</span></label>
+                                <textarea name="rejection_reason" class="form-control" rows="3" required></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-danger">Confirm Rejection</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
     @endpush
 @endsection

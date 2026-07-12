@@ -530,7 +530,7 @@ Route::middleware(['auth:staff,web'])->group(function () {
     Route::middleware(['permission:referral.view,staff'])->group(function () {
         Route::get('referrals', [ReferralController::class, 'index'])->name('referrals.index');
         Route::get('referrals/{referral}', [ReferralController::class, 'show'])->name('referrals.show');
-        Route::get('referrals/{referral}/print', [ReferralController::class, 'print'])->name('referrals.print');
+        Route::get('referrals/{referral}/pdf', [ReferralController::class, 'downloadPdf'])->name('referrals.pdf');
         Route::get('referrals/analytics', [ReferralController::class, 'analytics'])->name('referrals.analytics');
         Route::get('referrals/settings', [ReferralController::class, 'settings'])->name('referrals.settings');
         Route::get('referrals/export', [ReferralController::class, 'export'])->name('referrals.export');
@@ -681,6 +681,7 @@ Route::middleware(['auth:staff,web'])->group(function () {
 
     Route::middleware(['permission:claim.delete'])->group(function () {
         Route::delete('claims/{id}', [ClaimController::class, 'destroy'])->name('claims.destroy');
+        Route::delete('claims/facility-claim/{claimId}', [ClaimController::class, 'destroyFacilityClaim'])->name('claims.facility-claim.destroy');
     });
 });
 

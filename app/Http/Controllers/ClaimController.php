@@ -912,6 +912,30 @@ class ClaimController extends Controller
     }
 
     /**
+     * Remove the specified facility claim from storage.
+     */
+    public function destroyFacilityClaim($claimId)
+    {
+        try {
+            $claim = \App\Models\FacilityClaim::findOrFail($claimId);
+            
+            // Delete associated items if needed, or rely on cascading deletes
+            $claim->medications()->delete();
+            $claim->services()->delete();
+            $claim->diagnoses()->delete();
+            $claim->consultations()->delete();
+            $claim->activities()->delete();
+            
+            $facilityId = $claim->facility_id;
+            $claim->delete();
+            
+            return redirect()->route('claims.facility.show', $facilityId)->with('success', 'Claim deleted successfully.');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Error deleting claim: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * Print the specified claim.
      */
     public function print($id)

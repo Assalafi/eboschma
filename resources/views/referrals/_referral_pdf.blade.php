@@ -115,10 +115,16 @@
         if ($photoPath) {
             try {
                 if (str_starts_with($photoPath, 'http')) {
+                    // Try to guess mime from URL or just use jpeg as fallback
+                    $type = 'jpeg';
+                    if (preg_match('/\.png$/i', $photoPath)) $type = 'png';
                     $imgData = file_get_contents($photoPath);
-                    $base64Photo = 'data:image/jpeg;base64,' . base64_encode($imgData);
+                    $base64Photo = 'data:image/' . $type . ';base64,' . base64_encode($imgData);
                 } elseif (file_exists($photoPath)) {
-                    $type = pathinfo($photoPath, PATHINFO_EXTENSION);
+                    $type = strtolower(pathinfo($photoPath, PATHINFO_EXTENSION));
+                    if ($type === 'jpg') {
+                        $type = 'jpeg';
+                    }
                     $imgData = file_get_contents($photoPath);
                     $base64Photo = 'data:image/' . $type . ';base64,' . base64_encode($imgData);
                 }
@@ -127,7 +133,10 @@
         
         $base64Logo = '';
         if (file_exists($logoPath)) {
-            $type = pathinfo($logoPath, PATHINFO_EXTENSION);
+            $type = strtolower(pathinfo($logoPath, PATHINFO_EXTENSION));
+            if ($type === 'jpg') {
+                $type = 'jpeg';
+            }
             $imgData = file_get_contents($logoPath);
             $base64Logo = 'data:image/' . $type . ';base64,' . base64_encode($imgData);
         }

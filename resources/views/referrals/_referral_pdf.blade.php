@@ -93,12 +93,44 @@
     @php
         $patient = $referral->encounter->patient ?? null;
         $enrolleeDetails = $patient ? $patient->enrolleeDetails : null;
-        $photo = $enrolleeDetails ? $enrolleeDetails->photo : null;
-        // Default to a placeholder if no photo
-        $photoSrc = $photo ? (str_starts_with($photo, 'http') ? $photo : storage_path('app/public/' . $photo)) : public_path('assets/images/users/default.jpg');
+        $photoPath = null;
         
-        // Use proper public_path for local images in dompdf
-        $logoSrc = public_path('assets/images/brand/logo.png'); // Adjust based on your logo path
+        if ($enrolleeDetails && $enrolleeDetails->photo) {
+            if (str_starts_with($enrolleeDetails->photo, 'http')) {
+                // Not highly recommended for dompdf to fetch HTTP, but keeping fallback
+                $photoPath = $enrolleeDetails->photo;
+            } else {
+                $photoPath = storage_path('app/public/' . $enrolleeDetails->photo);
+            }
+        }
+        
+        if (!$photoPath || !file_exists($photoPath) && !str_starts_with($photoPath, 'http')) {
+            $photoPath = public_path('assets/img/users/1.jpg');
+        }
+
+        $logoPath = public_path('assets/img/brand/logo.png'); 
+
+        // Helper to encode image
+        $base64Photo = '';
+        if ($photoPath) {
+            try {
+                if (str_starts_with($photoPath, 'http')) {
+                    $imgData = file_get_contents($photoPath);
+                    $base64Photo = 'data:image/jpeg;base64,' . base64_encode($imgData);
+                } elseif (file_exists($photoPath)) {
+                    $type = pathinfo($photoPath, PATHINFO_EXTENSION);
+                    $imgData = file_get_contents($photoPath);
+                    $base64Photo = 'data:image/' . $type . ';base64,' . base64_encode($imgData);
+                }
+            } catch (\Exception $e) {}
+        }
+        
+        $base64Logo = '';
+        if (file_exists($logoPath)) {
+            $type = pathinfo($logoPath, PATHINFO_EXTENSION);
+            $imgData = file_get_contents($logoPath);
+            $base64Logo = 'data:image/' . $type . ';base64,' . base64_encode($imgData);
+        }
 
         $consultations = $referral->encounter ? $referral->encounter->consultations : collect([]);
         $firstConsult = $consultations->first();
@@ -115,21 +147,21 @@
     @endphp
 
     <!-- Watermark -->
-    @if(file_exists($logoSrc))
-        <img src="{{ $logoSrc }}" class="watermark" alt="Watermark">
+    @if($base64Logo)
+        <img src="{{ $base64Logo }}" class="watermark" alt="Watermark">
     @endif
 
     <div class="header-container">
         <div class="logo-left">
-            @if(file_exists($logoSrc))
-                <img src="{{ $logoSrc }}" alt="BOSCHMA Logo">
+            @if($base64Logo)
+                <img src="{{ $base64Logo }}" alt="BOSCHMA Logo">
             @else
                 <h2>BOSCHMA</h2>
             @endif
         </div>
         <div class="photo-right">
-            @if(file_exists($photoSrc) || str_starts_with($photoSrc, 'http'))
-                <img src="{{ $photoSrc }}" alt="Patient Photo">
+            @if($base64Photo)
+                <img src="{{ $base64Photo }}" alt="Patient Photo">
             @endif
         </div>
     </div>

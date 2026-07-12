@@ -159,7 +159,7 @@
                     <div class="card card-sm">
                         <div class="card-body">
                             <div class="info-label">Requested By</div>
-                            <div class="info-value">{{ $request->requestedBy->name }}</div>
+                            <div class="info-value">{{ $request->requestedBy->name ?? 'Unknown' }}</div>
                             <div class="text-muted small">{{ $request->requestedBy->staffPosition->name ?? '' }}</div>
                         </div>
                     </div>
@@ -496,7 +496,7 @@
                                 <div class="tl-dot tl-primary"></div>
                                 <div class="info-label">{{ $request->requested_at->format('M j, Y g:i A') }}</div>
                                 <div class="fw-semibold">Request Submitted</div>
-                                <div class="text-muted small">by {{ $request->requestedBy->name }}</div>
+                                <div class="text-muted small">by {{ $request->requestedBy->name ?? 'Unknown' }}</div>
                             </div>
                             @if ($request->approved_at)
                             <div class="tl-step">

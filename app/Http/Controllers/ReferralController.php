@@ -100,7 +100,7 @@ class ReferralController extends Controller
                     
                     if (Auth::user()->hasRole('Admin') || Auth::user()->hasRole('Super Admin')) {
                         if ($referral->approval_status === 'pending') {
-                            $actions .= '<form action="'.route('referrals.approve', $referral->id).'" method="POST" style="display:inline;" onsubmit="return confirm(\'Approve this referral?\');">'.csrf_field().'<button type="submit" class="btn btn-sm btn-success" title="Approve"><i class="ti-check"></i></button></form>';
+                            $actions .= '<button type="button" class="btn btn-sm btn-success" title="Approve" onclick="showApproveModal('.$referral->id.')"><i class="ti-check"></i></button>';
                             $actions .= '<button type="button" class="btn btn-sm btn-danger" title="Reject" onclick="showRejectModal('.$referral->id.')"><i class="ti-close"></i></button>';
                         }
                     }

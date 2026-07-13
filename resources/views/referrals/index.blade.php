@@ -167,6 +167,13 @@
                 var modal = new bootstrap.Modal(document.getElementById('rejectModal'));
                 modal.show();
             }
+
+            function showApproveModal(id) {
+                var form = document.getElementById('approveForm');
+                form.action = '/referrals/' + id + '/approve';
+                var modal = new bootstrap.Modal(document.getElementById('approveModal'));
+                modal.show();
+            }
         </script>
         
         <!-- Reject Modal -->
@@ -188,6 +195,28 @@
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                             <button type="submit" class="btn btn-danger">Confirm Rejection</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Approve Modal -->
+        <div class="modal fade" id="approveModal" tabindex="-1" aria-labelledby="approveModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <form id="approveForm" method="POST">
+                    @csrf
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="approveModalLabel">Approve Referral</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p class="mb-0">Are you sure you want to approve this referral?</p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-success">Confirm Approval</button>
                         </div>
                     </div>
                 </form>

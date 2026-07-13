@@ -26,7 +26,18 @@
                 <div class="card mb-3">
                     <div class="card-body py-3">
                         <form method="GET" action="{{ route('reports.pharmacy_stock') }}" class="row g-3 align-items-end">
-                            <div class="col-md-4">
+                            <div class="col-md-3">
+                                <label class="form-label">Filter by Program</label>
+                                <select name="program_id" class="form-select">
+                                    <option value="">All Programs</option>
+                                    @foreach($programs as $program)
+                                        <option value="{{ $program->id }}" {{ $programId == $program->id ? 'selected' : '' }}>
+                                            {{ $program->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-md-3">
                                 <label class="form-label">Filter by Facility</label>
                                 <select name="facility_id" class="form-select">
                                     <option value="">All Facilities</option>
@@ -37,11 +48,11 @@
                                     @endforeach
                                 </select>
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-md-2">
                                 <label class="form-label">From Date</label>
                                 <input type="date" name="date_from" value="{{ request('date_from') }}" class="form-control">
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-md-2">
                                 <label class="form-label">To Date</label>
                                 <input type="date" name="date_to" value="{{ request('date_to') }}" class="form-control">
                             </div>
@@ -50,7 +61,7 @@
                                     <button type="submit" class="btn btn-primary">
                                         <i class="ti ti-filter me-1"></i>Filter
                                     </button>
-                                    @if($facilityId || request('date_from') || request('date_to'))
+                                    @if($facilityId || $programId || request('date_from') || request('date_to'))
                                         <a href="{{ route('reports.pharmacy_stock') }}" class="btn btn-ghost-secondary">
                                             <i class="ti ti-x"></i> Clear
                                         </a>
@@ -129,6 +140,7 @@
                                 
                                 <!-- Search Bar -->
                                 <form action="{{ route('reports.pharmacy_stock') }}" method="GET" class="d-flex mt-2 mt-md-0">
+                                    @if($programId) <input type="hidden" name="program_id" value="{{ $programId }}"> @endif
                                     <input type="hidden" name="facility_id" value="{{ $facilityId }}">
                                     @if(request('date_from')) <input type="hidden" name="date_from" value="{{ request('date_from') }}"> @endif
                                     @if(request('date_to')) <input type="hidden" name="date_to" value="{{ request('date_to') }}"> @endif
@@ -156,20 +168,29 @@
                                     </thead>
                                     <tbody>
                                         @forelse ($stockRecords as $record)
-                                            <tr>
-                                                <td>{{ $record->drug ? $record->drug->name : 'N/A' }}</td>
+                                            <tr data-stock-id="{{ $record->id }}">
+                                                <td>
+                                                    @if($record->drug)
+                                                        {{ $record->drug->name }}
+                                                        <br><small class="text-muted">{{ $record->drug->dosage_form }} | {{ $record->drug->strength }} | {{ $record->drug->unit }}</small>
+                                                    @else
+                                                        N/A
+                                                    @endif
+                                                </td>
                                                 <td>{{ $record->batch_number }}</td>
-                                                <td>
-                                                    <span class="text-primary fw-bold">{{ number_format($record->quantity_received) }}</span>
+                                                <td class="editable-cell" data-field="quantity_received" data-value="{{ $record->quantity_received }}" title="Double-click to edit">
+                                                    <span class="display-value text-primary fw-bold">{{ number_format($record->quantity_received) }}</span>
+                                                    <input type="number" class="form-control form-control-sm edit-input d-none" value="{{ $record->quantity_received }}" min="0" style="width:90px;">
+                                                </td>
+                                                <td class="editable-cell" data-field="quantity_remaining" data-value="{{ $record->quantity_remaining }}" title="Double-click to edit">
+                                                    <span class="display-value text-success fw-bold">{{ number_format($record->quantity_remaining) }}</span>
+                                                    <input type="number" class="form-control form-control-sm edit-input d-none" value="{{ $record->quantity_remaining }}" min="0" style="width:90px;">
                                                 </td>
                                                 <td>
-                                                    <span class="text-success fw-bold">{{ number_format($record->quantity_remaining) }}</span>
-                                                </td>
-                                                <td>
-                                                    <span class="text-orange fw-bold">{{ number_format($record->quantity_received - $record->quantity_remaining) }}</span>
+                                                    <span class="text-orange fw-bold dispensed-value">{{ number_format($record->quantity_received - $record->quantity_remaining) }}</span>
                                                 </td>
                                                 <td>{{ number_format($record->unit_cost, 2) }}</td>
-                                                <td>{{ number_format($record->quantity_remaining * $record->unit_cost, 2) }}</td>
+                                                <td class="total-value-cell">{{ number_format($record->quantity_remaining * $record->unit_cost, 2) }}</td>
                                                 <td>
                                                     @if($record->expiry_date)
                                                         {{ $record->expiry_date->format('Y-m-d') }}
@@ -206,3 +227,118 @@
         </div>
     </div>
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const editableCells = document.querySelectorAll('.editable-cell');
+    
+    editableCells.forEach(function(cell) {
+        const displayValue = cell.querySelector('.display-value');
+        const editInput = cell.querySelector('.edit-input');
+        
+        // Double-click to edit
+        cell.addEventListener('dblclick', function() {
+            displayValue.classList.add('d-none');
+            editInput.classList.remove('d-none');
+            editInput.focus();
+            editInput.select();
+        });
+        
+        // Save on Enter key
+        editInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                saveInlineEdit(cell, editInput);
+            }
+            if (e.key === 'Escape') {
+                cancelEdit(cell, editInput, displayValue);
+            }
+        });
+        
+        // Save on blur (click elsewhere)
+        editInput.addEventListener('blur', function() {
+            saveInlineEdit(cell, editInput);
+        });
+    });
+    
+    function cancelEdit(cell, editInput, displayValue) {
+        editInput.value = cell.dataset.value;
+        editInput.classList.add('d-none');
+        displayValue.classList.remove('d-none');
+    }
+    
+    function saveInlineEdit(cell, editInput) {
+        const displayValue = cell.querySelector('.display-value');
+        const newValue = parseInt(editInput.value);
+        const oldValue = parseInt(cell.dataset.value);
+        
+        // No change
+        if (newValue === oldValue) {
+            editInput.classList.add('d-none');
+            displayValue.classList.remove('d-none');
+            return;
+        }
+        
+        const row = cell.closest('tr');
+        const stockId = row.dataset.stockId;
+        const field = cell.dataset.field;
+        
+        // Send AJAX request
+        fetch("{{ url('/reports/pharmacy-stock') }}/" + stockId, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Accept': 'application/json',
+            },
+            body: JSON.stringify({ field: field, value: newValue })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update displayed values
+                cell.dataset.value = newValue;
+                displayValue.textContent = Number(newValue).toLocaleString();
+                editInput.classList.add('d-none');
+                displayValue.classList.remove('d-none');
+                
+                // Update dispensed and total value in the same row
+                const dispensedCell = row.querySelector('.dispensed-value');
+                const totalValueCell = row.querySelector('.total-value-cell');
+                
+                if (dispensedCell) {
+                    dispensedCell.textContent = Number(data.dispensed).toLocaleString();
+                }
+                if (totalValueCell) {
+                    totalValueCell.textContent = Number(data.total_value).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                }
+                
+                // Update the other editable cell's data-value in the same row
+                const receivedCell = row.querySelector('[data-field="quantity_received"]');
+                const remainingCell = row.querySelector('[data-field="quantity_remaining"]');
+                if (receivedCell) {
+                    receivedCell.dataset.value = data.quantity_received;
+                    receivedCell.querySelector('.edit-input').value = data.quantity_received;
+                }
+                if (remainingCell) {
+                    remainingCell.dataset.value = data.quantity_remaining;
+                    remainingCell.querySelector('.edit-input').value = data.quantity_remaining;
+                }
+            } else {
+                alert('Failed to update: ' + (data.message || 'Unknown error'));
+                cancelEdit(cell, editInput, displayValue);
+            }
+        })
+        .catch(error => {
+            alert('Error: ' + error.message);
+            cancelEdit(cell, editInput, displayValue);
+        });
+    }
+});
+</script>
+<style>
+    .editable-cell { cursor: pointer; }
+    .editable-cell:hover { background-color: #f8f9fa; }
+</style>
+@endpush

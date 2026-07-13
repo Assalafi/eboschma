@@ -383,6 +383,7 @@ Route::middleware(['auth:staff,web'])->group(function () {
         Route::get("/beneficiaries", [ReportsController::class, "beneficiaries"])->name("beneficiaries")->middleware("permission:report.view|crm.view,staff");
         Route::get("/beneficiaries/export", [ReportsController::class, "exportBeneficiaries"])->name("beneficiaries.export")->middleware("permission:report.view|crm.view,staff");
         Route::get('/pharmacy-stock', [ReportsController::class, 'pharmacyStock'])->name('pharmacy_stock')->middleware('permission:report.view|crm.view,staff');
+        Route::put('/pharmacy-stock/{id}', [ReportsController::class, 'updateDrugStock'])->name('pharmacy_stock.update')->middleware('permission:report.view|crm.view,staff');
         Route::get('/enrollments', [ReportsController::class, 'enrollments'])->name('enrollments')->middleware('permission:report.view|crm.view,staff');
         Route::get('/enrollments/export', [ReportsController::class, 'exportEnrollments'])->name('enrollments.export')->middleware('permission:report.view|crm.view,staff');
         Route::get('/enrollments/export/month/{month}', [ReportsController::class, 'exportMonthlyEnrollments'])->name('enrollments.export.month')->middleware('permission:report.view|crm.view,staff');

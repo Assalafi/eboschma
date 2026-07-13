@@ -1184,18 +1184,25 @@ class ReportsController extends Controller
     public function pharmacyStock(Request $request)
     {
         $facilityId = $request->get('facility_id');
+        $programId = $request->get('program_id');
         $dateFrom = $request->get('date_from');
         $dateTo = $request->get('date_to');
         $search = $request->get('search');
 
         $facilities = Facility::orderBy('name')->get();
+        $programs = \App\Models\Program::orderBy('name')->get();
 
         // Overview of all pharmacy activities
+        $globalStatsQuery = \App\Models\DrugStock::query();
+        if ($programId) {
+            $globalStatsQuery->where('program_id', $programId);
+        }
+        
         $globalStats = [
-            'total_received' => \App\Models\DrugStock::sum('quantity_received'),
-            'total_remaining' => \App\Models\DrugStock::sum('quantity_remaining'),
-            'total_dispensed' => \App\Models\DrugStock::sum(\Illuminate\Support\Facades\DB::raw('CAST(quantity_received AS SIGNED) - CAST(quantity_remaining AS SIGNED)')),
-            'total_value' => \App\Models\DrugStock::sum(\Illuminate\Support\Facades\DB::raw('CAST(quantity_remaining AS SIGNED) * CAST(unit_cost AS SIGNED)')),
+            'total_received' => (clone $globalStatsQuery)->sum('quantity_received'),
+            'total_remaining' => (clone $globalStatsQuery)->sum('quantity_remaining'),
+            'total_dispensed' => (clone $globalStatsQuery)->sum(\Illuminate\Support\Facades\DB::raw('CAST(quantity_received AS SIGNED) - CAST(quantity_remaining AS SIGNED)')),
+            'total_value' => (clone $globalStatsQuery)->sum(\Illuminate\Support\Facades\DB::raw('CAST(quantity_remaining AS SIGNED) * CAST(unit_cost AS SIGNED)')),
         ];
 
         $stockRecords = null;
@@ -1206,6 +1213,10 @@ class ReportsController extends Controller
             $selectedFacility = Facility::find($facilityId);
             
             $query = \App\Models\DrugStock::where('facility_id', $facilityId)->with('drug');
+            
+            if ($programId) {
+                $query->where('program_id', $programId);
+            }
             
             if ($dateFrom) {
                 $query->whereDate('created_at', '>=', $dateFrom);
@@ -1228,6 +1239,11 @@ class ReportsController extends Controller
 
             // Stats for selected facility
             $facilityQuery = \App\Models\DrugStock::where('facility_id', $facilityId);
+            
+            if ($programId) {
+                $facilityQuery->where('program_id', $programId);
+            }
+            
             if ($dateFrom) {
                 $facilityQuery->whereDate('created_at', '>=', $dateFrom);
             }
@@ -1244,9 +1260,45 @@ class ReportsController extends Controller
         }
 
         return view('reports.pharmacy_stock', compact(
-            'facilities', 'facilityId', 'dateFrom', 'dateTo', 'search',
+            'facilities', 'programs', 'facilityId', 'programId', 'dateFrom', 'dateTo', 'search',
             'globalStats', 'stockRecords', 'selectedFacility', 'facilityStats'
         ));
+    }
+
+    public function updateDrugStock(Request $request, $id)
+    {
+        try {
+            $request->validate([
+                'field' => 'required|in:quantity_received,quantity_remaining',
+                'value' => 'required|integer|min:0',
+            ]);
+
+            $stock = \App\Models\DrugStock::find($id);
+            
+            if (!$stock) {
+                $stock = \App\Models\DrugStock::withTrashed()->find($id);
+                if ($stock) {
+                    return response()->json(['success' => false, 'message' => 'This stock record has been deleted.'], 404);
+                }
+                return response()->json(['success' => false, 'message' => "Stock record with ID {$id} not found."], 404);
+            }
+            
+            $field = $request->field;
+            $oldValue = $stock->{$field};
+            $stock->{$field} = $request->value;
+            $stock->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => ucfirst(str_replace('_', ' ', $field)) . " updated from {$oldValue} to {$request->value}",
+                'quantity_received' => $stock->quantity_received,
+                'quantity_remaining' => $stock->quantity_remaining,
+                'dispensed' => $stock->quantity_received - $stock->quantity_remaining,
+                'total_value' => $stock->quantity_remaining * $stock->unit_cost,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
     }
 
     public function beneficiaries(Request $request)

@@ -64,10 +64,13 @@ class ReferralController extends Controller
                     return 'N/A';
                 })
                 ->addColumn('facility_info', function($referral) {
+                    $fromName = $referral->fromFacility ? $referral->fromFacility->name : 'Unknown';
+                    $toName = $referral->toFacility ? $referral->toFacility->name : 'Unknown';
+                    
                     return "<div class='small text-muted'>From:</div>" .
-                           "<strong>{$referral->fromFacility->name}</strong>" .
+                           "<strong>{$fromName}</strong>" .
                            "<div class='small text-muted'>To:</div>" .
-                           "<strong>{$referral->toFacility->name}</strong>";
+                           "<strong>{$toName}</strong>";
                 })
                 ->addColumn('reason', function($referral) {
                     if ($referral->serviceItem) {

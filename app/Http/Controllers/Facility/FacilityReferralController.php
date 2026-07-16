@@ -160,9 +160,10 @@ class FacilityReferralController extends Controller
                     $isSender = $referral->from_facility_id == Auth::user()->facility_id;
                     $facility = $isSender ? $referral->toFacility : $referral->fromFacility;
                     $label = $isSender ? 'Referred To' : 'Referred From';
+                    $facilityName = $facility ? $facility->name : 'Unknown Facility';
                     
                     return "<div class='small text-muted'>{$label}:</div>" .
-                           "<strong>{$facility->name}</strong>";
+                           "<strong>{$facilityName}</strong>";
                 })
                 ->addColumn('reason', function($referral) {
                     if ($referral->serviceItem) {

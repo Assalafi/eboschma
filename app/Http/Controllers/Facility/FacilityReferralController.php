@@ -110,6 +110,17 @@ class FacilityReferralController extends Controller
                     $query->where('from_facility_id', $facilityId)
                           ->orWhere('to_facility_id', $facilityId);
                 })
+                ->when(request('program_id'), function ($q, $programId) {
+                    $q->whereHas('encounter', function ($q) use ($programId) {
+                        $q->where('program_id', $programId);
+                    });
+                })
+                ->when(request('start_date'), function ($q, $startDate) {
+                    $q->whereDate('created_at', '>=', $startDate);
+                })
+                ->when(request('end_date'), function ($q, $endDate) {
+                    $q->whereDate('created_at', '<=', $endDate);
+                })
                 ->orderBy('created_at', 'desc');
 
             return DataTables::of($referrals)
@@ -204,7 +215,9 @@ class FacilityReferralController extends Controller
             })->where('status', ServiceReferral::STATUS_PENDING)->count(),
         ];
 
-        return view('facility.referrals.index', compact('stats'));
+        $programs = \App\Models\Program::active()->orderBy('name')->get();
+
+        return view('facility.referrals.index', compact('stats', 'programs'));
     }
 
     /**

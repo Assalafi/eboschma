@@ -80,6 +80,33 @@
                                 <h3 class="card-title">All Referrals</h3>
                             </div>
                             <div class="card-body">
+                                <!-- Filter Section -->
+                                <div class="row mb-4">
+                                    <div class="col-md-3 mb-3">
+                                        <label class="form-label">Program</label>
+                                        <select id="filter_program" class="form-select">
+                                            <option value="">All Programs</option>
+                                            @if(isset($programs))
+                                                @foreach($programs as $program)
+                                                    <option value="{{ $program->id }}">{{ $program->name }}</option>
+                                                @endforeach
+                                            @endif
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3 mb-3">
+                                        <label class="form-label">Start Date</label>
+                                        <input type="date" id="filter_start_date" class="form-control">
+                                    </div>
+                                    <div class="col-md-3 mb-3">
+                                        <label class="form-label">End Date</label>
+                                        <input type="date" id="filter_end_date" class="form-control">
+                                    </div>
+                                    <div class="col-md-3 mb-3 d-flex align-items-end">
+                                        <button type="button" id="btn_filter" class="btn btn-primary me-2"><i class="ti-filter"></i> Filter</button>
+                                        <button type="button" id="btn_reset" class="btn btn-light"><i class="ti-reload"></i> Reset</button>
+                                    </div>
+                                </div>
+
                                 <div class="table-responsive">
                                     <table id="referralsTable" class="table table-bordered table-hover text-nowrap w-100">
                                         <thead>
@@ -116,7 +143,12 @@
                     serverSide: true,
                     ajax: {
                         url: '{{ route('facility.referrals.index') }}',
-                        type: 'GET'
+                        type: 'GET',
+                        data: function (d) {
+                            d.program_id = $('#filter_program').val();
+                            d.start_date = $('#filter_start_date').val();
+                            d.end_date = $('#filter_end_date').val();
+                        }
                     },
                     columns: [{
                             data: 'referral_info',
@@ -158,6 +190,17 @@
                     language: {
                         processing: '<i class="fa fa-spinner fa-spin fa-3x fa-fw"></i><span class="sr-only">Loading...</span>'
                     }
+                });
+
+                $('#btn_filter').click(function() {
+                    $('#referralsTable').DataTable().ajax.reload();
+                });
+
+                $('#btn_reset').click(function() {
+                    $('#filter_program').val('');
+                    $('#filter_start_date').val('');
+                    $('#filter_end_date').val('');
+                    $('#referralsTable').DataTable().ajax.reload();
                 });
             });
         </script>

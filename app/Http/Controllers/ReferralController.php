@@ -17,6 +17,17 @@ class ReferralController extends Controller
     {
         if (request()->ajax()) {
             $referrals = ServiceReferral::with(['encounter.patient', 'fromFacility', 'toFacility', 'serviceItem', 'authorization'])
+                ->when(request('program_id'), function ($q, $programId) {
+                    $q->whereHas('encounter', function ($q) use ($programId) {
+                        $q->where('program_id', $programId);
+                    });
+                })
+                ->when(request('start_date'), function ($q, $startDate) {
+                    $q->whereDate('created_at', '>=', $startDate);
+                })
+                ->when(request('end_date'), function ($q, $endDate) {
+                    $q->whereDate('created_at', '<=', $endDate);
+                })
                 ->orderBy('created_at', 'desc');
 
             return DataTables::of($referrals)
@@ -122,7 +133,9 @@ class ReferralController extends Controller
             'pending' => ServiceReferral::where('approval_status', 'pending')->count(),
         ];
 
-        return view('referrals.index', compact('stats'));
+        $programs = \App\Models\Program::active()->orderBy('name')->get();
+
+        return view('referrals.index', compact('stats', 'programs'));
     }
 
     /**

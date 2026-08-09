@@ -24,7 +24,7 @@
                                 <div class="d-flex align-items-center">
                                     <div class="subheader">Total Referrals</div>
                                 </div>
-                                <div class="h1 mb-3">{{ $stats['total'] ?? 0 }}</div>
+                                <div class="h1 mb-3" id="stat-total">{{ $stats['total'] ?? 0 }}</div>
                                 <div class="d-flex mb-2">
                                     <div>All system referrals</div>
                                 </div>
@@ -37,7 +37,7 @@
                                 <div class="d-flex align-items-center">
                                     <div class="subheader">Accepted</div>
                                 </div>
-                                <div class="h1 mb-3">{{ $stats['accepted'] ?? 0 }}</div>
+                                <div class="h1 mb-3" id="stat-accepted">{{ $stats['accepted'] ?? 0 }}</div>
                                 <div class="d-flex mb-2">
                                     <div>✅ Referrals accepted</div>
                                 </div>
@@ -50,7 +50,7 @@
                                 <div class="d-flex align-items-center">
                                     <div class="subheader">Completed</div>
                                 </div>
-                                <div class="h1 mb-3">{{ $stats['completed'] ?? 0 }}</div>
+                                <div class="h1 mb-3" id="stat-completed">{{ $stats['completed'] ?? 0 }}</div>
                                 <div class="d-flex mb-2">
                                     <div>🎉 Successfully completed</div>
                                 </div>
@@ -63,7 +63,7 @@
                                 <div class="d-flex align-items-center">
                                     <div class="subheader">Pending</div>
                                 </div>
-                                <div class="h1 mb-3">{{ $stats['pending'] ?? 0 }}</div>
+                                <div class="h1 mb-3" id="stat-pending">{{ $stats['pending'] ?? 0 }}</div>
                                 <div class="d-flex mb-2">
                                     <div>Awaiting action</div>
                                 </div>
@@ -82,7 +82,7 @@
                             <div class="card-body">
                                 <!-- Filter Section -->
                                 <div class="row mb-4">
-                                    <div class="col-md-3 mb-3">
+                                    <div class="col-md-2 mb-3">
                                         <label class="form-label">Program</label>
                                         <select id="filter_program" class="form-select">
                                             <option value="">All Programs</option>
@@ -93,6 +93,16 @@
                                             @endif
                                         </select>
                                     </div>
+                                    <div class="col-md-2 mb-3">
+                                        <label class="form-label">Status</label>
+                                        <select id="filter_status" class="form-select">
+                                            <option value="">All Statuses</option>
+                                            <option value="pending">Pending</option>
+                                            <option value="approved">Approved</option>
+                                            <option value="rejected">Rejected</option>
+                                            <option value="completed">Completed</option>
+                                        </select>
+                                    </div>
                                     <div class="col-md-3 mb-3">
                                         <label class="form-label">Start Date</label>
                                         <input type="date" id="filter_start_date" class="form-control">
@@ -101,7 +111,7 @@
                                         <label class="form-label">End Date</label>
                                         <input type="date" id="filter_end_date" class="form-control">
                                     </div>
-                                    <div class="col-md-3 mb-3 d-flex align-items-end">
+                                    <div class="col-md-2 mb-3 d-flex align-items-end">
                                         <button type="button" id="btn_filter" class="btn btn-primary me-2"><i class="ti-filter"></i> Filter</button>
                                         <button type="button" id="btn_reset" class="btn btn-light"><i class="ti-reload"></i> Reset</button>
                                     </div>
@@ -138,7 +148,14 @@
 
         <script>
             $(document).ready(function() {
-                $('#referralsTable').DataTable({
+                $('#referralsTable').on('xhr.dt', function (e, settings, json, xhr) {
+                    if (json && json.stats) {
+                        $('#stat-total').text(json.stats.total);
+                        $('#stat-accepted').text(json.stats.accepted);
+                        $('#stat-completed').text(json.stats.completed);
+                        $('#stat-pending').text(json.stats.pending);
+                    }
+                }).DataTable({
                     processing: true,
                     serverSide: true,
                     ajax: {
@@ -146,6 +163,7 @@
                         type: 'GET',
                         data: function (d) {
                             d.program_id = $('#filter_program').val();
+                            d.status = $('#filter_status').val();
                             d.start_date = $('#filter_start_date').val();
                             d.end_date = $('#filter_end_date').val();
                         }
@@ -196,8 +214,14 @@
                     $('#referralsTable').DataTable().ajax.reload();
                 });
 
+                // Auto-filter when changing dropdowns or dates
+                $('#filter_program, #filter_status, #filter_start_date, #filter_end_date').change(function() {
+                    $('#referralsTable').DataTable().ajax.reload();
+                });
+
                 $('#btn_reset').click(function() {
                     $('#filter_program').val('');
+                    $('#filter_status').val('');
                     $('#filter_start_date').val('');
                     $('#filter_end_date').val('');
                     $('#referralsTable').DataTable().ajax.reload();

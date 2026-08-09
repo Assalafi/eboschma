@@ -16,7 +16,7 @@ class ReferralController extends Controller
     public function index(Request $request)
     {
         if (request()->ajax()) {
-            $referrals = ServiceReferral::with(['encounter.patient', 'fromFacility', 'toFacility', 'serviceItem', 'authorization'])
+            $query = ServiceReferral::with(['encounter.patient', 'fromFacility', 'toFacility', 'serviceItem', 'authorization'])
                 ->when(request('program_id'), function ($q, $programId) {
                     $q->whereHas('encounter', function ($q) use ($programId) {
                         $q->where('program_id', $programId);
@@ -28,9 +28,26 @@ class ReferralController extends Controller
                 ->when(request('end_date'), function ($q, $endDate) {
                     $q->whereDate('created_at', '<=', $endDate);
                 })
-                ->orderBy('created_at', 'desc');
+                ->when(request('status'), function ($q, $status) {
+                    if (in_array($status, ['pending', 'approved', 'rejected'])) {
+                        $q->where('approval_status', $status);
+                    } elseif ($status === 'completed') {
+                        $q->where('status', '!=', 'pending');
+                    }
+                });
+
+            // Calculate stats based on the current filters
+            $stats = [
+                'total' => (clone $query)->count(),
+                'accepted' => (clone $query)->where('approval_status', 'approved')->count(),
+                'completed' => (clone $query)->where('status', '!=', 'pending')->count(),
+                'pending' => (clone $query)->where('approval_status', 'pending')->count(),
+            ];
+
+            $referrals = $query->orderBy('created_at', 'desc');
 
             return DataTables::of($referrals)
+                ->with('stats', $stats)
                 ->filterColumn('encounter.patient.firstname', function($query, $keyword) {
                     $query->whereHas('encounter.patient', function($q) use ($keyword) {
                         $q->where('enrollee_number', 'LIKE', "%{$keyword}%")
@@ -125,7 +142,7 @@ class ReferralController extends Controller
                 ->make(true);
         }
 
-        // Get statistics for all referrals (admin sees everything)
+        // Get initial statistics for all referrals (admin sees everything)
         $stats = [
             'total' => ServiceReferral::count(),
             'accepted' => ServiceReferral::where('approval_status', 'approved')->count(),

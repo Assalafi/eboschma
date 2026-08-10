@@ -142,17 +142,63 @@
         }
 
         $consultations = $referral->encounter ? $referral->encounter->consultations : collect([]);
-        $firstConsult = $consultations->first();
-        
-        $clinicalFindings = $firstConsult->clinical_note ?? 'N/A';
-        
-        $diagnoses = [];
-        if($firstConsult && $firstConsult->diagnoses) {
-            foreach($firstConsult->diagnoses as $diag) {
-                $diagnoses[] = $diag->icdCode->description ?? 'N/A';
+
+        $clinicalFindingsArr = [];
+        $investigationsArr = [];
+        $diagnosesArr = [];
+
+        foreach ($consultations as $consult) {
+            // Clinical findings
+            if (!empty($consult->clinical_note)) {
+                $clinicalFindingsArr[] = $consult->clinical_note;
+            }
+            if (!empty($consult->history_of_present_illness)) {
+                $clinicalFindingsArr[] = "HPI: " . $consult->history_of_present_illness;
+            }
+            if (!empty($consult->physical_examination)) {
+                $clinicalFindingsArr[] = "Exam: " . $consult->physical_examination;
+            }
+            if (!empty($consult->presenting_complaints) && trim($consult->presenting_complaints) !== '.') {
+                $clinicalFindingsArr[] = "Complaints: " . $consult->presenting_complaints;
+            }
+
+            // Investigation notes from consultation
+            if (!empty($consult->investigation_note)) {
+                $investigationsArr[] = $consult->investigation_note;
+            }
+
+            // Diagnoses
+            if ($consult->diagnoses) {
+                foreach ($consult->diagnoses as $diag) {
+                    $desc = $diag->icdCode->description ?? $diag->icdCode->code ?? null;
+                    if ($desc) {
+                        $diagnosesArr[] = $desc;
+                    }
+                }
             }
         }
-        $diagnosisStr = count($diagnoses) > 0 ? implode(', ', $diagnoses) : 'N/A';
+
+        // Investigations from encounter service orders
+        if ($referral->encounter && $referral->encounter->serviceOrders) {
+            foreach ($referral->encounter->serviceOrders as $so) {
+                if ($so->serviceOrderItems) {
+                    foreach ($so->serviceOrderItems as $soi) {
+                        if ($soi->serviceItem && !empty($soi->serviceItem->name)) {
+                            $investigationsArr[] = $soi->serviceItem->name;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Service item directly attached to referral (for service referrals)
+        if ($referral->serviceItem && !empty($referral->serviceItem->name)) {
+            $investigationsArr[] = $referral->serviceItem->name;
+        }
+
+        $clinicalFindings = count($clinicalFindingsArr) > 0 ? implode(' | ', array_unique($clinicalFindingsArr)) : 'N/A';
+        $investigationStr = count($investigationsArr) > 0 ? implode(', ', array_unique($investigationsArr)) : 'N/A';
+        $diagnosisStr = count($diagnosesArr) > 0 ? implode(', ', array_unique($diagnosesArr)) : 'N/A';
     @endphp
 
     <!-- Watermark -->
@@ -219,7 +265,7 @@
         </tr>
         <tr>
             <td class="label">Investigation:</td>
-            <td class="value">N/A</td>
+            <td class="value">{{ $investigationStr }}</td>
         </tr>
         <tr>
             <td class="label">Diagnosis:</td>

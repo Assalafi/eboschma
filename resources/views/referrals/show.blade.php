@@ -378,13 +378,27 @@
                                                         <div class="card-body">
                                                             <div class="row">
                                                                 <div class="col-md-6">
-                                                                    <p class="mb-1"><strong>Presenting
-                                                                            Complaints:</strong>
+                                                                    <p class="mb-1"><strong>Presenting Complaints:</strong>
                                                                         {{ $consultation->presenting_complaints ?? 'N/A' }}
                                                                     </p>
+                                                                    @if (!empty($consultation->history_of_present_illness))
+                                                                        <p class="mb-1"><strong>History of Present Illness:</strong>
+                                                                            {{ $consultation->history_of_present_illness }}
+                                                                        </p>
+                                                                    @endif
+                                                                    @if (!empty($consultation->physical_examination))
+                                                                        <p class="mb-1"><strong>Physical Examination:</strong>
+                                                                            {{ $consultation->physical_examination }}
+                                                                        </p>
+                                                                    @endif
                                                                     <p class="mb-1"><strong>Clinical Notes:</strong>
                                                                         {{ $consultation->clinical_note ?? 'N/A' }}
                                                                     </p>
+                                                                    @if (!empty($consultation->investigation_note))
+                                                                        <p class="mb-1"><strong>Investigation Note:</strong>
+                                                                            {{ $consultation->investigation_note }}
+                                                                        </p>
+                                                                    @endif
                                                                     <p class="mb-0">
                                                                         <strong>Status:</strong> <span
                                                                             class="badge bg-success">{{ ucfirst($consultation->status) }}</span>

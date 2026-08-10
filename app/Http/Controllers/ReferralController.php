@@ -321,11 +321,13 @@ class ReferralController extends Controller
     public function downloadPdf($id)
     {
         $referral = ServiceReferral::with([
-            'encounter.patient',
+            'encounter.patient.enrolleeDetails',
             'fromFacility',
             'toFacility',
             'authorization',
+            'serviceItem',
             'encounter.consultations.diagnoses.icdCode',
+            'encounter.serviceOrders.serviceOrderItems.serviceItem',
         ])->findOrFail($id);
 
         $data = [

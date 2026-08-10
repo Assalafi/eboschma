@@ -23,7 +23,6 @@ $(function () {
 		}
 	});
 
-	// ______________main-sidebar Active Class
 	var current = location.pathname.split("/").slice(-1)[0].replace(/^\/|\/$/g, '');
 	function addActiveClass(element) {
 		if (current === "") {
@@ -47,10 +46,12 @@ $(function () {
 			}
 		}
 	}
-	$('.main-sidebar .nav li a').each(function () {
-		var $this = $(this);
-		addActiveClass($this);
-	});
+	if (current && isNaN(current) && current.length > 2) {
+		$('.main-sidebar .nav li a').each(function () {
+			var $this = $(this);
+			addActiveClass($this);
+		});
+	}
 
 
 	// default layout

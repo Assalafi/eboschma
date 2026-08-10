@@ -209,6 +209,30 @@
                                                             @endif
                                                         </td>
                                                     </tr>
+                                                    @if($referral->approval_status === 'approved' && $referral->approved_by_name)
+                                                        <tr>
+                                                            <th>Approved By:</th>
+                                                            <td>
+                                                                <strong>{{ $referral->approved_by_name }}</strong>
+                                                                @if($referral->approved_at)
+                                                                    <br><small class="text-muted">{{ $referral->approved_at->format('d M Y H:i') }}</small>
+                                                                @endif
+                                                            </td>
+                                                        </tr>
+                                                    @elseif($referral->approval_status === 'rejected' && $referral->rejected_by_name)
+                                                        <tr>
+                                                            <th>Rejected By:</th>
+                                                            <td>
+                                                                <strong class="text-danger">{{ $referral->rejected_by_name }}</strong>
+                                                                @if($referral->rejected_at)
+                                                                    <br><small class="text-muted">{{ $referral->rejected_at->format('d M Y H:i') }}</small>
+                                                                @endif
+                                                                @if($referral->rejection_reason)
+                                                                    <br><small class="text-danger">Reason: {{ $referral->rejection_reason }}</small>
+                                                                @endif
+                                                            </td>
+                                                        </tr>
+                                                    @endif
                                                     <tr>
                                                         <th>Created:</th>
                                                         <td>{{ $referral->created_at->format('d M Y H:i') }}</td>

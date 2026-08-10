@@ -458,10 +458,52 @@
             </div>
         </div>
     </div>
+
+    <!-- Custom Dispense Alert Modal -->
+    <div class="modal fade" id="dispenseAlertModal" tabindex="-1" aria-hidden="true" style="z-index: 1060;">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header text-white" id="dispenseAlertHeader">
+                    <h5 class="modal-title d-flex align-items-center gap-2" id="dispenseAlertTitle">
+                        <i class="ti-alert-triangle" id="dispenseAlertIcon"></i>
+                        <span>Validation Message</span>
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body py-4 fs-6" id="dispenseAlertBody">
+                    <!-- Alert message goes here -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">OK</button>
+                </div>
+            </div>
+        </div>
+    </div>
 @endsection
 
 @push('scripts')
     <script>
+        function showDispenseAlert(message, title = 'Validation Notice', type = 'warning') {
+            const modalEl = document.getElementById('dispenseAlertModal');
+            const headerEl = document.getElementById('dispenseAlertHeader');
+            const titleEl = document.getElementById('dispenseAlertTitle');
+            const iconEl = document.getElementById('dispenseAlertIcon');
+            const bodyEl = document.getElementById('dispenseAlertBody');
+
+            headerEl.className = 'modal-header ' + (
+                type === 'danger' ? 'bg-danger text-white' : 
+                type === 'success' ? 'bg-success text-white' : 
+                type === 'info' ? 'bg-info text-white' : 'bg-warning text-dark'
+            );
+
+            titleEl.querySelector('span').textContent = title;
+            iconEl.className = type === 'danger' ? 'ti-x-circle' : type === 'success' ? 'ti-check' : 'ti-alert-triangle';
+            bodyEl.innerHTML = message;
+
+            const modal = new bootstrap.Modal(modalEl);
+            modal.show();
+        }
+
         let batchCount = 1;
         let modalBatchCount = 0;
         const requestedQuantity = {{ $stockRequest->quantity_requested }};
@@ -512,7 +554,7 @@
             if (selectedCheckboxes.length > 0) {
                 if (selectedCheckboxes.length > 200) {
                     bulkBatchBtn.style.display = 'none';
-                    alert('Too many items selected for bulk batch operation. Please select 200 items or fewer.');
+                    showDispenseAlert('Too many items selected for bulk batch operation. Please select 200 items or fewer.', 'Selection Limit Exceeded', 'warning');
                     return;
                 }
                 bulkBatchBtn.style.display = 'inline-flex';
@@ -559,12 +601,12 @@
             const selectedCheckboxes = document.querySelectorAll('.item-checkbox:checked');
             
             if (selectedCheckboxes.length === 0) {
-                alert('Please select at least one item');
+                showDispenseAlert('Please select at least one item.', 'No Items Selected', 'warning');
                 return;
             }
 
             if (selectedCheckboxes.length > 200) {
-                alert('Please select maximum 200 items at a time.\n\nCurrently selected: ' + selectedCheckboxes.length + ' items.');
+                showDispenseAlert('Please select maximum 200 items at a time.<br><br>Currently selected: <strong>' + selectedCheckboxes.length + '</strong> items.', 'Selection Limit Exceeded', 'warning');
                 return;
             }
 
@@ -648,7 +690,7 @@
             const selectedCheckboxes = document.querySelectorAll('.item-checkbox:checked');
             
             if (selectedCheckboxes.length === 0) {
-                alert('No items selected');
+                showDispenseAlert('No items selected.', 'No Items Selected', 'warning');
                 return;
             }
 
@@ -660,7 +702,7 @@
             const notes = document.getElementById('bulk_notes').value.trim();
 
             if (!batchNumber || !expiryDate || !unitCost || !supplier) {
-                alert('Please fill in all required common batch information');
+                showDispenseAlert('Please fill in all required common batch information (Batch Number, Expiry Date, Unit Cost, Supplier).', 'Required Fields Missing', 'warning');
                 return;
             }
 
@@ -711,7 +753,7 @@
             // Update overall totals
             updateTotalQuantity();
             
-            alert(`Bulk batches added successfully for ${selectedCheckboxes.length} items!`);
+            showDispenseAlert(`Bulk batches added successfully for <strong>${selectedCheckboxes.length}</strong> items!`, 'Batches Added', 'success');
         }
 
         function addBatch() {
@@ -973,7 +1015,7 @@
             }
 
             if (batches.length === 0) {
-                alert('Please add at least one complete batch');
+                showDispenseAlert('Please add at least one complete batch (Batch Number, Expiry Date, Quantity, Unit Cost, Supplier).', 'Incomplete Batch Details', 'warning');
                 return;
             }
 
@@ -1090,7 +1132,7 @@
                 })
                 .catch(error => {
                     console.error('Submission error:', error);
-                    alert('Error: ' + error.message);
+                    showDispenseAlert('Error: ' + error.message, 'Dispensing Failed', 'danger');
                     submitButton.innerHTML = originalText;
                     submitButton.disabled = false;
                 });
@@ -1115,8 +1157,10 @@
 
                 if (itemBatchesCount !== requiredItemsCount) {
                     console.error('Missing batches - itemBatches keys:', Object.keys(itemBatches), 'required items count:', requiredItemsCount);
-                    alert(
-                        `Please add batches for all ${requiredItemsCount} available drug items. You have only added batches for ${itemBatchesCount} item(s).`
+                    showDispenseAlert(
+                        `Please add batches for all ${requiredItemsCount} available drug items. You have only added batches for ${itemBatchesCount} item(s).`,
+                        'Incomplete Batches',
+                        'warning'
                     );
                     return false;
                 }
@@ -1126,11 +1170,12 @@
                 let totalDispensed = 0;
                 let allItemsValid = true;
 
-                drugItems.forEach((item, index) => {
+                for (let index = 0; index < drugItems.length; index++) {
+                    const item = drugItems[index];
                     // Skip out-of-stock items completely
                     if (outOfStockIndices.includes(index)) {
                         console.log(`Item ${index} (${item.drug.name}) is out of stock - skipping all validation`);
-                        return;
+                        continue;
                     }
 
                     const requestedQty = parseInt(item.quantity_requested);
@@ -1147,19 +1192,35 @@
                             `Item ${index} (${item.drug.name}): requested=${requestedQty}, dispensed=${itemDispensed}`
                         );
 
-                        if (itemDispensed !== requestedQty) {
-                            alert(
-                                `Quantity mismatch for ${item.drug.name}: requested ${requestedQty}, dispensed ${itemDispensed}`
+                        if (itemDispensed > requestedQty) {
+                            showDispenseAlert(
+                                `Dispensed quantity (${itemDispensed}) cannot exceed requested quantity (${requestedQty}) for <strong>${item.drug.name}</strong>.`,
+                                'Excess Quantity Error',
+                                'danger'
                             );
                             allItemsValid = false;
+                            break;
+                        } else if (itemDispensed <= 0) {
+                            showDispenseAlert(
+                                `Dispensed quantity must be greater than zero for <strong>${item.drug.name}</strong>. Please add valid batches or mark as out of stock.`,
+                                'Invalid Quantity Error',
+                                'warning'
+                            );
+                            allItemsValid = false;
+                            break;
                         }
                     } else {
                         // Only show error if item is not out of stock
                         console.error(`No batches found for item ${index} (${item.drug.name})`);
-                        alert(`No batches added for ${item.drug.name}. Please add batches or mark as out of stock.`);
+                        showDispenseAlert(
+                            `No batches added for <strong>${item.drug.name}</strong>. Please add batches or mark as out of stock.`,
+                            'Batches Missing',
+                            'warning'
+                        );
                         allItemsValid = false;
+                        break;
                     }
-                });
+                }
 
                 if (!allItemsValid) {
                     return false;
@@ -1171,9 +1232,18 @@
                 // Single drug validation
                 const totalDispensed = parseInt(document.getElementById('total-dispensed').textContent);
                 console.log('Single drug validation - dispensed:', totalDispensed, 'requested:', requestedQuantity);
-                if (totalDispensed !== requestedQuantity) {
-                    alert(
-                        `Total dispensed quantity (${totalDispensed}) must match requested quantity (${requestedQuantity})`
+                if (totalDispensed > requestedQuantity) {
+                    showDispenseAlert(
+                        `Total dispensed quantity (${totalDispensed}) cannot exceed requested quantity (${requestedQuantity}).`,
+                        'Excess Quantity Error',
+                        'danger'
+                    );
+                    return false;
+                } else if (totalDispensed <= 0) {
+                    showDispenseAlert(
+                        `Total dispensed quantity must be greater than zero.`,
+                        'Invalid Quantity Error',
+                        'warning'
                     );
                     return false;
                 }

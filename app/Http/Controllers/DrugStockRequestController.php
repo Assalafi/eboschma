@@ -918,7 +918,7 @@ class DrugStockRequestController extends Controller
             }
             Log::info('Item quantities calculated: ' . json_encode($itemQuantities));
             
-            // Check each item's requested quantity matches dispensed quantity (skip out of stock items)
+            // Check each item's requested quantity vs dispensed quantity (skip out of stock items)
             foreach ($stockRequest->items as $index => $item) {
                 if (in_array($index, $outOfStockIndices)) {
                     Log::info("Item {$item->drug->name} (index {$index}) is marked as out of stock - skipping quantity validation");
@@ -927,13 +927,27 @@ class DrugStockRequestController extends Controller
                 
                 $dispensedQuantity = $itemQuantities[$item->id] ?? 0;
                 Log::info("Item {$item->drug->name} (index {$index}): requested {$item->quantity_requested}, dispensed {$dispensedQuantity}");
-                if ($dispensedQuantity != $item->quantity_requested) {
-                    Log::error("Quantity mismatch for {$item->drug->name}: requested {$item->quantity_requested}, dispensed {$dispensedQuantity}");
-                    $errorMsg = "Quantity mismatch for {$item->drug->name}: requested {$item->quantity_requested}, dispensed {$dispensedQuantity}.";
+                if ($dispensedQuantity > $item->quantity_requested) {
+                    Log::error("Dispensed quantity exceeds requested for {$item->drug->name}: requested {$item->quantity_requested}, dispensed {$dispensedQuantity}");
+                    $errorMsg = "Dispensed quantity ({$dispensedQuantity}) cannot exceed requested quantity ({$item->quantity_requested}) for {$item->drug->name}.";
                     if ($request->ajax() || $request->wantsJson()) {
                         return response()->json(['success' => false, 'message' => $errorMsg], 422);
                     }
                     return back()->with('error', $errorMsg);
+                } elseif ($dispensedQuantity <= 0) {
+                    Log::error("Zero quantity dispensed for {$item->drug->name}");
+                    $errorMsg = "Dispensed quantity for {$item->drug->name} must be greater than zero, or mark it as out of stock.";
+                    if ($request->ajax() || $request->wantsJson()) {
+                        return response()->json(['success' => false, 'message' => $errorMsg], 422);
+                    }
+                    return back()->with('error', $errorMsg);
+                }
+
+                // If dispensed quantity is less than requested, update item requested quantity and estimated cost
+                if ($dispensedQuantity < $item->quantity_requested) {
+                    $item->quantity_requested = $dispensedQuantity;
+                    $item->estimated_cost = ($item->drug->unit_price ?? 0) * $dispensedQuantity;
+                    $item->save();
                 }
             }
             
@@ -957,16 +971,29 @@ class DrugStockRequestController extends Controller
                 throw $e;
             }
             
-            // Validate that total quantity matches requested quantity
+            // Validate that total quantity does not exceed requested quantity
             $totalQuantity = collect($request->batches)->sum('quantity_received');
             Log::info("Total quantity check: dispensed {$totalQuantity}, requested {$stockRequest->quantity_requested}");
-            if ($totalQuantity != $stockRequest->quantity_requested) {
-                Log::error("Quantity mismatch: dispensed {$totalQuantity}, requested {$stockRequest->quantity_requested}");
-                $errorMsg = "Total quantity ({$totalQuantity}) must match requested quantity ({$stockRequest->quantity_requested}).";
+            if ($totalQuantity > $stockRequest->quantity_requested) {
+                Log::error("Excess quantity dispensed: {$totalQuantity}, requested {$stockRequest->quantity_requested}");
+                $errorMsg = "Total dispensed quantity ({$totalQuantity}) cannot exceed requested quantity ({$stockRequest->quantity_requested}).";
                 if ($request->ajax() || $request->wantsJson()) {
                     return response()->json(['success' => false, 'message' => $errorMsg], 422);
                 }
                 return back()->with('error', $errorMsg);
+            } elseif ($totalQuantity <= 0) {
+                Log::error("Zero quantity dispensed for single drug request");
+                $errorMsg = "Total dispensed quantity must be greater than zero.";
+                if ($request->ajax() || $request->wantsJson()) {
+                    return response()->json(['success' => false, 'message' => $errorMsg], 422);
+                }
+                return back()->with('error', $errorMsg);
+            }
+
+            // If total dispensed is less than requested, update stockRequest requested quantity and estimated cost
+            if ($totalQuantity < $stockRequest->quantity_requested) {
+                $stockRequest->quantity_requested = $totalQuantity;
+                $stockRequest->estimated_cost = ($stockRequest->drug->unit_price ?? 0) * $totalQuantity;
             }
         }
         
@@ -974,13 +1001,15 @@ class DrugStockRequestController extends Controller
             Log::info('Starting database transaction for stock creation');
             DB::beginTransaction();
             
-            // Update request status and save out-of-stock items
+            // Update request status and save out-of-stock items and updated quantities
             Log::info('Updating request status to dispensed');
             $stockRequest->update([
                 'status' => 'dispensed',
                 'dispensed_at' => now(),
                 'dispensed_by' => Auth::guard('staff')->user()->id,
                 'out_of_stock_items' => !empty($outOfStockIndices) ? json_encode($outOfStockIndices) : null,
+                'quantity_requested' => $isBulkRequest ? $stockRequest->items()->sum('quantity_requested') : $stockRequest->quantity_requested,
+                'estimated_cost' => $isBulkRequest ? $stockRequest->items()->sum('estimated_cost') : $stockRequest->estimated_cost,
             ]);
             Log::info('Request status updated successfully');
             Log::info('Out of stock items saved: ' . json_encode($outOfStockIndices));

@@ -16,7 +16,17 @@ class ReferralController extends Controller
     public function index(Request $request)
     {
         if (request()->ajax()) {
-            $query = ServiceReferral::with(['encounter.patient', 'fromFacility', 'toFacility', 'serviceItem', 'authorization'])
+            $query = ServiceReferral::with([
+                'encounter.patient', 
+                'fromFacility', 
+                'toFacility', 
+                'serviceItem', 
+                'authorization',
+                'approverStaff',
+                'approverUser',
+                'rejecterStaff',
+                'rejecterUser'
+            ])
                 ->when(request('program_id'), function ($q, $programId) {
                     $q->whereHas('encounter', function ($q) use ($programId) {
                         $q->where('program_id', $programId);
@@ -121,6 +131,26 @@ class ReferralController extends Controller
                     
                     return $badges;
                 })
+                ->addColumn('approved_by', function($referral) {
+                    if ($referral->approval_status === 'approved') {
+                        $name = $referral->approved_by_name;
+                        $date = $referral->approved_at ? $referral->approved_at->format('d M Y H:i') : null;
+                        if ($name) {
+                            return "<div><strong>{$name}</strong></div>" .
+                                   ($date ? "<small class='text-muted'>{$date}</small>" : "");
+                        }
+                        return '<span class="badge bg-success">Approved</span>';
+                    } elseif ($referral->approval_status === 'rejected') {
+                        $name = $referral->rejected_by_name;
+                        $date = $referral->rejected_at ? $referral->rejected_at->format('d M Y H:i') : null;
+                        if ($name) {
+                            return "<div><strong class='text-danger'>{$name}</strong></div>" .
+                                   "<small class='text-danger'>Rejected" . ($date ? " ({$date})" : "") . "</small>";
+                        }
+                        return '<span class="badge bg-danger">Rejected</span>';
+                    }
+                    return '<span class="text-muted">Pending</span>';
+                })
                 ->addColumn('date', function($referral) {
                     return $referral->created_at->format('d M Y H:i');
                 })
@@ -138,7 +168,7 @@ class ReferralController extends Controller
                     $actions .= '</div>';
                     return $actions;
                 })
-                ->rawColumns(['referral_info', 'patient_info', 'facility_info', 'reason', 'status_badge', 'action'])
+                ->rawColumns(['referral_info', 'patient_info', 'facility_info', 'reason', 'status_badge', 'approved_by', 'action'])
                 ->make(true);
         }
 

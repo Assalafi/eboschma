@@ -35,6 +35,13 @@ class ServiceReferral extends Model
     //     });
     // }
 
+    protected $casts = [
+        'approved_at' => 'datetime',
+        'rejected_at' => 'datetime',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+    ];
+
     // Status constants
     const STATUS_PENDING = 'pending';
     const STATUS_ACCEPTED = 'accepted';
@@ -76,6 +83,72 @@ class ServiceReferral extends Model
     public function authorization()
     {
         return $this->hasOne(Authorization::class);
+    }
+
+    /**
+     * Get the staff member who approved the referral
+     */
+    public function approverStaff()
+    {
+        return $this->belongsTo(Staff::class, 'approved_by');
+    }
+
+    /**
+     * Get the user who approved the referral
+     */
+    public function approverUser()
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    /**
+     * Get the staff member who rejected the referral
+     */
+    public function rejecterStaff()
+    {
+        return $this->belongsTo(Staff::class, 'rejected_by');
+    }
+
+    /**
+     * Get the user who rejected the referral
+     */
+    public function rejecterUser()
+    {
+        return $this->belongsTo(User::class, 'rejected_by');
+    }
+
+    /**
+     * Get approved by name attribute
+     */
+    public function getApprovedByNameAttribute()
+    {
+        if (!$this->approved_by) {
+            return null;
+        }
+        if ($this->approverStaff) {
+            return $this->approverStaff->fullname ?? $this->approverStaff->email;
+        }
+        if ($this->approverUser) {
+            return $this->approverUser->name ?? $this->approverUser->email;
+        }
+        return null;
+    }
+
+    /**
+     * Get rejected by name attribute
+     */
+    public function getRejectedByNameAttribute()
+    {
+        if (!$this->rejected_by) {
+            return null;
+        }
+        if ($this->rejecterStaff) {
+            return $this->rejecterStaff->fullname ?? $this->rejecterStaff->email;
+        }
+        if ($this->rejecterUser) {
+            return $this->rejecterUser->name ?? $this->rejecterUser->email;
+        }
+        return null;
     }
 
     // Accessors

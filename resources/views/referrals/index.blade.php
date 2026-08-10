@@ -126,6 +126,7 @@
                                                 <th>Facility</th>
                                                 <th>Service</th>
                                                 <th>Status</th>
+                                                <th>Approved By</th>
                                                 <th>Date</th>
                                                 <th>Action</th>
                                             </tr>
@@ -191,6 +192,12 @@
                             name: 'status'
                         },
                         {
+                            data: 'approved_by',
+                            name: 'approved_by',
+                            orderable: false,
+                            searchable: false
+                        },
+                        {
                             data: 'date',
                             name: 'created_at'
                         },
@@ -202,7 +209,7 @@
                         }
                     ],
                     order: [
-                        [5, 'desc']
+                        [6, 'desc']
                     ],
                     pageLength: 25,
                     language: {

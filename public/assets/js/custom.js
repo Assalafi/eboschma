@@ -206,10 +206,12 @@ $(function () {
 		}
 	}
 	var current = location.pathname.split("/").slice(-1)[0].replace(/^\/|\/$/g, '');
-	$('.main-navbar .nav li a').each(function () {
-		var $this = $(this);
-		addActiveClass($this);
-	})
+	if (current && isNaN(current) && current.length > 2) {
+		$('.main-navbar .nav li a').each(function () {
+			var $this = $(this);
+			addActiveClass($this);
+		});
+	}
 
 
 	/* Headerfixed */

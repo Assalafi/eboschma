@@ -822,13 +822,13 @@ Route::prefix('drug-store')->name('drug-store.')->middleware('auth:staff')->grou
 });
 
 // Drug Stock Request Management (Boschma Admin)
-Route::prefix('drug-stock-requests')->name('drug-stock-requests.')->group(function () {
-    Route::get('/', [\App\Http\Controllers\DrugStockRequestController::class, 'index'])->name('index')->middleware('auth:staff', 'permission:drug-stock-requests.view,staff');
-    Route::get('/facility/{facilityId}', [\App\Http\Controllers\DrugStockRequestController::class, 'facilityRequests'])->name('facility-requests')->middleware('auth:staff', 'permission:drug-stock-requests.view,staff');
+Route::prefix('drug-stock-requests')->name('drug-stock-requests.')->middleware('auth:staff')->group(function () {
+    Route::get('/', [\App\Http\Controllers\DrugStockRequestController::class, 'index'])->name('index')->middleware('permission:drug-stock-requests.view,staff');
+    Route::get('/facility/{facilityId}', [\App\Http\Controllers\DrugStockRequestController::class, 'facilityRequests'])->name('facility-requests')->middleware('permission:drug-stock-requests.view,staff');
     Route::get('/create', [\App\Http\Controllers\DrugStockRequestController::class, 'create'])->name('create')->middleware('permission:drug-stock-requests.create,staff');
     Route::post('/', [\App\Http\Controllers\DrugStockRequestController::class, 'store'])->name('store')->middleware('permission:drug-stock-requests.create,staff');
-    Route::get('/{id}', [\App\Http\Controllers\DrugStockRequestController::class, 'show'])->name('show')->middleware('auth:staff', 'permission:drug-stock-requests.view,staff');
-    Route::post('/{id}/update-items', [\App\Http\Controllers\DrugStockRequestController::class, 'updateItems'])->name('update-items')->middleware('auth:staff', 'permission:drug-stock-requests.edit,staff');
+    Route::get('/{id}', [\App\Http\Controllers\DrugStockRequestController::class, 'show'])->name('show')->middleware('permission:drug-stock-requests.view,staff');
+    Route::post('/{id}/update-items', [\App\Http\Controllers\DrugStockRequestController::class, 'updateItems'])->name('update-items')->middleware('permission:drug-stock-requests.edit,staff');
     Route::get('/{id}/edit', [\App\Http\Controllers\DrugStockRequestController::class, 'edit'])->name('edit')->middleware('permission:drug-stock-requests.edit,staff');
     Route::put('/{id}', [\App\Http\Controllers\DrugStockRequestController::class, 'update'])->name('update')->middleware('permission:drug-stock-requests.edit,staff');
     Route::post('/{id}/approve', [\App\Http\Controllers\DrugStockRequestController::class, 'approve'])->name('approve')->middleware('permission:drug-stock-requests.approve,staff');

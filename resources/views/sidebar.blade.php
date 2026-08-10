@@ -162,11 +162,8 @@
                     </li>
                 @endcan
                 @can('drug-stock-requests.view')
-                    <li class="nav-item">
-                        <a class="nav-link @if (request()->routeIs('drug-stock-requests.index') ||
-                                request()->routeIs('drug-stock-requests.show') ||
-                                request()->routeIs('drug-stock-requests.create') ||
-                                request()->routeIs('drug-stock-requests.edit')) active @endif"
+                    <li class="nav-item @if (request()->routeIs('drug-stock-requests.*')) active @endif">
+                        <a class="nav-link @if (request()->routeIs('drug-stock-requests.*')) active @endif"
                             href="{{ route('drug-stock-requests.index') }}">
                             <i class="fe fe-shopping-cart sidemenu-icon menu-icon text-dark"></i>
                             <span class="sidemenu-label text-dark">Pharmacy Requests</span>

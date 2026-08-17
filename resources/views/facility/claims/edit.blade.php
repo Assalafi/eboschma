@@ -37,6 +37,19 @@
             </div>
         @endif
 
+        @if ($claim->is_returned_to_facility)
+            <div class="alert alert-danger" role="alert">
+                <strong><i class="ti-alert-circle mr-2"></i>This claim was rejected back to you.</strong>
+                @if ($claim->rejection_comment)
+                    <div class="mt-2 p-2 bg-white rounded" style="border-left: 3px solid #dc3545;">
+                        <strong>Rejection Comment:</strong> {{ $claim->rejection_comment }}
+                    </div>
+                @endif
+                <div class="mt-2">Adjust the item amounts below, then click <strong>Update Claim</strong>. You can resubmit
+                    it from the claim view afterwards.</div>
+            </div>
+        @endif
+
         <form action="{{ route('facility.claims.update', $claim->id) }}" method="POST">
             @csrf
             @method('PUT')
@@ -163,10 +176,10 @@
                                                         <span class="badge bg-success">Dispensed</span>
                                                     </td>
                                                     <td>
-                                                        {{ $med['cost'] > 0 ? '₦' . number_format($med['cost'], 2) : '₦0.00' }}
-                                                        <input type="hidden"
+                                                        <input type="number"
                                                             name="medications[{{ $index }}][amount]"
-                                                            class="medication-amount" value="{{ $med['cost'] }}">
+                                                            class="form-control form-control-sm medication-amount"
+                                                            value="{{ $med['cost'] }}" min="0" step="0.01">
                                                         <input type="hidden"
                                                             name="medications[{{ $index }}][drug_name]"
                                                             value="{{ $med['drug']->name ?? 'N/A' }}">
@@ -213,9 +226,10 @@
                                                         <span class="badge bg-success">Completed</span>
                                                     </td>
                                                     <td>
-                                                        {{ $srv['price'] > 0 ? '₦' . number_format($srv['price'], 2) : '₦0.00' }}
-                                                        <input type="hidden" name="services[{{ $index }}][amount]"
-                                                            class="service-amount" value="{{ $srv['price'] }}">
+                                                        <input type="number"
+                                                            name="services[{{ $index }}][amount]"
+                                                            class="form-control form-control-sm service-amount"
+                                                            value="{{ $srv['price'] }}" min="0" step="0.01">
                                                         <input type="hidden"
                                                             name="services[{{ $index }}][service_name]"
                                                             value="{{ $srv['service']->name ?? 'N/A' }}">
@@ -268,4 +282,26 @@
             </div>
         </form>
     </div>
+
+    @push('scripts')
+        <script>
+            $(document).ready(function() {
+                function recalcTotals() {
+                    var pharm = 0;
+                    $('.medication-amount').each(function() {
+                        pharm += parseFloat($(this).val()) || 0;
+                    });
+                    var svc = 0;
+                    $('.service-amount').each(function() {
+                        svc += parseFloat($(this).val()) || 0;
+                    });
+                    $('#pharmacyTotal').text('₦' + pharm.toFixed(2));
+                    $('#servicesTotal').text('₦' + svc.toFixed(2));
+                    $('#grandTotal').text('₦' + (pharm + svc).toFixed(2));
+                }
+
+                $('.medication-amount, .service-amount').on('input', recalcTotals);
+            });
+        </script>
+    @endpush
 @endsection

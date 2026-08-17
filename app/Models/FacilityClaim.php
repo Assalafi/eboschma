@@ -196,8 +196,68 @@ class FacilityClaim extends Model
     }
 
     // Helpers
+    /**
+     * The stage that rejected this claim, if any (workflow rejection rolls the
+     * overall status back to the previous level, so we detect it per-stage).
+     */
+    public function getRejectedStageAttribute()
+    {
+        foreach (['verifier', 'approver', 'es', 'finance'] as $stage) {
+            if ($this->{$stage . '_status'} === 'rejected') {
+                return $stage;
+            }
+        }
+        return null;
+    }
+
+    public function getIsRejectedAttribute()
+    {
+        return $this->rejected_stage !== null;
+    }
+
+    /**
+     * Human label for the level a rejected claim was sent back to.
+     */
+    public function getRejectedBackToLabelAttribute()
+    {
+        $labels = [
+            'verifier' => 'Facility (Resubmit)',
+            'approver' => 'Verifier',
+            'es' => 'Approver',
+            'finance' => 'Executive Secretary',
+        ];
+
+        return $labels[$this->rejected_stage] ?? 'Previous Level';
+    }
+
+    /**
+     * The comment left by the rejecting officer (stage notes or legacy reason).
+     */
+    public function getRejectionCommentAttribute()
+    {
+        $stage = $this->rejected_stage;
+        if ($stage) {
+            return $this->{$stage . '_notes'} ?: $this->rejection_reason;
+        }
+
+        return $this->rejection_reason;
+    }
+
+    /**
+     * Whether this claim was returned to the facility (verifier rejected it).
+     */
+    public function getIsReturnedToFacilityAttribute()
+    {
+        return $this->rejected_stage === 'verifier';
+    }
+
     public function getStatusBadgeAttribute()
     {
+        if ($rejectedStage = $this->rejected_stage) {
+            return '<span class="badge bg-danger text-white">Rejected</span>' .
+                   '<small class="text-danger d-block">Back to ' . e($this->rejected_back_to_label) . '</small>';
+        }
+
         $badges = [
             self::STATUS_DRAFT => '<span class="badge bg-secondary text-white">Draft</span>',
             self::STATUS_SUBMITTED => '<span class="badge bg-info text-white">Submitted</span>',

@@ -121,6 +121,57 @@ class FacilityReferralController extends Controller
                 ->when(request('end_date'), function ($q, $endDate) {
                     $q->whereDate('created_at', '<=', $endDate);
                 })
+                ->when(request('status'), function ($q, $status) {
+                    // "rejected" can come from the admin approval flow (approval_status)
+                    // or the facility lifecycle (status), so match either.
+                    if ($status === 'rejected') {
+                        $q->where(function ($q2) {
+                            $q2->where('status', 'rejected')
+                               ->orWhere('approval_status', 'rejected');
+                        });
+                    } else {
+                        $q->where('status', $status);
+                    }
+                })
+                ->when(request('direction'), function ($q, $direction) use ($facilityId) {
+                    if ($direction === 'outgoing') {
+                        $q->where('from_facility_id', $facilityId);
+                    } elseif ($direction === 'incoming') {
+                        $q->where('to_facility_id', $facilityId);
+                    }
+                })
+                ->when(request('referral_type'), function ($q, $type) {
+                    $q->where('referral_type', $type);
+                })
+                ->when(request('search'), function ($q, $search) {
+                    $q->where(function ($sub) use ($search) {
+                        $sub->whereHas('authorization', function ($a) use ($search) {
+                            $a->where('authorization_code', 'like', "%{$search}%");
+                        })
+                        ->orWhereHas('encounter.patient', function ($p) use ($search) {
+                            $p->where('enrollee_number', 'like', "%{$search}%")
+                              ->orWhere('file_number', 'like', "%{$search}%")
+                              ->orWhereExists(function ($sub2) use ($search) {
+                                  $sub2->select(DB::raw(1))
+                                       ->from('beneficiaries')
+                                       ->whereColumn('beneficiaries.boschma_no', 'patients.enrollee_number')
+                                       ->where('beneficiaries.fullname', 'like', "%{$search}%");
+                              })
+                              ->orWhereExists(function ($sub2) use ($search) {
+                                  $sub2->select(DB::raw(1))
+                                       ->from('spouses')
+                                       ->whereColumn('spouses.boschma_no', 'patients.enrollee_number')
+                                       ->where('spouses.name', 'like', "%{$search}%");
+                              })
+                              ->orWhereExists(function ($sub2) use ($search) {
+                                  $sub2->select(DB::raw(1))
+                                       ->from('children')
+                                       ->whereColumn('children.boschma_no', 'patients.enrollee_number')
+                                       ->where('children.name', 'like', "%{$search}%");
+                              });
+                        });
+                    });
+                })
                 ->orderBy('created_at', 'desc');
 
             return DataTables::of($referrals)
@@ -185,7 +236,19 @@ class FacilityReferralController extends Controller
                     return '<span class="text-muted">General Referral</span>';
                 })
                 ->addColumn('status_badge', function($referral) {
-                    return $referral->status_badge;
+                    if ($referral->approval_status === 'rejected') {
+                        return '<span class="badge bg-danger">Rejected</span>';
+                    }
+
+                    $badges = $referral->status_badge;
+
+                    if ($referral->approval_status === 'approved') {
+                        $badges .= ' <span class="badge bg-success mt-1">Approved</span>';
+                    } else {
+                        $badges .= ' <span class="badge bg-warning mt-1">Pending Approval</span>';
+                    }
+
+                    return $badges;
                 })
                 ->addColumn('date', function($referral) {
                     return $referral->created_at->format('d M Y H:i');
@@ -358,6 +421,14 @@ class FacilityReferralController extends Controller
         
         $referral = ServiceReferral::where('to_facility_id', $facilityId)
             ->findOrFail($id);
+
+        // Prevent any action on referrals already rejected by the reviewer/admin
+        if ($referral->approval_status === 'rejected') {
+            return response()->json([
+                'success' => false,
+                'message' => 'This referral has been rejected and cannot be modified.'
+            ], 422);
+        }
 
         $request->validate([
             'status' => 'required|in:accepted,rejected,completed',

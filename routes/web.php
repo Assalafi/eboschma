@@ -799,6 +799,7 @@ Route::prefix('facility')->name('facility.')->group(function () {
         Route::get('/claims/{id}', [\App\Http\Controllers\Facility\FacilityClaimController::class, 'show'])->name('claims.show');
         Route::get('/claims/{id}/edit', [\App\Http\Controllers\Facility\FacilityClaimController::class, 'edit'])->name('claims.edit');
         Route::put('/claims/{id}', [\App\Http\Controllers\Facility\FacilityClaimController::class, 'update'])->name('claims.update');
+        Route::post('/claims/{id}/resubmit', [\App\Http\Controllers\Facility\FacilityClaimController::class, 'resubmit'])->name('claims.resubmit');
         Route::delete('/claims/{id}', [\App\Http\Controllers\Facility\FacilityClaimController::class, 'destroy'])->name('claims.destroy');
         
         // Referrals Management

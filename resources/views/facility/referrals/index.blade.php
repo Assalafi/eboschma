@@ -83,7 +83,39 @@
                                 <!-- Filter Section -->
                                 <div class="row mb-4">
                                     <div class="col-md-3 mb-3">
-                                        <label class="form-label">Program</label>
+                                        <label class="form-label small text-muted mb-1">Search</label>
+                                        <input type="text" id="filter_search" class="form-control"
+                                            placeholder="Auth code, patient, enrollee...">
+                                    </div>
+                                    <div class="col-md-2 mb-3">
+                                        <label class="form-label small text-muted mb-1">Status</label>
+                                        <select id="filter_status" class="form-select">
+                                            <option value="">All Statuses</option>
+                                            <option value="pending">Pending</option>
+                                            <option value="accepted">Accepted</option>
+                                            <option value="completed">Completed</option>
+                                            <option value="rejected">Rejected</option>
+                                            <option value="cancelled">Cancelled</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2 mb-3">
+                                        <label class="form-label small text-muted mb-1">Direction</label>
+                                        <select id="filter_direction" class="form-select">
+                                            <option value="">All Directions</option>
+                                            <option value="outgoing">Outgoing</option>
+                                            <option value="incoming">Incoming</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2 mb-3">
+                                        <label class="form-label small text-muted mb-1">Type</label>
+                                        <select id="filter_type" class="form-select">
+                                            <option value="">All Types</option>
+                                            <option value="service">Service</option>
+                                            <option value="patient">Patient</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3 mb-3">
+                                        <label class="form-label small text-muted mb-1">Program</label>
                                         <select id="filter_program" class="form-select">
                                             <option value="">All Programs</option>
                                             @if(isset($programs))
@@ -93,16 +125,16 @@
                                             @endif
                                         </select>
                                     </div>
-                                    <div class="col-md-3 mb-3">
-                                        <label class="form-label">Start Date</label>
+                                    <div class="col-md-2 mb-3">
+                                        <label class="form-label small text-muted mb-1">Start Date</label>
                                         <input type="date" id="filter_start_date" class="form-control">
                                     </div>
-                                    <div class="col-md-3 mb-3">
-                                        <label class="form-label">End Date</label>
+                                    <div class="col-md-2 mb-3">
+                                        <label class="form-label small text-muted mb-1">End Date</label>
                                         <input type="date" id="filter_end_date" class="form-control">
                                     </div>
-                                    <div class="col-md-3 mb-3 d-flex align-items-end">
-                                        <button type="button" id="btn_filter" class="btn btn-primary me-2"><i class="ti-filter"></i> Filter</button>
+                                    <div class="col-md-3 mb-3 d-flex align-items-end gap-2">
+                                        <button type="button" id="btn_filter" class="btn btn-primary"><i class="ti-filter"></i> Filter</button>
                                         <button type="button" id="btn_reset" class="btn btn-light"><i class="ti-reload"></i> Reset</button>
                                     </div>
                                 </div>
@@ -138,13 +170,18 @@
 
         <script>
             $(document).ready(function() {
-                $('#referralsTable').DataTable({
+                var table = $('#referralsTable').DataTable({
                     processing: true,
                     serverSide: true,
+                    searching: false,
                     ajax: {
                         url: '{{ route('facility.referrals.index') }}',
                         type: 'GET',
                         data: function (d) {
+                            d.search = $('#filter_search').val();
+                            d.status = $('#filter_status').val();
+                            d.direction = $('#filter_direction').val();
+                            d.referral_type = $('#filter_type').val();
                             d.program_id = $('#filter_program').val();
                             d.start_date = $('#filter_start_date').val();
                             d.end_date = $('#filter_end_date').val();
@@ -193,14 +230,24 @@
                 });
 
                 $('#btn_filter').click(function() {
-                    $('#referralsTable').DataTable().ajax.reload();
+                    table.ajax.reload();
                 });
 
                 $('#btn_reset').click(function() {
-                    $('#filter_program').val('');
-                    $('#filter_start_date').val('');
-                    $('#filter_end_date').val('');
-                    $('#referralsTable').DataTable().ajax.reload();
+                    $('#filter_search, #filter_status, #filter_direction, #filter_type, #filter_program, #filter_start_date, #filter_end_date').val('');
+                    table.ajax.reload();
+                });
+
+                // Live filter on select/date change
+                $('#filter_status, #filter_direction, #filter_type, #filter_program, #filter_start_date, #filter_end_date').on('change', function() {
+                    table.ajax.reload();
+                });
+
+                // Debounced search
+                var searchTimer;
+                $('#filter_search').on('keyup', function() {
+                    clearTimeout(searchTimer);
+                    searchTimer = setTimeout(function() { table.ajax.reload(); }, 400);
                 });
             });
         </script>

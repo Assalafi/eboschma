@@ -44,6 +44,44 @@ class ReferralController extends Controller
                     } elseif ($status === 'completed') {
                         $q->where('status', '!=', 'pending');
                     }
+                })
+                ->when(request('referral_type'), function ($q, $type) {
+                    $q->where('referral_type', $type);
+                })
+                ->when(request('from_facility_id'), function ($q, $fromFacilityId) {
+                    $q->where('from_facility_id', $fromFacilityId);
+                })
+                ->when(request('to_facility_id'), function ($q, $toFacilityId) {
+                    $q->where('to_facility_id', $toFacilityId);
+                })
+                ->when(request('search'), function ($q, $search) {
+                    $q->where(function ($sub) use ($search) {
+                        $sub->whereHas('authorization', function ($a) use ($search) {
+                            $a->where('authorization_code', 'like', "%{$search}%");
+                        })
+                        ->orWhereHas('encounter.patient', function ($p) use ($search) {
+                            $p->where('enrollee_number', 'like', "%{$search}%")
+                              ->orWhere('file_number', 'like', "%{$search}%")
+                              ->orWhereExists(function ($sub2) use ($search) {
+                                  $sub2->select(\DB::raw(1))
+                                       ->from('beneficiaries')
+                                       ->whereColumn('beneficiaries.boschma_no', 'patients.enrollee_number')
+                                       ->where('beneficiaries.fullname', 'like', "%{$search}%");
+                              })
+                              ->orWhereExists(function ($sub2) use ($search) {
+                                  $sub2->select(\DB::raw(1))
+                                       ->from('spouses')
+                                       ->whereColumn('spouses.boschma_no', 'patients.enrollee_number')
+                                       ->where('spouses.name', 'like', "%{$search}%");
+                              })
+                              ->orWhereExists(function ($sub2) use ($search) {
+                                  $sub2->select(\DB::raw(1))
+                                       ->from('children')
+                                       ->whereColumn('children.boschma_no', 'patients.enrollee_number')
+                                       ->where('children.name', 'like', "%{$search}%");
+                              });
+                        });
+                    });
                 });
 
             // Calculate stats based on the current filters
@@ -181,8 +219,9 @@ class ReferralController extends Controller
         ];
 
         $programs = \App\Models\Program::active()->orderBy('name')->get();
+        $facilities = \App\Models\Facility::orderBy('name')->get();
 
-        return view('referrals.index', compact('stats', 'programs'));
+        return view('referrals.index', compact('stats', 'programs', 'facilities'));
     }
 
     /**

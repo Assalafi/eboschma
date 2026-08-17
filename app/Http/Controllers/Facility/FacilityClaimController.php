@@ -241,14 +241,55 @@ class FacilityClaimController extends Controller
     /**
      * Display all claims for facility
      */
-    public function claims()
+    public function claims(Request $request)
     {
         $facilityId = Auth::user()->facility_id;
-        
-        if (request()->ajax()) {
+
+        if ($request->ajax()) {
             $claims = FacilityClaim::with(['patient', 'encounter'])
-                ->where('facility_id', $facilityId)
-                ->orderBy('created_at', 'desc');
+                ->where('facility_id', $facilityId);
+
+            // Server-side status filter (rejected matches the rejected stage columns)
+            if ($request->filled('status')) {
+                $status = $request->get('status');
+                if ($status === 'rejected') {
+                    $claims->where(function ($q) {
+                        $q->where('verifier_status', 'rejected')
+                          ->orWhere('approver_status', 'rejected')
+                          ->orWhere('es_status', 'rejected')
+                          ->orWhere('finance_status', 'rejected');
+                    });
+                } else {
+                    $claims->where('status', $status);
+                }
+            }
+
+            // Claim type filter
+            if ($request->filled('claim_type')) {
+                $claims->where('claim_type', $request->get('claim_type'));
+            }
+
+            // Date range filter
+            if ($request->filled('date_from')) {
+                $claims->whereDate('service_date', '>=', $request->get('date_from'));
+            }
+            if ($request->filled('date_to')) {
+                $claims->whereDate('service_date', '<=', $request->get('date_to'));
+            }
+
+            // Free-text search
+            if ($request->filled('search')) {
+                $search = trim($request->get('search'));
+                $claims->where(function ($q) use ($search) {
+                    $q->where('claim_number', 'like', "%{$search}%")
+                      ->orWhere('patient_name', 'like', "%{$search}%")
+                      ->orWhere('enrollee_number', 'like', "%{$search}%")
+                      ->orWhere('boschma_no', 'like', "%{$search}%");
+                });
+            }
+
+            // Order by latest first (DataTables default is overridden in the view)
+            $claims->orderBy('created_at', 'desc');
 
             return DataTables::of($claims)
                 ->addColumn('claim_info', function($claim) {
@@ -261,24 +302,27 @@ class FacilityClaimController extends Controller
                 })
                 ->addColumn('amounts', function($claim) {
                     return '<strong>Total: ' . $claim->formatted_total_amount . '</strong><br>' .
-                           '<small>Pharm: ₦' . number_format($claim->pharmacy_amount, 2) . 
+                           '<small>Pharm: ₦' . number_format($claim->pharmacy_amount, 2) .
                            ' | Lab: ₦' . number_format($claim->laboratory_amount, 2) . '</small>';
                 })
                 ->addColumn('status_badge', function($claim) {
                     return $claim->status_badge;
                 })
+                ->addColumn('created_at', function($claim) {
+                    return $claim->created_at->format('d M Y g:i A');
+                })
                 ->addColumn('action', function($claim) {
                     $actions = '<div class="d-flex gap-1">';
-                    $actions .= '<a href="' . route('facility.claims.show', $claim->id) . '" 
+                    $actions .= '<a href="' . route('facility.claims.show', $claim->id) . '"
                                     class="btn btn-sm btn-info" title="View">👁️</a>';
-                    
+
                     if ($claim->status === FacilityClaim::STATUS_DRAFT) {
-                        $actions .= '<a href="' . route('facility.claims.edit', $claim->id) . '" 
+                        $actions .= '<a href="' . route('facility.claims.edit', $claim->id) . '"
                                         class="btn btn-sm btn-warning" title="Edit">✏️</a>';
-                        $actions .= '<button type="button" class="btn btn-sm btn-danger" 
+                        $actions .= '<button type="button" class="btn btn-sm btn-danger"
                                         onclick="deleteClaim(' . $claim->id . ')" title="Delete">🗑️</button>';
                     }
-                    
+
                     $actions .= '</div>';
                     return $actions;
                 })
@@ -286,7 +330,25 @@ class FacilityClaimController extends Controller
                 ->make(true);
         }
 
-        return view('facility.claims.list');
+        // Summary statistics for the header cards
+        $base = FacilityClaim::where('facility_id', $facilityId);
+        $stats = [
+            'total' => (clone $base)->count(),
+            'draft' => (clone $base)->where('status', FacilityClaim::STATUS_DRAFT)->count(),
+            'submitted' => (clone $base)->whereIn('status', [FacilityClaim::STATUS_SUBMITTED, FacilityClaim::STATUS_VERIFIED, FacilityClaim::STATUS_UNDER_REVIEW])->count(),
+            'approved' => (clone $base)->whereIn('status', [FacilityClaim::STATUS_APPROVED, FacilityClaim::STATUS_ES_APPROVED])->count(),
+            'paid' => (clone $base)->where('status', FacilityClaim::STATUS_PAID)->count(),
+            'rejected' => (clone $base)->where(function ($q) {
+                $q->where('verifier_status', 'rejected')
+                  ->orWhere('approver_status', 'rejected')
+                  ->orWhere('es_status', 'rejected')
+                  ->orWhere('finance_status', 'rejected');
+            })->count(),
+            'total_amount' => (clone $base)->sum('total_amount'),
+            'paid_amount' => (clone $base)->where('status', FacilityClaim::STATUS_PAID)->sum('total_amount'),
+        ];
+
+        return view('facility.claims.list', compact('stats'));
     }
 
     /**
@@ -577,9 +639,9 @@ class FacilityClaimController extends Controller
             'activities'
         ])->findOrFail($id);
 
-        if ($claim->status !== FacilityClaim::STATUS_DRAFT) {
+        if ($claim->status !== FacilityClaim::STATUS_DRAFT && !$claim->is_returned_to_facility) {
             return redirect()->route('facility.claims.show', $id)
-                ->with('error', 'Only draft claims can be edited');
+                ->with('error', 'Only draft or returned claims can be edited');
         }
 
         $encounter = $claim->encounter;
@@ -642,8 +704,8 @@ class FacilityClaimController extends Controller
     {
         $claim = FacilityClaim::findOrFail($id);
 
-        if ($claim->status !== FacilityClaim::STATUS_DRAFT) {
-            return back()->with('error', 'Only draft claims can be updated');
+        if ($claim->status !== FacilityClaim::STATUS_DRAFT && !$claim->is_returned_to_facility) {
+            return back()->with('error', 'Only draft or returned claims can be updated');
         }
 
         $validated = $request->validate([
@@ -717,14 +779,57 @@ class FacilityClaimController extends Controller
 
             DB::commit();
 
+            $message = $claim->is_returned_to_facility
+                ? 'Claim updated successfully. Click "Resubmit Claim" to send it back for verification.'
+                : 'Claim updated successfully';
+
             return redirect()->route('facility.claims.show', $claim->id)
-                ->with('success', 'Claim updated successfully');
+                ->with('success', $message);
 
         } catch (\Exception $e) {
             DB::rollBack();
             \Log::error('Claim update error: ' . $e->getMessage());
             return back()->withInput()->with('error', 'Error updating claim: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Resubmit a claim that was rejected back to the facility by the verifier.
+     * Resets the verification stage so the claim re-enters the review queue.
+     */
+    public function resubmit($id)
+    {
+        $claim = FacilityClaim::findOrFail($id);
+
+        if (!$claim->is_returned_to_facility) {
+            return back()->with('error', 'Only claims returned to the facility can be resubmitted.');
+        }
+
+        $claim->update([
+            'status' => FacilityClaim::STATUS_SUBMITTED,
+            'submitted_at' => now(),
+            'rejection_reason' => null,
+            // Reset the entire workflow back to a clean "awaiting verification" state
+            'verifier_status' => 'pending',
+            'verifier_notes' => null,
+            'verifier_id' => null,
+            'verifier_updated_at' => null,
+            'approver_status' => 'pending',
+            'approver_notes' => null,
+            'approver_id' => null,
+            'approver_updated_at' => null,
+            'es_status' => 'pending',
+            'es_notes' => null,
+            'es_id' => null,
+            'es_updated_at' => null,
+            'finance_status' => 'pending',
+            'finance_notes' => null,
+            'finance_id' => null,
+            'finance_updated_at' => null,
+        ]);
+
+        return redirect()->route('facility.claims.show', $claim->id)
+            ->with('success', 'Claim resubmitted successfully for verification.');
     }
 
     /**
@@ -912,52 +1017,101 @@ class FacilityClaimController extends Controller
                         
         // --- 5. Build unified items list with referral awareness ---
         $allItems = collect();
-        
+
+        // Pre-build referral lookup maps (avoid N+1 queries in the loops below)
+        $patientReferralNameMap = ServiceReferral::where('to_facility_id', $facilityId)
+            ->where('referral_type', 'patient')
+            ->with('fromFacility')
+            ->get()
+            ->mapWithKeys(function ($r) {
+                return [$r->encounter_id => $r->fromFacility->name ?? 'Unknown'];
+            })
+            ->all();
+
+        $externalPatientReferralNameMap = ServiceReferral::where('to_facility_id', $facilityId)
+            ->where('referral_type', 'patient')
+            ->where('from_facility_id', '!=', $facilityId)
+            ->with('fromFacility')
+            ->get()
+            ->mapWithKeys(function ($r) {
+                return [$r->encounter_id => $r->fromFacility->name ?? 'Unknown'];
+            })
+            ->all();
+
+        // Memoized enrollee-detail lookup (avoids N+1 lazy loads per item)
+        $enrolleeCache = [];
+        $getEnrolleeDetails = function ($patient) use (&$enrolleeCache) {
+            $type = $patient->enrollee_type ?? '';
+            $num = $patient->enrollee_number ?? '';
+            $key = $type . '|' . $num;
+            if (!array_key_exists($key, $enrolleeCache)) {
+                $enrolleeCache[$key] = match ($type) {
+                    'beneficiary' => \App\Models\Beneficiary::where('boschma_no', $num)->first(),
+                    'spouse' => \App\Models\Spouse::where('boschma_no', $num)->with('beneficiary')->first(),
+                    'child' => \App\Models\Child::where('boschma_no', $num)->with('beneficiary')->first(),
+                    default => null,
+                };
+            }
+            return $enrolleeCache[$key];
+        };
+
         // Build encounter cache first for consistent tab categorization
         $encounterCache = [];
         
-        // Pre-build cache for all encounters from services
+        // Pre-build cache for all encounters from services (batched, no per-encounter queries)
+        $serviceEncounterIds = collect();
         foreach ($allServices as $soi) {
             $serviceOrder = $soi->serviceOrder;
-            $encounter = $serviceOrder ? $serviceOrder->encounter : null;
-            if (!$encounter || isset($encounterCache[$encounter->id])) continue;
-            
-            // Build encounter data (same logic as before)
-            $allDrugsDispensed = true;
-            $allServicesCompleted = true;
-            $hasDrugsInEncounter = false;
-            
-            // Check for actual dispensed drugs in this encounter
-            $encounterDispensedDrugs = PharmacyDispensation::whereHas('prescriptionItem.prescription.consultation', function($q) use ($encounter) {
-                $q->where('encounter_id', $encounter->id);
-            })->get();
-            
-            $hasDrugsInEncounter = $encounterDispensedDrugs->count() > 0;
-            
-            // Simple logic: if no drugs in encounter, consider all drugs as dispensed
-            if (!$hasDrugsInEncounter) {
+            $enc = $serviceOrder ? $serviceOrder->encounter : null;
+            if ($enc) {
+                $serviceEncounterIds->push($enc->id);
+            }
+        }
+        $serviceEncounterIds = $serviceEncounterIds->unique()->values()->all();
+
+        if (!empty($serviceEncounterIds)) {
+            // Encounters that have at least one dispensed drug (single query)
+            $dispensedEncounterIds = DB::table('pharmacy_dispensations as pd')
+                ->join('prescription_items as pi', 'pd.prescription_item_id', '=', 'pi.id')
+                ->join('prescriptions as p', 'pi.prescription_id', '=', 'p.id')
+                ->join('clinical_consultations as cc', 'p.clinical_consultation_id', '=', 'cc.id')
+                ->whereIn('cc.encounter_id', $serviceEncounterIds)
+                ->distinct()
+                ->pluck('cc.encounter_id')
+                ->all();
+
+            // All drug prescription items grouped by encounter (single query)
+            $prescriptionItemsByEncounter = DB::table('prescription_items as pi')
+                ->join('prescriptions as p', 'pi.prescription_id', '=', 'p.id')
+                ->join('clinical_consultations as cc', 'p.clinical_consultation_id', '=', 'cc.id')
+                ->whereIn('cc.encounter_id', $serviceEncounterIds)
+                ->whereNotNull('pi.drug_id')
+                ->where('pi.drug_id', '!=', '')
+                ->select('pi.dispensing_status', 'cc.encounter_id')
+                ->get()
+                ->groupBy('encounter_id');
+
+            foreach ($serviceEncounterIds as $encounterId) {
+                $hasDrugsInEncounter = in_array($encounterId, $dispensedEncounterIds);
+
                 $allDrugsDispensed = true;
-            } else {
-                // Only check dispensing status if there are actual drugs
-                $encounterPrescriptionItems = PrescriptionItem::whereHas('prescription.consultation', function($q) use ($encounter) {
-                    $q->where('encounter_id', $encounter->id);
-                })->whereNotNull('drug_id')->where('drug_id', '!=', '')->get();
-                
-                foreach ($encounterPrescriptionItems as $pi) {
-                    $status = strtolower($pi->dispensing_status);
-                    // dispensed, fully_dispensed, cancelled are all resolved states
-                    if (!in_array($status, ['dispensed', 'fully_dispensed', 'cancelled'])) {
-                        $allDrugsDispensed = false;
-                        break;
+                if ($hasDrugsInEncounter) {
+                    foreach ($prescriptionItemsByEncounter->get($encounterId, collect()) as $pi) {
+                        $status = strtolower($pi->dispensing_status ?? '');
+                        // dispensed, fully_dispensed, cancelled are all resolved states
+                        if (!in_array($status, ['dispensed', 'fully_dispensed', 'cancelled'])) {
+                            $allDrugsDispensed = false;
+                            break;
+                        }
                     }
                 }
+
+                $encounterCache[$encounterId] = [
+                    'allDrugsDispensed' => $allDrugsDispensed,
+                    'allServicesCompleted' => true,
+                    'hasDrugsInEncounter' => $hasDrugsInEncounter,
+                ];
             }
-            
-            $encounterCache[$encounter->id] = [
-                'allDrugsDispensed' => $allDrugsDispensed,
-                'allServicesCompleted' => $allServicesCompleted,
-                'hasDrugsInEncounter' => $hasDrugsInEncounter
-            ];
         }
         
         // Process services
@@ -982,13 +1136,8 @@ class FacilityClaimController extends Controller
                 $sourceType = 'service_referral';
                 $fromFacilityName = $serviceReferrals[$refKey]->fromFacility->name ?? 'Unknown';
             } else {
-                // Find the patient referral info
-                $patRef = ServiceReferral::where('encounter_id', $encounter->id)
-                    ->where('to_facility_id', $facilityId)
-                    ->where('referral_type', 'patient')
-                    ->with('fromFacility')
-                    ->first();
-                $fromFacilityName = $patRef ? ($patRef->fromFacility->name ?? 'Unknown') : null;
+                // Patient referral name (pre-built map, no per-item query)
+                $fromFacilityName = $patientReferralNameMap[$encounter->id] ?? null;
             }
             
             // Use cached encounter data
@@ -1020,7 +1169,7 @@ class FacilityClaimController extends Controller
             }
             
                         
-            $enrolleeDetails = $patient->enrolleeDetails;
+            $enrolleeDetails = $getEnrolleeDetails($patient);
             
             $allItems->push([
                 'type' => 'service',
@@ -1076,12 +1225,8 @@ class FacilityClaimController extends Controller
             $fromFacilityName = null;
             
             if ($isPatientReferral) {
-                $patRef = ServiceReferral::where('encounter_id', $encounter->id)
-                    ->where('to_facility_id', $facilityId)
-                    ->where('referral_type', 'patient')
-                    ->with('fromFacility')
-                    ->first();
-                $fromFacilityName = $patRef ? ($patRef->fromFacility->name ?? 'Unknown') : null;
+                // External patient referral name (pre-built map, no per-item query)
+                $fromFacilityName = $externalPatientReferralNameMap[$encounter->id] ?? null;
             }
             
             // Determine claimability
@@ -1119,7 +1264,7 @@ class FacilityClaimController extends Controller
             }
             
                         
-            $enrolleeDetails = $patient->enrolleeDetails;
+            $enrolleeDetails = $getEnrolleeDetails($patient);
             
             $allItems->push([
                 'type' => 'drug',
@@ -1175,7 +1320,7 @@ class FacilityClaimController extends Controller
             
             // Program filter
             if ($programId) {
-                $enrolleeDetails = $patient->enrolleeDetails;
+                $enrolleeDetails = $getEnrolleeDetails($patient);
                 if (!$enrolleeDetails) continue;
                 $patientProgramId = null;
                 if ($patient->enrollee_type === 'beneficiary') {
@@ -1189,7 +1334,7 @@ class FacilityClaimController extends Controller
             // Item type filter - skip admin charges if only drugs or only services requested
             if ($itemType === 'drug' || $itemType === 'service') continue;
             
-            $enrolleeDetails = $patient->enrolleeDetails;
+            $enrolleeDetails = $getEnrolleeDetails($patient);
             $encounterStatus = $encounter->status ?? 'N/A';
             
             // Use encounter cache for tab categorization if available

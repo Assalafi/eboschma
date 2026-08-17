@@ -82,8 +82,31 @@
                             <div class="card-body">
                                 <!-- Filter Section -->
                                 <div class="row mb-4">
+                                    <div class="col-md-3 mb-3">
+                                        <label class="form-label small text-muted mb-1">Search</label>
+                                        <input type="text" id="filter_search" class="form-control"
+                                            placeholder="Auth code, patient, enrollee...">
+                                    </div>
                                     <div class="col-md-2 mb-3">
-                                        <label class="form-label">Program</label>
+                                        <label class="form-label small text-muted mb-1">Status</label>
+                                        <select id="filter_status" class="form-select">
+                                            <option value="">All Statuses</option>
+                                            <option value="pending">Pending</option>
+                                            <option value="approved">Approved</option>
+                                            <option value="rejected">Rejected</option>
+                                            <option value="completed">Completed</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2 mb-3">
+                                        <label class="form-label small text-muted mb-1">Type</label>
+                                        <select id="filter_type" class="form-select">
+                                            <option value="">All Types</option>
+                                            <option value="service">Service</option>
+                                            <option value="patient">Patient</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2 mb-3">
+                                        <label class="form-label small text-muted mb-1">Program</label>
                                         <select id="filter_program" class="form-select">
                                             <option value="">All Programs</option>
                                             @if(isset($programs))
@@ -93,26 +116,38 @@
                                             @endif
                                         </select>
                                     </div>
-                                    <div class="col-md-2 mb-3">
-                                        <label class="form-label">Status</label>
-                                        <select id="filter_status" class="form-select">
-                                            <option value="">All Statuses</option>
-                                            <option value="pending">Pending</option>
-                                            <option value="approved">Approved</option>
-                                            <option value="rejected">Rejected</option>
-                                            <option value="completed">Completed</option>
+                                    <div class="col-md-3 mb-3">
+                                        <label class="form-label small text-muted mb-1">From Facility</label>
+                                        <select id="filter_from_facility" class="form-select">
+                                            <option value="">All Facilities</option>
+                                            @if(isset($facilities))
+                                                @foreach($facilities as $facility)
+                                                    <option value="{{ $facility->id }}">{{ $facility->name }}</option>
+                                                @endforeach
+                                            @endif
                                         </select>
                                     </div>
                                     <div class="col-md-3 mb-3">
-                                        <label class="form-label">Start Date</label>
+                                        <label class="form-label small text-muted mb-1">To Facility</label>
+                                        <select id="filter_to_facility" class="form-select">
+                                            <option value="">All Facilities</option>
+                                            @if(isset($facilities))
+                                                @foreach($facilities as $facility)
+                                                    <option value="{{ $facility->id }}">{{ $facility->name }}</option>
+                                                @endforeach
+                                            @endif
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3 mb-3">
+                                        <label class="form-label small text-muted mb-1">Start Date</label>
                                         <input type="date" id="filter_start_date" class="form-control">
                                     </div>
                                     <div class="col-md-3 mb-3">
-                                        <label class="form-label">End Date</label>
+                                        <label class="form-label small text-muted mb-1">End Date</label>
                                         <input type="date" id="filter_end_date" class="form-control">
                                     </div>
-                                    <div class="col-md-2 mb-3 d-flex align-items-end">
-                                        <button type="button" id="btn_filter" class="btn btn-primary me-2"><i class="ti-filter"></i> Filter</button>
+                                    <div class="col-md-3 mb-3 d-flex align-items-end gap-2">
+                                        <button type="button" id="btn_filter" class="btn btn-primary"><i class="ti-filter"></i> Filter</button>
                                         <button type="button" id="btn_reset" class="btn btn-light"><i class="ti-reload"></i> Reset</button>
                                     </div>
                                 </div>
@@ -163,8 +198,12 @@
                         url: '{{ route('referrals.index') }}',
                         type: 'GET',
                         data: function (d) {
+                            d.search = $('#filter_search').val();
                             d.program_id = $('#filter_program').val();
                             d.status = $('#filter_status').val();
+                            d.referral_type = $('#filter_type').val();
+                            d.from_facility_id = $('#filter_from_facility').val();
+                            d.to_facility_id = $('#filter_to_facility').val();
                             d.start_date = $('#filter_start_date').val();
                             d.end_date = $('#filter_end_date').val();
                         }
@@ -222,15 +261,21 @@
                 });
 
                 // Auto-filter when changing dropdowns or dates
-                $('#filter_program, #filter_status, #filter_start_date, #filter_end_date').change(function() {
+                $('#filter_program, #filter_status, #filter_type, #filter_from_facility, #filter_to_facility, #filter_start_date, #filter_end_date').change(function() {
                     $('#referralsTable').DataTable().ajax.reload();
                 });
 
+                // Debounced search
+                var searchTimer;
+                $('#filter_search').on('keyup', function() {
+                    clearTimeout(searchTimer);
+                    searchTimer = setTimeout(function() {
+                        $('#referralsTable').DataTable().ajax.reload();
+                    }, 400);
+                });
+
                 $('#btn_reset').click(function() {
-                    $('#filter_program').val('');
-                    $('#filter_status').val('');
-                    $('#filter_start_date').val('');
-                    $('#filter_end_date').val('');
+                    $('#filter_search, #filter_program, #filter_status, #filter_type, #filter_from_facility, #filter_to_facility, #filter_start_date, #filter_end_date').val('');
                     $('#referralsTable').DataTable().ajax.reload();
                 });
             });

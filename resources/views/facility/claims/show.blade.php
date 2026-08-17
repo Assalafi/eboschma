@@ -16,10 +16,19 @@
             </div>
             <div class="page-rightheader">
                 <div class="btn-list">
-                    @if ($claim->status === 'draft')
+                    @if ($claim->status === 'draft' || $claim->is_returned_to_facility)
                         <a href="{{ route('facility.claims.edit', $claim->id) }}" class="btn btn-warning">
                             <i class="ti-pencil mr-1"></i> Edit Claim
                         </a>
+                    @endif
+                    @if ($claim->is_returned_to_facility)
+                        <form action="{{ route('facility.claims.resubmit', $claim->id) }}" method="POST"
+                            onsubmit="return confirm('Resubmit this claim for verification?');">
+                            @csrf
+                            <button type="submit" class="btn btn-success">
+                                <i class="ti-upload mr-1"></i> Resubmit Claim
+                            </button>
+                        </form>
                     @endif
                     <a href="{{ route('facility.claims.list') }}" class="btn btn-secondary">
                         <i class="ti-arrow-left mr-1"></i> Back to List
@@ -27,6 +36,24 @@
                 </div>
             </div>
         </div>
+
+        <!-- Rejection Notice -->
+        @if ($claim->is_rejected)
+            <div class="alert alert-danger d-flex align-items-start" role="alert">
+                <i class="ti-alert-circle mr-2 mt-1"></i>
+                <div>
+                    <strong>This claim was rejected.</strong>
+                    <span class="d-block text-muted">It was sent back to:
+                        {{ $claim->rejected_back_to_label }}</span>
+                    @if ($claim->rejection_comment)
+                        <div class="mt-2 p-2 bg-white rounded" style="border-left: 3px solid #dc3545;">
+                            <strong>Rejection Comment:</strong><br>
+                            {{ $claim->rejection_comment }}
+                        </div>
+                    @endif
+                </div>
+            </div>
+        @endif
 
         <!-- Success/Error Messages -->
         @if (session('success'))

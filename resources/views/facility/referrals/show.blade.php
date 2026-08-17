@@ -32,6 +32,18 @@
             </div>
         @endif
 
+        <!-- Rejection Notice -->
+        @if ($referral->approval_status === 'rejected')
+            <div class="alert alert-danger" role="alert">
+                <strong><i class="ti-alert-circle mr-2"></i>This referral was rejected by the reviewer.</strong>
+                @if ($referral->rejection_reason)
+                    <div class="mt-2 p-2 bg-white rounded" style="border-left: 3px solid #dc3545;">
+                        <strong>Rejection Reason:</strong> {{ $referral->rejection_reason }}
+                    </div>
+                @endif
+            </div>
+        @endif
+
         <!-- Tabs Navigation -->
         <div class="row">
             <div class="col-12">
@@ -45,6 +57,13 @@
                                 <span class="badge bg-white text-primary">📥 Incoming</span>
                             @endif
                             {!! $referral->status_badge !!}
+                            @if ($referral->approval_status === 'approved')
+                                <span class="badge bg-success">Approved</span>
+                            @elseif ($referral->approval_status === 'rejected')
+                                <span class="badge bg-danger">Rejected</span>
+                            @else
+                                <span class="badge bg-warning text-dark">Pending Approval</span>
+                            @endif
                         </div>
                     </div>
                     <div class="card-body">
@@ -151,8 +170,33 @@
                                                     </tr>
                                                     <tr>
                                                         <th>Status:</th>
-                                                        <td>{!! $referral->status_badge !!}</td>
+                                                        <td>
+                                                            {!! $referral->status_badge !!}
+                                                            @if ($referral->approval_status === 'approved')
+                                                                <span class="badge bg-success ms-1">Approved</span>
+                                                            @elseif ($referral->approval_status === 'rejected')
+                                                                <span class="badge bg-danger ms-1">Rejected</span>
+                                                            @else
+                                                                <span class="badge bg-warning ms-1">Pending Approval</span>
+                                                            @endif
+                                                        </td>
                                                     </tr>
+                                                    @if ($referral->approval_status === 'rejected')
+                                                        <tr>
+                                                            <th>Rejected By:</th>
+                                                            <td>
+                                                                @if ($referral->rejected_by_name)
+                                                                    <strong class="text-danger">{{ $referral->rejected_by_name }}</strong>
+                                                                    @if ($referral->rejected_at)
+                                                                        <br><small class="text-muted">{{ $referral->rejected_at->format('d M Y H:i') }}</small>
+                                                                    @endif
+                                                                @endif
+                                                                @if ($referral->rejection_reason)
+                                                                    <br><small class="text-danger">Reason: {{ $referral->rejection_reason }}</small>
+                                                                @endif
+                                                            </td>
+                                                        </tr>
+                                                    @endif
                                                     <tr>
                                                         <th>Created:</th>
                                                         <td>{{ $referral->created_at->format('d M Y H:i') }}</td>
@@ -573,7 +617,7 @@
                                     <i class="ti-arrow-left mr-1"></i> Back to Referrals
                                 </a>
 
-                                @if (!$isOutgoing && $referral->status === \App\Models\ServiceReferral::STATUS_PENDING)
+                                @if (!$isOutgoing && $referral->status === \App\Models\ServiceReferral::STATUS_PENDING && $referral->approval_status !== 'rejected')
                                     <button type="button" class="btn btn-success" data-bs-toggle="modal"
                                         data-bs-target="#acceptModal">
                                         <i class="ti-check mr-1"></i>Accept Referral
@@ -589,7 +633,7 @@
                                         in_array($referral->status, [
                                             \App\Models\ServiceReferral::STATUS_ACCEPTED,
                                             \App\Models\ServiceReferral::STATUS_PENDING,
-                                        ]))
+                                        ]) && $referral->approval_status !== 'rejected')
                                     <button type="button" class="btn btn-warning" data-bs-toggle="modal"
                                         data-bs-target="#cancelModal">
                                         <i class="ti-close mr-1"></i>Cancel Referral

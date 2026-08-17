@@ -2688,7 +2688,17 @@ class ClaimController extends Controller
 
         // Filter by status
         if ($request->filled('status')) {
-            $query->where('fc.status', $request->status);
+            if ($request->status === 'rejected') {
+                // Rejected claims have a rejected stage column, not status='rejected'
+                $query->where(function ($q) {
+                    $q->where('fc.verifier_status', 'rejected')
+                      ->orWhere('fc.approver_status', 'rejected')
+                      ->orWhere('fc.es_status', 'rejected')
+                      ->orWhere('fc.finance_status', 'rejected');
+                });
+            } else {
+                $query->where('fc.status', $request->status);
+            }
         }
 
         // Filter by program

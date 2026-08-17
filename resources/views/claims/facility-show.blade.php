@@ -287,7 +287,37 @@
                                                 ₦{{ number_format($claim->total_amount, 2) }}</div>
                                         </td>
                                         <td class="align-middle">
-                                            @if ($claim->status === 'submitted')
+                                            @php
+                                                // A claim is "rejected" if any stage was rejected;
+                                                // its overall status is rolled back to the previous level.
+                                                $rejectedStage = null;
+                                                if (($claim->verifier_status ?? '') === 'rejected') {
+                                                    $rejectedStage = 'verifier';
+                                                } elseif (($claim->approver_status ?? '') === 'rejected') {
+                                                    $rejectedStage = 'approver';
+                                                } elseif (($claim->es_status ?? '') === 'rejected') {
+                                                    $rejectedStage = 'es';
+                                                } elseif (($claim->finance_status ?? '') === 'rejected') {
+                                                    $rejectedStage = 'finance';
+                                                }
+
+                                                $rejectedBackTo = match ($rejectedStage) {
+                                                    'verifier' => 'Facility (Resubmit)',
+                                                    'approver' => 'Verifier',
+                                                    'es' => 'Approver',
+                                                    'finance' => 'Executive Secretary',
+                                                    default => null,
+                                                };
+                                            @endphp
+
+                                            @if ($rejectedStage)
+                                                <span class="badge bg-danger">
+                                                    <i class="ti-x me-1"></i>Rejected
+                                                </span>
+                                                <div class="text-danger small mt-1 fw-semibold">
+                                                    Back to {{ $rejectedBackTo }}
+                                                </div>
+                                            @elseif ($claim->status === 'submitted')
                                                 <span class="badge bg-warning">Pending Verification</span>
                                             @elseif ($claim->status === 'verified')
                                                 <span class="badge bg-primary">Pending Approval</span>

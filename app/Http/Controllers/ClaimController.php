@@ -3440,6 +3440,20 @@ class ClaimController extends Controller
             return response()->json(['success' => false, 'message' => 'Unauthorized for Finance approval'], 403);
         }
 
+        // Reject requires a reason and a per-claim stage map
+        $rejectionReason = '';
+        $claimStages = [];
+        if ($approvalType === 'reject') {
+            $rejectionReason = trim((string) $request->input('rejection_reason', ''));
+            if ($rejectionReason === '') {
+                return response()->json(['success' => false, 'message' => 'Rejection comments are required'], 400);
+            }
+            $claimStages = $request->input('claim_stages', []);
+            if (!is_array($claimStages) || empty($claimStages)) {
+                return response()->json(['success' => false, 'message' => 'No claim stages provided'], 400);
+            }
+        }
+
         $successCount = 0;
         $failCount = 0;
         $errors = [];
@@ -3509,6 +3523,82 @@ class ClaimController extends Controller
                         'paid_by' => $staffId,
                         'status' => 'paid',
                     ];
+                } elseif ($approvalType === 'reject') {
+                    $stage = $claimStages[$claimId] ?? '';
+
+                    // Per-stage permission (mirror ClaimController::reject)
+                    $allowed = $isSuperAdmin;
+                    if ($stage === 'verifier') {
+                        $allowed = $allowed || $user->can('claim.verify');
+                    } elseif ($stage === 'approver') {
+                        $allowed = $allowed || $user->can('claim.approve');
+                    } elseif ($stage === 'es') {
+                        $allowed = $allowed || $user->can('claim.es-approve');
+                    } elseif ($stage === 'finance') {
+                        $allowed = $allowed || $user->can('claim.finance-approve');
+                    } else {
+                        $errors[] = "Claim #{$claim->claim_number}: Invalid rejection stage";
+                        $failCount++;
+                        continue;
+                    }
+
+                    if (!$allowed) {
+                        $errors[] = "Claim #{$claim->claim_number}: Unauthorized to reject";
+                        $failCount++;
+                        continue;
+                    }
+
+                    // Mirror ClaimController::reject() — send claim back to the previous level
+                    switch ($stage) {
+                        case 'verifier':
+                            $updateData = [
+                                'verifier_status' => 'rejected',
+                                'verifier_notes' => $rejectionReason,
+                                'verifier_updated_at' => now(),
+                                'verifier_id' => $staffId,
+                                'status' => 'submitted',
+                            ];
+                            break;
+                        case 'approver':
+                            $updateData = [
+                                'approver_status' => 'rejected',
+                                'approver_notes' => $rejectionReason,
+                                'approver_updated_at' => now(),
+                                'approver_id' => $staffId,
+                                'verifier_status' => 'pending',
+                                'verifier_notes' => null,
+                                'verifier_updated_at' => null,
+                                'verifier_id' => null,
+                                'status' => 'submitted',
+                            ];
+                            break;
+                        case 'es':
+                            $updateData = [
+                                'es_status' => 'rejected',
+                                'es_notes' => $rejectionReason,
+                                'es_updated_at' => now(),
+                                'es_id' => $staffId,
+                                'approver_status' => 'pending',
+                                'approver_notes' => null,
+                                'approver_updated_at' => null,
+                                'approver_id' => null,
+                                'status' => 'verified',
+                            ];
+                            break;
+                        case 'finance':
+                            $updateData = [
+                                'finance_status' => 'rejected',
+                                'finance_notes' => $rejectionReason,
+                                'finance_updated_at' => now(),
+                                'finance_id' => $staffId,
+                                'es_status' => 'pending',
+                                'es_notes' => null,
+                                'es_updated_at' => null,
+                                'es_id' => null,
+                                'status' => 'approved',
+                            ];
+                            break;
+                    }
                 }
 
                 DB::table('facility_claims')->where('id', $claimId)->update($updateData);

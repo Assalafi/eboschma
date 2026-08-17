@@ -189,6 +189,10 @@
                                     <i class="ti-money text-success me-2"></i>Process Payment
                                 </a>
                                 @endif
+                                <div class="dropdown-divider"></div>
+                                <a href="#" class="dropdown-item text-danger" onclick="processBulkReject()">
+                                    <i class="ti-x text-danger me-2"></i>Reject Claims
+                                </a>
                             </div>
                         </div>
                         @endif
@@ -450,6 +454,29 @@
         </div>
     </div>
 
+    <!-- Bulk Reject Modal -->
+    <div class="modal modal-blur fade" id="bulkRejectModal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Reject Claims</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-2">You are about to reject <strong id="bulkRejectCount">0</strong> claim(s). They will be sent back to the previous approval level.</p>
+                    <label class="form-label fw-semibold">Rejection Comments <span class="text-danger">*</span></label>
+                    <textarea id="bulkRejectReason" class="form-control" rows="3" placeholder="Explain why these claims are being rejected..."></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="confirmBulkRejectBtn">
+                        <i class="ti-alert-triangle me-1"></i>Confirm Rejection
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Bootstrap Toast Container -->
     <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 2000;">
         <div id="actionToast" class="toast align-items-center text-white border-0" role="alert" aria-live="assertive" aria-atomic="true">
@@ -521,6 +548,33 @@
 
         // Process bulk action using Modal
         let pendingBulkActionData = null;
+
+        // ── Bulk Reject ──
+        let pendingBulkRejectData = null;
+
+        function processBulkReject() {
+            const checkboxes = document.querySelectorAll('.claim-checkbox:checked');
+            if (checkboxes.length === 0) {
+                showToast('Please select at least one claim to reject.', 'warning');
+                return;
+            }
+
+            const claimStages = {};
+            checkboxes.forEach(cb => {
+                claimStages[cb.value] = cb.getAttribute('data-stage') || '';
+            });
+
+            pendingBulkRejectData = {
+                claim_ids: Object.keys(claimStages),
+                claim_stages: claimStages,
+            };
+
+            document.getElementById('bulkRejectCount').textContent = Object.keys(claimStages).length;
+            document.getElementById('bulkRejectReason').value = '';
+
+            const modal = new bootstrap.Modal(document.getElementById('bulkRejectModal'));
+            modal.show();
+        }
         
         function processBulkAction(actionType) {
             const checkboxes = document.querySelectorAll('.claim-checkbox:checked');
@@ -605,6 +659,62 @@
                 .catch(error => {
                     console.error('Error:', error);
                     showToast('<i class="ti-alert-triangle"></i> An error occurred while processing bulk action', 'danger');
+                    btn.disabled = false;
+                    btn.innerHTML = originalHtml;
+                });
+        });
+
+        // Execute bulk reject on modal confirm
+        document.getElementById('confirmBulkRejectBtn').addEventListener('click', function() {
+            if (!pendingBulkRejectData) return;
+
+            const reason = document.getElementById('bulkRejectReason').value.trim();
+            if (!reason) {
+                showToast('Rejection comments are required.', 'warning');
+                return;
+            }
+
+            const btn = this;
+            const originalHtml = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Rejecting...';
+
+            fetch('{{ route("claims.facility-claims.batch-approve") }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    },
+                    body: JSON.stringify({
+                        approval_type: 'reject',
+                        claim_ids: pendingBulkRejectData.claim_ids,
+                        claim_stages: pendingBulkRejectData.claim_stages,
+                        rejection_reason: reason
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const modalEl = document.getElementById('bulkRejectModal');
+                        const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                        if (modalInstance) {
+                            modalInstance.hide();
+                        }
+                        let msg = data.message;
+                        if (data.errors && data.errors.length > 0) {
+                            msg += ' — ' + data.errors.join(' | ');
+                        }
+                        showToast('<i class="ti-check"></i> ' + msg, 'success');
+                        setTimeout(() => location.reload(), 2000);
+                    } else {
+                        showToast('<i class="ti-alert-circle"></i> Error: ' + data.message, 'danger');
+                        btn.disabled = false;
+                        btn.innerHTML = originalHtml;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showToast('<i class="ti-alert-triangle"></i> An error occurred while rejecting claims', 'danger');
                     btn.disabled = false;
                     btn.innerHTML = originalHtml;
                 });

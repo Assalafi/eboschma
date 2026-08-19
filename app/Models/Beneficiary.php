@@ -244,14 +244,23 @@ class Beneficiary extends Model
 
     /**
      * Get self enrollment count.
-     * Self enrollments are those where created_by is null and created_at > 2026-01-08
+     * Self enrollments are beneficiaries uploaded by a self-registered civil servant:
+     * created_by is null AND the record's dp_no belongs to a civil servant who created a
+     * beneficiary_login (mobile app account). The 2026-01-08 cutoff is no longer needed
+     * because this definition excludes bulk imports (which have no dp_no).
      *
      * @return int
      */
     public static function getSelfEnrollmentCount(): int
     {
         return self::whereNull('created_by')
-            ->where('created_at', '>', '2026-01-08')
+            ->whereNotNull('dp_no')
+            ->whereExists(function ($query) {
+                $query->selectRaw(1)
+                    ->from('civil_servants as cs')
+                    ->join('beneficiary_logins as bl', 'bl.civil_servant_id', '=', 'cs.id')
+                    ->whereColumn('cs.dp_no', 'beneficiaries.dp_no');
+            })
             ->where('status', '!=', 'draft')
             ->count();
     }

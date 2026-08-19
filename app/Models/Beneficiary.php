@@ -300,6 +300,8 @@ class Beneficiary extends Model
 
     /**
      * Get enrollment statistics grouped by program.
+     * Programs with has_dependant = 1 get the principals/spouses/children breakdown.
+     * Programs with has_dependant = 0 get their top 3 beneficiary categories instead.
      *
      * @return \Illuminate\Support\Collection
      */
@@ -314,16 +316,42 @@ class Beneficiary extends Model
             ->leftJoin('spouses', 'beneficiaries.id', '=', 'spouses.beneficiary_id')
             ->leftJoin('children', 'beneficiaries.id', '=', 'children.beneficiary_id')
             ->select(
+                'programs.id',
                 'programs.name as program_name',
+                'programs.has_dependant',
                 DB::raw('COUNT(DISTINCT beneficiaries.id) as beneficiaries'),
                 DB::raw('COUNT(DISTINCT spouses.id) as spouses'),
                 DB::raw('COUNT(DISTINCT children.id) as children'),
                 DB::raw('(COUNT(DISTINCT beneficiaries.id) + COUNT(DISTINCT spouses.id) + COUNT(DISTINCT children.id)) as total')
             )
-            ->groupBy('programs.id', 'programs.name')
+            ->groupBy('programs.id', 'programs.name', 'programs.has_dependant')
             ->havingRaw('(COUNT(DISTINCT beneficiaries.id) + COUNT(DISTINCT spouses.id) + COUNT(DISTINCT children.id)) > 0')
             ->orderBy('programs.name')
             ->get();
+
+        // Top categories per program (used for programs without dependants)
+        $categories = DB::table('beneficiaries')
+            ->where('status', '!=', 'draft')
+            ->whereNotNull('category')
+            ->where('category', '!=', '')
+            ->select('program_id', 'category', DB::raw('COUNT(*) as cnt'))
+            ->groupBy('program_id', 'category')
+            ->orderBy('program_id')
+            ->orderByDesc('cnt')
+            ->get();
+
+        $categoriesByProgram = [];
+        foreach ($categories as $cat) {
+            $categoriesByProgram[$cat->program_id][] = $cat;
+        }
+
+        foreach ($results as $program) {
+            $program->top_categories = collect($categoriesByProgram[$program->id] ?? [])
+                ->take(3)
+                ->map(function ($cat) {
+                    return (object) ['category' => $cat->category, 'count' => $cat->cnt];
+                });
+        }
 
         return $results;
     }

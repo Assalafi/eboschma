@@ -159,14 +159,24 @@
                         <div class="stat-content">
                             <span class="stat-label">{{ $pStat->program_name }}</span>
                             <h3 class="stat-number counter">{{ number_format($pStat->total) }}</h3>
-                            <div class="d-flex gap-3 mt-1" style="font-size: 12px; opacity: 0.85;">
-                                <span><i class="fe fe-user me-1"></i>{{ number_format($pStat->beneficiaries) }}
-                                    Principals</span>
-                                <span><i class="fe fe-users me-1"></i>{{ number_format($pStat->spouses) }}
-                                    Spouses</span>
-                                <span><i class="fe fe-smile me-1"></i>{{ number_format($pStat->children) }}
-                                    Children</span>
-                            </div>
+                            @if ($pStat->has_dependant)
+                                <div class="d-flex gap-3 mt-1" style="font-size: 12px; opacity: 0.85;">
+                                    <span><i class="fe fe-user me-1"></i>{{ number_format($pStat->beneficiaries) }}
+                                        Principals</span>
+                                    <span><i class="fe fe-users me-1"></i>{{ number_format($pStat->spouses) }}
+                                        Spouses</span>
+                                    <span><i class="fe fe-smile me-1"></i>{{ number_format($pStat->children) }}
+                                        Children</span>
+                                </div>
+                            @else
+                                <div class="d-flex flex-column gap-1 mt-1"
+                                    style="font-size: 12px; opacity: 0.85;">
+                                    @foreach ($pStat->top_categories as $cat)
+                                        <span><i class="fe fe-tag me-1"></i>{{ $cat->category }}:
+                                            <strong>{{ number_format($cat->count) }}</strong></span>
+                                    @endforeach
+                                </div>
+                            @endif
                         </div>
                     </div>
                 </div>

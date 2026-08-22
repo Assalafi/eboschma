@@ -868,9 +868,23 @@
                     activeCall = null;
                 });
 
+                call.on('error', (err) => {
+                    console.error('Twilio Call Error:', err);
+                    let msg = err.message || 'Call failed';
+                    if (phone.startsWith('staff_') || phone.startsWith('user_')) {
+                        msg = 'Staff member is offline or not connected to WebRTC.';
+                    }
+                    document.getElementById('twilioDialerStatusText').textContent = 'Error: ' + msg;
+                    activeCall = null;
+                });
+
             }).catch(err => {
-                console.error(err);
-                document.getElementById('twilioDialerStatusText').textContent = 'Error: Could not connect call.';
+                console.error('Twilio connect error:', err);
+                let msg = err.message || 'Could not connect call.';
+                if (phone.startsWith('staff_') || phone.startsWith('user_')) {
+                    msg = 'Target staff member is offline or not active on WebRTC.';
+                }
+                document.getElementById('twilioDialerStatusText').textContent = 'Error: ' + msg;
             });
         };
 

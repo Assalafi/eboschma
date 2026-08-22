@@ -52,8 +52,11 @@
         {{-- Action Buttons --}}
         <div class="d-flex justify-content-between align-items-center mb-3 d-print-none">
             <div>
-                <a href="{{ route('claims.facility.show', $claim->facility_id) }}" class="btn btn-sm btn-outline-secondary">
-                    <i class="ti-arrow-left"></i> Back to {{ $claim->facility_name }}
+                @php
+                    $backUrl = request('return_url') ?: session('claims_return_url') ?: route('claims.facility.show', $claim->facility_id);
+                @endphp
+                <a href="{{ $backUrl }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="ti-arrow-left"></i> Back to Claims List
                 </a>
             </div>
             <div class="d-flex gap-2">
@@ -305,7 +308,7 @@
                                         @if (!empty($result['documents']))
                                             <div style="margin-top:4px">
                                                 @foreach ($result['documents'] as $di => $doc)
-                                                    <a href="{{ Storage::url($doc) }}" target="_blank" class="result-doc-link">
+                                                    <a href="{{ \Illuminate\Support\Str::startsWith($doc, 'http') || \Illuminate\Support\Str::startsWith($doc, '/storage') ? $doc : \Illuminate\Support\Facades\Storage::url($doc) }}" target="_blank" class="result-doc-link">
                                                         <i class="ti-file"></i> Attachment {{ count($result['documents']) > 1 ? $di + 1 : '' }}
                                                     </a>
                                                 @endforeach
@@ -352,6 +355,85 @@
                 </tr>
             </table>
 
+        </div>
+
+        {{-- Supporting Documents, Lab Investigations & Radiological Scans Card --}}
+        <div class="wf-card d-print-none" style="margin-top: 15px;">
+            <div class="wf-header" style="background: #1e293b; color: #fff; padding: 10px 16px; border-radius: 6px 6px 0 0;">
+                <i class="ti-files"></i> Supporting Documents, Lab Investigations & Radiological Scans
+                <button type="button" class="btn btn-sm btn-light ms-auto" style="padding: 2px 10px; font-weight: bold; border-radius: 4px; font-size: 11px; color: #0f172a;" onclick="showUploadDocumentModal()">
+                    <i class="ti-upload"></i> Attach Document / Scan
+                </button>
+            </div>
+            <div class="wf-body p-3">
+                @if(isset($supportingDocuments) && count($supportingDocuments) > 0)
+                    <div class="row g-3">
+                        @foreach($supportingDocuments as $doc)
+                            @php
+                                $ext = strtolower(pathinfo($doc['name'], PATHINFO_EXTENSION));
+                                $iconClass = match($ext) {
+                                    'pdf' => 'ti-file text-danger',
+                                    'jpg', 'jpeg', 'png', 'gif', 'webp' => 'ti-image text-primary',
+                                    'doc', 'docx' => 'ti-file text-info',
+                                    default => 'ti-file text-secondary'
+                                };
+
+                                $typeBadge = match($doc['type']) {
+                                    'radiology_scan', 'lab_radiology_scan', 'lab_investigation' => 'bg-info text-dark',
+                                    'operation_sheet' => 'bg-warning text-dark',
+                                    'prescription_sheet' => 'bg-success text-white',
+                                    'medical_report' => 'bg-primary text-white',
+                                    default => 'bg-secondary text-white'
+                                };
+
+                                $typeLabel = match($doc['type']) {
+                                    'radiology_scan', 'lab_radiology_scan' => 'Radiological Scan Report',
+                                    'lab_investigation' => 'Lab Investigation Result',
+                                    'operation_sheet' => 'Operation Sheet',
+                                    'prescription_sheet' => 'Prescription Sheet',
+                                    'medical_report' => 'Medical Report',
+                                    'receipt' => 'Payment Receipt',
+                                    default => ucfirst(str_replace('_', ' ', $doc['type']))
+                                };
+                            @endphp
+                            <div class="col-md-6 col-lg-4">
+                                <div class="p-3 border rounded bg-light h-100 d-flex flex-column justify-content-between shadow-sm">
+                                    <div>
+                                        <div class="d-flex align-items-start gap-2 mb-2">
+                                            <i class="{{ $iconClass }}" style="font-size: 24px;"></i>
+                                            <div style="overflow: hidden;">
+                                                <h6 class="fw-bold mb-1 text-truncate" title="{{ $doc['name'] }}" style="font-size: 13px;">
+                                                    {{ $doc['name'] }}
+                                                </h6>
+                                                <span class="badge {{ $typeBadge }}" style="font-size: 10px; padding: 3px 6px;">
+                                                    {{ $typeLabel }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div class="text-muted small" style="font-size: 11px;">
+                                            <div><strong>Source:</strong> {{ $doc['source'] }}</div>
+                                            <div><strong>File Size:</strong> {{ $doc['file_size'] }}</div>
+                                            @if($doc['created_at'])
+                                                <div><strong>Uploaded:</strong> {{ \Carbon\Carbon::parse($doc['created_at'])->format('d M, Y H:i') }}</div>
+                                            @endif
+                                        </div>
+                                    </div>
+                                    <div class="mt-3 pt-2 border-top d-flex gap-2">
+                                        <a href="{{ $doc['url'] }}" target="_blank" class="btn btn-sm btn-outline-primary w-100" style="font-size: 11px;">
+                                            <i class="ti-eye me-1"></i> View / Download Document
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @else
+                    <div class="text-center py-4 text-muted">
+                        <i class="ti-folder fa-2x mb-2 d-block text-secondary opacity-50" style="font-size: 28px;"></i>
+                        <span>No lab investigations, radiological scans, or supporting documents attached to this claim yet.</span>
+                    </div>
+                @endif
+            </div>
         </div>
 
         {{-- Approval Workflow --}}
@@ -434,6 +516,7 @@
                     <form id="approvalForm" method="POST" action="{{ route('claims.approve', $claim->id) }}">
                         @csrf
                         <input type="hidden" name="approval_type" id="approvalType" value="{{ $currentStep }}">
+                        <input type="hidden" name="return_url" value="{{ request('return_url') ?: session('claims_return_url') }}">
                         <div class="mb-3">
                             <label class="form-label" style="font-size:12px;font-weight:600;color:#64748b">Notes (optional for approval)</label>
                             <textarea name="notes" id="approvalNotes" class="form-control form-control-sm" rows="2" placeholder="Add notes..."></textarea>
@@ -467,6 +550,7 @@
                         <form method="POST" action="{{ route('claims.reject', $claim->id) }}" onsubmit="return validateReject()">
                             @csrf
                             <input type="hidden" name="reject_stage" value="{{ $currentStep }}">
+                            <input type="hidden" name="return_url" value="{{ request('return_url') ?: session('claims_return_url') }}">
                             <div class="mb-2">
                                 <label class="form-label" style="font-size:12px;font-weight:700;color:#dc2626">
                                     Rejection Comments <span style="color:red">*</span> (required)
@@ -863,12 +947,60 @@
                 body: JSON.stringify({ service_item_id: serviceItemId, frequency: parseInt(frequency) })
             })
             .then(r => r.json())
-            .then(data => {
-                if (data.success) { location.reload(); }
-                else { alert('Error: ' + data.message); btn.disabled = false; btn.textContent = 'Add'; }
-            })
             .catch(e => { alert('Request failed: ' + e.message); btn.disabled = false; btn.textContent = 'Add'; });
         });
     });
+    </script>
+
+    <!-- Upload Supporting Document Modal -->
+    <div class="modal fade" id="uploadDocumentModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form action="{{ route('claims.facility-claim.upload-document', $claim->id) }}" method="POST" enctype="multipart/form-data">
+                    @csrf
+                    <div class="modal-header bg-dark text-white py-2">
+                        <h6 class="modal-title fw-bold mb-0">
+                            <i class="ti-upload me-1"></i> Attach Lab Investigation / Radiological Scan Document
+                        </h6>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small">Document Category <span class="text-danger">*</span></label>
+                            <select name="document_type" class="form-select form-select-sm" required>
+                                <option value="radiology_scan">Radiological Scan Image / Report</option>
+                                <option value="lab_investigation">Laboratory Investigation Result</option>
+                                <option value="operation_sheet">Operation Sheet</option>
+                                <option value="prescription_sheet">Prescription Sheet</option>
+                                <option value="medical_report">Medical Report</option>
+                                <option value="other">Other Supporting Document</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small">Select File (Image / PDF / Doc) <span class="text-danger">*</span></label>
+                            <input type="file" name="document" class="form-control form-control-sm" accept="image/*,.pdf,.doc,.docx" required>
+                            <div class="form-text small">Max file size: 10MB (JPEG, PNG, PDF, DOC, DOCX)</div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small">Notes / Remarks (Optional)</label>
+                            <textarea name="notes" class="form-control form-control-sm" rows="2" placeholder="e.g. Chest X-Ray scan report / Full blood count laboratory result"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer py-2">
+                        <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-sm btn-success">
+                            <i class="ti-check me-1"></i> Upload Document
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showUploadDocumentModal() {
+            var modal = new bootstrap.Modal(document.getElementById('uploadDocumentModal'));
+            modal.show();
+        }
     </script>
 @endsection

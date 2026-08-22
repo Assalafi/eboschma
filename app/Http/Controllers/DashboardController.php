@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Beneficiary;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class DashboardController extends Controller
 {
@@ -11,10 +12,30 @@ class DashboardController extends Controller
      * Display the BOSCHMA beneficiary enrollment dashboard with simplified data
      *
      * @param Request $request
-     * @return \Illuminate\View\View
+     * @return \Illuminate\View\View|\Illuminate\Http\RedirectResponse
      */
     public function index(Request $request)
     {
+        $user = Auth::guard('staff')->user() ?? Auth::user();
+        if ($user && method_exists($user, 'hasRole')) {
+            $isSuperOrAdmin = $user->hasRole(['super-admin', 'Super Admin', 'admin', 'Admin']);
+            if (!$isSuperOrAdmin) {
+                if ($user->hasRole('Customer Care')) {
+                    return redirect()->route('crm.index');
+                }
+                if ($user->hasRole('BODMA')) {
+                    return redirect()->route('drug-stock-requests.index');
+                }
+                $isClaimVerifier = $user->hasRole(['claim-verifier', 'Claim Verifier', 'Claims Verifier', 'claim_verifier', 'claims-verifier', 'claims_verifier', 'verifier', 'Verifier']);
+                if (!$isClaimVerifier && method_exists($user, 'can')) {
+                    $isClaimVerifier = $user->can('claim.verify');
+                }
+                if ($isClaimVerifier) {
+                    return redirect()->route('claims.index');
+                }
+            }
+        }
+
         // Get overall enrollment statistics
         $stats = Beneficiary::getEnrollmentStats();
         $totalBeneficiaries = $stats['total_beneficiaries'];

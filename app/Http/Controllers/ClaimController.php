@@ -35,28 +35,92 @@ class ClaimController extends Controller
      */
     public function index(Request $request)
     {
-        // Get facilities with claims statistics - using facility_claims as base
-        $facilities = DB::table('facility_claims as fc')
+        $programs = DB::table('programs')->where('status', 1)->get();
+        $selectedProgram = null;
+        if ($request->filled('program_id')) {
+            $selectedProgram = DB::table('programs')->where('id', $request->get('program_id'))->first();
+        }
+
+        // Helper filter function for base facility_claims queries
+        $applyFilters = function ($query, $tablePrefix = 'fc.') use ($request, $selectedProgram) {
+            if ($selectedProgram) {
+                $pId = $selectedProgram->id;
+                $format = $selectedProgram->format;
+                $query->where(function($q) use ($pId, $format, $tablePrefix) {
+                    $q->whereIn($tablePrefix . 'boschma_no', function($sub) use ($pId) {
+                        $sub->select('boschma_no')->from('beneficiaries')->where('program_id', $pId);
+                    });
+                    if (!empty($format)) {
+                        $q->orWhere($tablePrefix . 'boschma_no', 'like', $format . '%');
+                    }
+                    if ($pId == 1) { // Formal Program
+                        $q->orWhere($tablePrefix . 'boschma_no', 'like', 'BFS/%')
+                          ->orWhere($tablePrefix . 'boschma_no', 'like', 'FS/%');
+                    }
+                });
+            }
+
+            if ($request->filled('facility_id')) {
+                $query->where($tablePrefix . 'facility_id', $request->get('facility_id'));
+            }
+
+            if ($request->filled('search')) {
+                $search = $request->get('search');
+                $query->where(function($q) use ($search, $tablePrefix) {
+                    $q->where($tablePrefix . 'claim_number', 'like', "%{$search}%")
+                      ->orWhere($tablePrefix . 'patient_name', 'like', "%{$search}%")
+                      ->orWhere($tablePrefix . 'boschma_no', 'like', "%{$search}%")
+                      ->orWhere($tablePrefix . 'enrollee_number', 'like', "%{$search}%");
+                });
+            }
+
+            if ($request->filled('status')) {
+                $status = $request->get('status');
+                if ($status === 'ro_pending') {
+                    $query->where(function($q) use ($tablePrefix) {
+                        $q->where($tablePrefix . 'status', 'submitted')->orWhere($tablePrefix . 'verifier_status', 'pending');
+                    })->whereNotIn($tablePrefix . 'status', ['approved', 'es_approved', 'paid', 'rejected']);
+                } elseif ($status === 'e5_pending') {
+                    $query->where(function($q) use ($tablePrefix) {
+                        $q->where($tablePrefix . 'status', 'verified')->orWhere($tablePrefix . 'verifier_status', 'approved');
+                    })->whereNotIn($tablePrefix . 'status', ['approved', 'es_approved', 'paid', 'rejected']);
+                } else {
+                    $query->where($tablePrefix . 'status', $status);
+                }
+            }
+
+            if ($request->filled('date_from')) {
+                $query->whereDate($tablePrefix . 'service_date', '>=', $request->get('date_from'));
+            }
+            if ($request->filled('date_to')) {
+                $query->whereDate($tablePrefix . 'service_date', '<=', $request->get('date_to'));
+            }
+        };
+
+        // Get facilities with claims statistics - applying active filters
+        $facilitiesQuery = DB::table('facility_claims as fc')
             ->join('facilities as f', 'fc.facility_id', '=', 'f.id')
-            ->whereNull('fc.deleted_at')
+            ->whereNull('fc.deleted_at');
+
+        $applyFilters($facilitiesQuery, 'fc.');
+
+        $facilities = $facilitiesQuery
             ->select([
                 'f.name as facility_name',
                 'f.id as facility_id',
                 DB::raw('COUNT(DISTINCT fc.id) as total_claims'),
                 DB::raw('SUM(CASE WHEN fc.status = "submitted" THEN 1 ELSE 0 END) as pending_claims'),
-                DB::raw('SUM(CASE WHEN fc.status = "approved" THEN 1 ELSE 0 END) as approved_claims'),
+                DB::raw('SUM(CASE WHEN fc.status = "approved" OR fc.status = "es_approved" THEN 1 ELSE 0 END) as approved_claims'),
                 DB::raw('SUM(CASE WHEN fc.status = "rejected" THEN 1 ELSE 0 END) as rejected_claims'),
                 DB::raw('SUM(CASE WHEN fc.status = "paid" THEN 1 ELSE 0 END) as paid_claims'),
                 DB::raw('COALESCE(SUM(fc.total_amount), 0) as total_value'),
-                DB::raw('COALESCE(SUM(CASE WHEN fc.status = "approved" OR fc.status = "paid" THEN fc.total_amount ELSE 0 END), 0) as approved_value'),
+                DB::raw('COALESCE(SUM(CASE WHEN fc.status = "approved" OR fc.status = "es_approved" OR fc.status = "paid" THEN fc.total_amount ELSE 0 END), 0) as approved_value'),
                 DB::raw('MAX(fc.service_date) as latest_service_date'),
                 DB::raw('MAX(fc.created_at) as latest_claim_date'),
-                DB::raw('SUM(CASE WHEN fc.status = "submitted" OR fc.status = "under_review" THEN 1 ELSE 0 END) as ro_pending'),
-                DB::raw('SUM(CASE WHEN fc.status = "under_review" THEN 1 ELSE 0 END) as ro_approved'),
-                DB::raw('0 as ro_rejected'),
-                DB::raw('SUM(CASE WHEN fc.status = "under_review" THEN 1 ELSE 0 END) as e5_pending'),
-                DB::raw('0 as e5_approved'),
-                DB::raw('0 as e5_rejected'),
+                DB::raw('SUM(CASE WHEN fc.status = "submitted" OR fc.verifier_status = "pending" THEN 1 ELSE 0 END) as ro_pending'),
+                DB::raw('SUM(CASE WHEN fc.status = "verified" OR fc.verifier_status = "approved" THEN 1 ELSE 0 END) as ro_approved'),
+                DB::raw('SUM(CASE WHEN fc.status = "verified" THEN 1 ELSE 0 END) as e5_pending'),
+                DB::raw('SUM(CASE WHEN fc.status = "approved" OR fc.status = "es_approved" OR fc.status = "paid" THEN 1 ELSE 0 END) as e5_approved'),
             ])
             ->groupBy('f.id', 'f.name')
             ->orderBy('latest_claim_date', 'desc')
@@ -71,36 +135,35 @@ class ClaimController extends Controller
                 return $facility;
             });
 
-        // Get overall statistics for approval workflow from facility_claims
+        // Get overall statistics dynamically computed for filtered set
+        $statsBaseQuery = function() use ($applyFilters) {
+            $q = DB::table('facility_claims as fc')->whereNull('fc.deleted_at');
+            $applyFilters($q, 'fc.');
+            return $q;
+        };
+
         $stats = [
-            'ro_pending' => DB::table('facility_claims')
-                                ->whereNull('deleted_at')
-                                ->where('status', 'submitted')
-                                ->where(function($q) {
-                                    $q->whereNull('ro_status')->orWhere('ro_status', '');
+            'total_claims' => $statsBaseQuery()->count(),
+            'ro_pending' => $statsBaseQuery()->where(function($q) {
+                                    $q->where('fc.status', 'submitted')->orWhere('fc.verifier_status', 'pending');
                                 })
+                                ->whereNotIn('fc.status', ['approved', 'es_approved', 'paid', 'rejected'])
                                 ->count(),
-            'e5_pending' => DB::table('facility_claims')
-                                ->whereNull('deleted_at')
-                                ->where('ro_status', 'approved')
-                                ->where(function($q) {
-                                    $q->whereNull('e5_status')->orWhere('e5_status', '');
+            'e5_pending' => $statsBaseQuery()->where(function($q) {
+                                    $q->where('fc.status', 'verified')->orWhere('fc.verifier_status', 'approved');
                                 })
+                                ->whereNotIn('fc.status', ['approved', 'es_approved', 'paid', 'rejected'])
                                 ->count(),
-            'approved' => DB::table('facility_claims')->whereNull('deleted_at')->where('status', 'approved')->count(),
-            'paid' => DB::table('facility_claims')->whereNull('deleted_at')->where('status', 'paid')->count(),
-            'total_claims' => DB::table('facility_claims')->whereNull('deleted_at')->count(),
-            'total_value' => DB::table('facility_claims')->whereNull('deleted_at')->sum('total_amount'),
-            'this_month_claims' => DB::table('facility_claims')
-                                       ->whereNull('deleted_at')
-                                       ->whereMonth('created_at', now()->month)
-                                       ->whereYear('created_at', now()->year)
-                                       ->count(),
-            'this_month_value' => DB::table('facility_claims')
-                                       ->whereNull('deleted_at')
-                                       ->whereMonth('created_at', now()->month)
-                                       ->whereYear('created_at', now()->year)
-                                       ->sum('total_amount'),
+            'approved' => $statsBaseQuery()->whereIn('fc.status', ['approved', 'es_approved'])->count(),
+            'paid' => $statsBaseQuery()->where('fc.status', 'paid')->count(),
+            'total_value' => $statsBaseQuery()->sum('fc.total_amount'),
+            'approved_value' => $statsBaseQuery()->whereIn('fc.status', ['approved', 'es_approved', 'paid'])->sum('fc.total_amount'),
+            'this_month_claims' => $statsBaseQuery()->whereMonth('fc.created_at', now()->month)
+                                                    ->whereYear('fc.created_at', now()->year)
+                                                    ->count(),
+            'this_month_value' => $statsBaseQuery()->whereMonth('fc.created_at', now()->month)
+                                                   ->whereYear('fc.created_at', now()->year)
+                                                   ->sum('fc.total_amount'),
         ];
 
         // Get recent activity from facility_claims
@@ -115,8 +178,12 @@ class ClaimController extends Controller
                 $action = 'Updated';
                 if ($claim->status === 'pending' || $claim->status === 'submitted') {
                     $action = 'Submitted';
+                } elseif ($claim->status === 'verified') {
+                    $action = 'Verified';
                 } elseif ($claim->status === 'approved') {
                     $action = 'Approved';
+                } elseif ($claim->status === 'es_approved') {
+                    $action = 'ES Approved';
                 } elseif ($claim->status === 'rejected') {
                     $action = 'Rejected';
                 } elseif ($claim->status === 'paid') {
@@ -126,13 +193,13 @@ class ClaimController extends Controller
                 return [
                     'time' => \Carbon\Carbon::parse($claim->updated_at)->diffForHumans(),
                     'title' => $action . ' - ' . ($claim->claim_number ?? 'CLM-'.$claim->id),
-                    'description' => ($claim->patient_name ?? 'Patient') . ' - ₦' . number_format($claim->total_amount ?? 0, 2),
-                    'type' => $claim->status === 'approved' ? 'success' : ($claim->status === 'rejected' ? 'danger' : 'primary'),
+                    'description' => ($claim->patient_name ?? 'Patient') . ' - ₦' . number_format($claim->total_amount ?? 0, 2) . ' (' . $claim->facility_name . ')',
+                    'type' => in_array($claim->status, ['approved', 'es_approved', 'paid']) ? 'success' : ($claim->status === 'rejected' ? 'danger' : ($claim->status === 'verified' ? 'info' : 'warning')),
                 ];
             });
 
-        // Get recent claims for display from facility_claims
-        $recentClaims = DB::table('facility_claims as fc')
+        // Get recent claims for display from facility_claims with filters
+        $query = DB::table('facility_claims as fc')
             ->join('facilities as f', 'fc.facility_id', '=', 'f.id')
             ->whereNull('fc.deleted_at')
             ->select(
@@ -142,11 +209,13 @@ class ClaimController extends Controller
                 'fc.boschma_no as boschma_id',
                 'fc.claim_number as authorization_code',
                 'fc.total_amount as claim_amount'
-            )
-            ->orderBy('fc.created_at', 'desc')
-            ->paginate(20);
+            );
 
-        return view('claims.index', compact('facilities', 'stats', 'recentActivity', 'recentClaims'));
+        $applyFilters($query, 'fc.');
+
+        $recentClaims = $query->orderBy('fc.created_at', 'desc')->paginate(20)->appends($request->query());
+
+        return view('claims.index', compact('facilities', 'stats', 'recentActivity', 'recentClaims', 'programs', 'selectedProgram'));
     }
 
     /**
@@ -672,6 +741,12 @@ class ClaimController extends Controller
                 if ($request->expectsJson()) {
                     return response()->json(['success' => true, 'message' => 'Claim approved successfully']);
                 }
+                
+                $returnUrl = $request->input('return_url') ?: session('claims_return_url');
+                if ($returnUrl) {
+                    session()->forget('claims_return_url');
+                    return redirect($returnUrl)->with('success', 'Claim verified and approved successfully.');
+                }
                 return back()->with('success', 'Claim approved successfully');
             } catch (\Exception $e) {
                 if ($request->expectsJson()) {
@@ -690,6 +765,11 @@ class ClaimController extends Controller
 
         try {
             $claim->approve(auth()->id());
+            $returnUrl = $request->input('return_url') ?: session('claims_return_url');
+            if ($returnUrl) {
+                session()->forget('claims_return_url');
+                return redirect($returnUrl)->with('success', 'Claim approved successfully.');
+            }
             return response()->json(['success' => true, 'message' => 'Claim approved successfully.']);
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => 'Error approving claim: ' . $e->getMessage()]);
@@ -738,7 +818,7 @@ class ClaimController extends Controller
                             'verifier_notes' => $rejectionReason,
                             'verifier_updated_at' => now(),
                             'verifier_id' => $staffId,
-                            'status' => 'submitted', // back to submitted
+                            'status' => 'rejected', // status updated to rejected
                         ];
                         break;
 
@@ -804,6 +884,12 @@ class ClaimController extends Controller
 
                 if ($request->expectsJson()) {
                     return response()->json(['success' => true, 'message' => 'Claim rejected and sent back to previous level']);
+                }
+                
+                $returnUrl = $request->input('return_url') ?: session('claims_return_url');
+                if ($returnUrl) {
+                    session()->forget('claims_return_url');
+                    return redirect($returnUrl)->with('success', 'Claim rejected successfully.');
                 }
                 return back()->with('success', 'Claim rejected and sent back to previous level');
             } catch (\Exception $e) {
@@ -1629,102 +1715,325 @@ class ClaimController extends Controller
     /**
      * Get comprehensive audit report.
      */
+    /**
+     * Helper to retrieve aggregated audit report metrics, reviewer performance stats, and logs.
+     */
+    private function getAuditReportData(Request $request)
+    {
+        $dateRange = $request->input('date_range', '365');
+        $dateFrom = $request->input('date_from');
+        $dateTo = $request->input('date_to');
+        $reviewerId = $request->input('reviewer_id');
+
+        if ($dateFrom && $dateTo) {
+            $startDate = \Carbon\Carbon::parse($dateFrom)->startOfDay();
+            $endDate = \Carbon\Carbon::parse($dateTo)->endOfDay();
+        } else {
+            if ($dateRange === 'all') {
+                $startDate = \Carbon\Carbon::create(2020, 1, 1)->startOfDay();
+                $endDate = now()->endOfDay();
+            } else {
+                $days = is_numeric($dateRange) ? (int)$dateRange : 365;
+                $startDate = now()->subDays($days)->startOfDay();
+                $endDate = now()->endOfDay();
+            }
+        }
+
+        // Pre-load staff and users for fast name resolution
+        $allStaff = \App\Models\Staff::orderBy('fullname', 'asc')->get();
+        $allUsers = \App\Models\User::orderBy('name', 'asc')->get();
+
+        $nameMap = [];
+        $emailMap = [];
+
+        foreach ($allStaff as $st) {
+            $nameMap[(string)$st->id] = $st->fullname;
+            $emailMap[(string)$st->id] = $st->email;
+        }
+        foreach ($allUsers as $u) {
+            if (!isset($nameMap[(string)$u->id])) {
+                $nameMap[(string)$u->id] = $u->name;
+                $emailMap[(string)$u->id] = $u->email;
+            }
+        }
+
+        // Retrieve active reviewer IDs from facility_claims
+        $verifierIds = \DB::table('facility_claims')->whereBetween('updated_at', [$startDate, $endDate])->whereNotNull('verifier_id')->pluck('verifier_id')->toArray();
+        $approverIds = \DB::table('facility_claims')->whereBetween('updated_at', [$startDate, $endDate])->whereNotNull('approver_id')->pluck('approver_id')->toArray();
+        $esIds = \DB::table('facility_claims')->whereBetween('updated_at', [$startDate, $endDate])->whereNotNull('es_id')->pluck('es_id')->toArray();
+        $financeIds = \DB::table('facility_claims')->whereBetween('updated_at', [$startDate, $endDate])->whereNotNull('finance_id')->pluck('finance_id')->toArray();
+        $roUpdatedBy = \DB::table('facility_claims')->whereBetween('updated_at', [$startDate, $endDate])->whereNotNull('ro_updated_by')->pluck('ro_updated_by')->toArray();
+        $e5UpdatedBy = \DB::table('facility_claims')->whereBetween('updated_at', [$startDate, $endDate])->whereNotNull('e5_updated_by')->pluck('e5_updated_by')->toArray();
+        $paidBy = \DB::table('facility_claims')->whereBetween('updated_at', [$startDate, $endDate])->whereNotNull('paid_by')->pluck('paid_by')->toArray();
+
+        $allActiveUserIds = array_unique(array_filter(array_merge(
+            $verifierIds, $approverIds, $esIds, $financeIds, $roUpdatedBy, $e5UpdatedBy, $paidBy
+        )));
+
+        $reviewerStats = [];
+
+        foreach ($allActiveUserIds as $uId) {
+            $uIdStr = (string)$uId;
+            if ($reviewerId && (string)$reviewerId !== $uIdStr) {
+                continue;
+            }
+
+            $name = $nameMap[$uIdStr] ?? "Reviewer ({$uIdStr})";
+            $email = $emailMap[$uIdStr] ?? 'N/A';
+
+            // Counts for each workflow step
+            $verifiedCount = \DB::table('facility_claims')
+                ->where('verifier_id', $uIdStr)
+                ->whereBetween('updated_at', [$startDate, $endDate])
+                ->count();
+
+            $approvedCount = \DB::table('facility_claims')
+                ->where(function($q) use ($uIdStr) {
+                    $q->where('approver_id', $uIdStr)->orWhere('ro_updated_by', $uIdStr);
+                })
+                ->whereBetween('updated_at', [$startDate, $endDate])
+                ->count();
+
+            $esApprovedCount = \DB::table('facility_claims')
+                ->where(function($q) use ($uIdStr) {
+                    $q->where('es_id', $uIdStr)->orWhere('e5_updated_by', $uIdStr);
+                })
+                ->whereBetween('updated_at', [$startDate, $endDate])
+                ->count();
+
+            $paidCount = \DB::table('facility_claims')
+                ->where(function($q) use ($uIdStr) {
+                    $q->where('finance_id', $uIdStr)->orWhere('paid_by', $uIdStr);
+                })
+                ->whereBetween('updated_at', [$startDate, $endDate])
+                ->count();
+
+            $rejectedCount = \DB::table('facility_claims')
+                ->where('status', 'rejected')
+                ->where(function($q) use ($uIdStr) {
+                    $q->where('verifier_id', $uIdStr)
+                      ->orWhere('approver_id', $uIdStr)
+                      ->orWhere('es_id', $uIdStr)
+                      ->orWhere('finance_id', $uIdStr);
+                })
+                ->whereBetween('updated_at', [$startDate, $endDate])
+                ->count();
+
+            $totalValue = \DB::table('facility_claims')
+                ->where(function($q) use ($uIdStr) {
+                    $q->where('verifier_id', $uIdStr)
+                      ->orWhere('approver_id', $uIdStr)
+                      ->orWhere('es_id', $uIdStr)
+                      ->orWhere('finance_id', $uIdStr);
+                })
+                ->whereBetween('updated_at', [$startDate, $endDate])
+                ->sum('total_amount');
+
+            $lastActivity = \DB::table('facility_claims')
+                ->where(function($q) use ($uIdStr) {
+                    $q->where('verifier_id', $uIdStr)
+                      ->orWhere('approver_id', $uIdStr)
+                      ->orWhere('es_id', $uIdStr)
+                      ->orWhere('finance_id', $uIdStr);
+                })
+                ->whereBetween('updated_at', [$startDate, $endDate])
+                ->max('updated_at');
+
+            $totalActions = $verifiedCount + $approvedCount + $esApprovedCount + $paidCount + $rejectedCount;
+
+            if ($totalActions > 0 || $totalValue > 0) {
+                $reviewerStats[] = [
+                    'user_id' => $uIdStr,
+                    'name' => $name,
+                    'email' => $email,
+                    'verified_count' => $verifiedCount,
+                    'approved_count' => $approvedCount,
+                    'es_approved_count' => $esApprovedCount,
+                    'paid_count' => $paidCount,
+                    'rejected_count' => $rejectedCount,
+                    'total_actions' => $totalActions,
+                    'total_value' => (float)$totalValue,
+                    'last_activity' => $lastActivity,
+                ];
+            }
+        }
+
+        // Sort descending by total actions
+        usort($reviewerStats, function($a, $b) {
+            return $b['total_actions'] <=> $a['total_actions'];
+        });
+
+        // Itemized Audit Log Query
+        $logsQuery = \DB::table('facility_claims')
+            ->whereBetween('updated_at', [$startDate, $endDate]);
+
+        if ($reviewerId) {
+            $logsQuery->where(function($q) use ($reviewerId) {
+                $q->where('verifier_id', $reviewerId)
+                  ->orWhere('approver_id', $reviewerId)
+                  ->orWhere('es_id', $reviewerId)
+                  ->orWhere('finance_id', $reviewerId);
+            });
+        }
+
+        $totalClaimsProcessed = (clone $logsQuery)->count();
+        $totalValueProcessed = (clone $logsQuery)->sum('total_amount');
+
+        return [
+            'startDate' => $startDate,
+            'endDate' => $endDate,
+            'dateRange' => $dateRange,
+            'dateFrom' => $dateFrom,
+            'dateTo' => $dateTo,
+            'reviewerId' => $reviewerId,
+            'reviewerStats' => $reviewerStats,
+            'logsQuery' => $logsQuery,
+            'nameMap' => $nameMap,
+            'allStaff' => $allStaff,
+            'totalClaimsProcessed' => $totalClaimsProcessed,
+            'totalValueProcessed' => $totalValueProcessed,
+            'activeReviewersCount' => count($reviewerStats),
+        ];
+    }
+
     public function auditReport(Request $request)
     {
-        $dateRange = $request->input('date_range', '30');
-        $startDate = now()->subDays($dateRange)->startOfDay();
-        $endDate = now()->endOfDay();
-
-        // Get all claims with their complete audit trail
-        $claims = Claim::with(['histories.user', 'notes.user', 'creator', 'roReviewer', 'e5Reviewer'])
-                       ->whereBetween('created_at', [$startDate, $endDate])
-                       ->orderBy('created_at', 'desc')
-                       ->get();
-
-        // Audit statistics
-        $totalAudits = ClaimHistory::whereBetween('created_at', [$startDate, $endDate])->count();
-        $totalNotes = ClaimNote::whereBetween('created_at', [$startDate, $endDate])->count();
-
-        // User activity
-        $userActivity = ClaimHistory::select('user_id',
-                                   DB::raw('count(*) as action_count'),
-                                   DB::raw('MAX(created_at) as last_activity'))
-                               ->with('user:id,fullname')
-                               ->whereBetween('created_at', [$startDate, $endDate])
-                               ->groupBy('user_id')
-                               ->orderBy('action_count', 'desc')
-                               ->limit(10)
-                               ->get();
-
-        // Action breakdown
-        $actionBreakdown = ClaimHistory::select('action',
-                                      DB::raw('count(*) as count'))
-                                  ->whereBetween('created_at', [$startDate, $endDate])
-                                  ->groupBy('action')
-                                  ->orderBy('count', 'desc')
-                                  ->get();
-
-        return view('claims.audit-report', compact(
-            'claims', 'totalAudits', 'totalNotes', 'userActivity', 
-            'actionBreakdown', 'dateRange', 'startDate', 'endDate'
-        ));
+        $data = $this->getAuditReportData($request);
+        
+        $auditClaims = $data['logsQuery']->orderBy('updated_at', 'desc')->paginate(25)->withQueryString();
+        
+        return view('claims.audit-report', array_merge($data, [
+            'auditClaims' => $auditClaims,
+        ]));
     }
 
     /**
-     * Export audit trail to Excel.
+     * Export audit report to Excel (.xlsx) with Reviewer Summary & Detailed Itemized Logs.
      */
     public function exportAuditTrail(Request $request)
     {
-        $dateRange = $request->input('date_range', '30');
-        $startDate = now()->subDays($dateRange)->startOfDay();
-        $endDate = now()->endOfDay();
-
-        $histories = ClaimHistory::with(['claim', 'user'])
-                                ->whereBetween('created_at', [$startDate, $endDate])
-                                ->orderBy('created_at', 'desc')
-                                ->get();
+        $data = $this->getAuditReportData($request);
+        $startDate = $data['startDate'];
+        $endDate = $data['endDate'];
+        $nameMap = $data['nameMap'];
 
         $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
-        $sheet = $spreadsheet->getActiveSheet();
 
-        // Set headers
-        $headers = [
-            'A1' => 'Date & Time',
-            'B1' => 'Claim Authorization Code',
-            'C1' => 'Action',
-            'D1' => 'Description',
-            'E1' => 'User',
-            'F1' => 'IP Address'
+        // Sheet 1: Reviewer Performance Summary ("Who Did What")
+        $sheet1 = $spreadsheet->getActiveSheet();
+        $sheet1->setTitle('Reviewer Performance Summary');
+
+        $headers1 = [
+            'A1' => 'Reviewer Name',
+            'B1' => 'Email Address',
+            'C1' => 'Claims Verified',
+            'D1' => 'RO Approved',
+            'E1' => 'ES Approved',
+            'F1' => 'Paid Claims',
+            'G1' => 'Rejected Claims',
+            'H1' => 'Total Processed Actions',
+            'I1' => 'Total Value Processed (NGN)',
+            'J1' => 'Last Activity Date'
         ];
 
-        foreach ($headers as $cell => $value) {
-            $sheet->setCellValue($cell, $value);
+        foreach ($headers1 as $cell => $value) {
+            $sheet1->setCellValue($cell, $value);
+            $sheet1->getStyle($cell)->getFont()->setBold(true);
         }
 
-        // Add data
-        $row = 2;
-        foreach ($histories as $history) {
-            $sheet->setCellValue('A' . $row, $history->created_at->format('Y-m-d H:i:s'));
-            $sheet->setCellValue('B' . $row, $history->claim ? $history->claim->authorization_code : 'N/A');
-            $sheet->setCellValue('C' . $row, $history->action);
-            $sheet->setCellValue('D' . $row, $history->description);
-            $sheet->setCellValue('E' . $row, $history->user ? $history->user->fullname : 'N/A');
-            $sheet->setCellValue('F' . $row, $history->ip_address ?: 'N/A');
-            $row++;
+        $row1 = 2;
+        foreach ($data['reviewerStats'] as $stat) {
+            $sheet1->setCellValue('A' . $row1, $stat['name']);
+            $sheet1->setCellValue('B' . $row1, $stat['email']);
+            $sheet1->setCellValue('C' . $row1, $stat['verified_count']);
+            $sheet1->setCellValue('D' . $row1, $stat['approved_count']);
+            $sheet1->setCellValue('E' . $row1, $stat['es_approved_count']);
+            $sheet1->setCellValue('F' . $row1, $stat['paid_count']);
+            $sheet1->setCellValue('G' . $row1, $stat['rejected_count']);
+            $sheet1->setCellValue('H' . $row1, $stat['total_actions']);
+            $sheet1->setCellValue('I' . $row1, number_format($stat['total_value'], 2));
+            $sheet1->setCellValue('J' . $row1, $stat['last_activity'] ? \Carbon\Carbon::parse($stat['last_activity'])->format('Y-m-d H:i:s') : 'N/A');
+            $row1++;
         }
 
-        // Auto-size columns
-        foreach (range('A', 'F') as $column) {
-            $sheet->getColumnDimension($column)->setAutoSize(true);
+        foreach (range('A', 'J') as $col) {
+            $sheet1->getColumnDimension($col)->setAutoSize(true);
         }
 
-        $filename = 'audit_trail_' . $startDate->format('Y-m-d') . '_to_' . $endDate->format('Y-m-d') . '.xlsx';
-        
+        // Sheet 2: Detailed Itemized Log
+        $sheet2 = $spreadsheet->createSheet();
+        $sheet2->setTitle('Itemized Audit Log');
+
+        $headers2 = [
+            'A1' => 'Date & Time',
+            'B1' => 'Claim Number',
+            'C1' => 'Enrollee / Patient Name',
+            'D1' => 'Healthcare Facility',
+            'E1' => 'Claim Status / Action',
+            'F1' => 'Reviewer / Action By',
+            'G1' => 'Amount (NGN)',
+            'H1' => 'Notes / Rejection Comment'
+        ];
+
+        foreach ($headers2 as $cell => $value) {
+            $sheet2->setCellValue($cell, $value);
+            $sheet2->getStyle($cell)->getFont()->setBold(true);
+        }
+
+        $claims = $data['logsQuery']->orderBy('updated_at', 'desc')->get();
+        $row2 = 2;
+
+        foreach ($claims as $claim) {
+            $reviewerName = 'N/A';
+            if ($claim->verifier_id && isset($nameMap[$claim->verifier_id])) {
+                $reviewerName = $nameMap[$claim->verifier_id];
+            } elseif ($claim->approver_id && isset($nameMap[$claim->approver_id])) {
+                $reviewerName = $nameMap[$claim->approver_id];
+            } elseif ($claim->es_id && isset($nameMap[$claim->es_id])) {
+                $reviewerName = $nameMap[$claim->es_id];
+            } elseif ($claim->finance_id && isset($nameMap[$claim->finance_id])) {
+                $reviewerName = $nameMap[$claim->finance_id];
+            }
+
+            $notes = $claim->rejection_reason ?: ($claim->verifier_notes ?: ($claim->approver_notes ?: ($claim->es_notes ?: $claim->finance_notes)));
+
+            $sheet2->setCellValue('A' . $row2, \Carbon\Carbon::parse($claim->updated_at)->format('Y-m-d H:i:s'));
+            $sheet2->setCellValue('B' . $row2, $claim->claim_number ?: 'CLM-' . $claim->id);
+            $sheet2->setCellValue('C' . $row2, $claim->patient_name ?: 'N/A');
+            $sheet2->setCellValue('D' . $row2, $claim->facility_name ?? 'N/A');
+            $sheet2->setCellValue('E' . $row2, strtoupper($claim->status));
+            $sheet2->setCellValue('F' . $row2, $reviewerName);
+            $sheet2->setCellValue('G' . $row2, number_format($claim->total_amount ?? 0, 2));
+            $sheet2->setCellValue('H' . $row2, $notes ?: 'N/A');
+            $row2++;
+        }
+
+        foreach (range('A', 'H') as $col) {
+            $sheet2->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        $filename = 'claims_audit_report_' . $startDate->format('Y-m-d') . '_to_' . $endDate->format('Y-m-d') . '.xlsx';
         $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
-        
+
         return response()->streamDownload(function() use ($writer) {
             $writer->save('php://output');
         }, $filename);
+    }
+
+    /**
+     * Export audit report to PDF (.pdf) format.
+     */
+    public function exportAuditPdf(Request $request)
+    {
+        $data = $this->getAuditReportData($request);
+        $claims = $data['logsQuery']->orderBy('updated_at', 'desc')->limit(200)->get();
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('claims.audit-report-pdf', array_merge($data, [
+            'claims' => $claims,
+        ]))->setPaper('a4', 'landscape');
+
+        $filename = 'claims_audit_report_' . $data['startDate']->format('Y-m-d') . '_to_' . $data['endDate']->format('Y-m-d') . '.pdf';
+        return $pdf->download($filename);
     }
 
     /**
@@ -2793,7 +3102,7 @@ class ClaimController extends Controller
     public function showFacilityClaim($claimId)
     {
         $claim = DB::table('facility_claims as fc')
-            ->join('facilities as f', 'fc.facility_id', '=', 'f.id')
+            ->leftJoin('facilities as f', 'fc.facility_id', '=', 'f.id')
             ->where('fc.id', $claimId)
             ->whereNull('fc.deleted_at')
             ->select('fc.*', 'f.name as facility_name')
@@ -2940,6 +3249,42 @@ class ClaimController extends Controller
                         ->get();
                     
                     foreach ($claimServices as $item) {
+                        $svcResults = [];
+                        if (!empty($claim->encounter_id)) {
+                            $resQuery = DB::table('service_orders as so')
+                                ->join('service_order_items as soi', 'soi.service_order_id', '=', 'so.id')
+                                ->join('service_results as sr', 'sr.service_order_item_id', '=', 'soi.id')
+                                ->where('so.encounter_id', $claim->encounter_id)
+                                ->select('sr.*')
+                                ->get();
+
+                            foreach ($resQuery as $res) {
+                                $docs = [];
+                                if (!empty($res->result_document_url)) {
+                                    $parsedDocs = json_decode($res->result_document_url, true);
+                                    if (is_array($parsedDocs)) {
+                                        foreach ($parsedDocs as $pd) {
+                                            if ($pd) {
+                                                $docs[] = \Illuminate\Support\Str::startsWith($pd, 'http') ? $pd : \Illuminate\Support\Facades\Storage::url($pd);
+                                            }
+                                        }
+                                    } else {
+                                        $docs[] = \Illuminate\Support\Str::startsWith($res->result_document_url, 'http') ? $res->result_document_url : \Illuminate\Support\Facades\Storage::url($res->result_document_url);
+                                    }
+                                }
+                                $svcResults[] = [
+                                    'value' => $res->result_value,
+                                    'unit' => null,
+                                    'reference_range' => $res->reference_range,
+                                    'remark' => $res->remark,
+                                    'note' => $res->result_note ?: ($res->findings ?: $res->technical_comment),
+                                    'documents' => $docs,
+                                    'findings' => $res->findings,
+                                    'recommendation' => $res->recommendation,
+                                ];
+                            }
+                        }
+
                         $services[] = [
                             'id' => $item->id,
                             'name' => $item->service_name ?? 'N/A',
@@ -2949,12 +3294,85 @@ class ClaimController extends Controller
                             'unit_price' => $item->unit_price ?? ($item->total_price ?? 0),
                             'frequency' => $item->frequency ?? 1,
                             'status' => 'approved', // Claim items are typically approved
-                            'results' => [], // Results would need to be loaded separately if needed
+                            'results' => $svcResults,
                         ];
                     }
                 }
             } catch (\Exception $e) {
                 \Log::error('Error loading encounter data: ' . $e->getMessage());
+            }
+        }
+
+        // Supporting Documents & Radiological Scans aggregation
+        $supportingDocuments = collect([]);
+
+        // 1. facility_claim_documents
+        $facDocs = DB::table('facility_claim_documents')
+            ->where('facility_claim_id', $claim->id)
+            ->get();
+        foreach ($facDocs as $fd) {
+            $url = \Illuminate\Support\Str::startsWith($fd->file_path, 'http') ? $fd->file_path : \Illuminate\Support\Facades\Storage::url($fd->file_path);
+            $supportingDocuments->push([
+                'id' => 'fac_' . $fd->id,
+                'name' => $fd->document_name ?: 'Supporting Document',
+                'type' => $fd->document_type ?? 'supporting_document',
+                'url' => $url,
+                'file_path' => $fd->file_path,
+                'file_size' => $fd->file_size ? number_format($fd->file_size / 1024, 1) . ' KB' : 'N/A',
+                'created_at' => $fd->created_at,
+                'source' => 'Facility Document',
+            ]);
+        }
+
+        // 2. claim_documents
+        $claimDocs = DB::table('claim_documents')
+            ->where('claim_id', $claim->id)
+            ->get();
+        foreach ($claimDocs as $cd) {
+            $url = \Illuminate\Support\Str::startsWith($cd->file_path, 'http') ? $cd->file_path : \Illuminate\Support\Facades\Storage::url($cd->file_path);
+            $supportingDocuments->push([
+                'id' => 'cd_' . $cd->id,
+                'name' => $cd->document_name ?: 'Claim Attachment',
+                'type' => $cd->document_type ?? 'supporting_document',
+                'url' => $url,
+                'file_path' => $cd->file_path,
+                'file_size' => $cd->file_size ? number_format($cd->file_size / 1024, 1) . ' KB' : 'N/A',
+                'created_at' => $cd->created_at,
+                'source' => 'Claim Attachment',
+            ]);
+        }
+
+        // 3. Service Results Attachments (Lab & Radiology Scans)
+        if (!empty($claim->encounter_id)) {
+            $serviceResultsWithDocs = DB::table('service_orders as so')
+                ->join('service_order_items as soi', 'soi.service_order_id', '=', 'so.id')
+                ->join('service_results as sr', 'sr.service_order_item_id', '=', 'soi.id')
+                ->leftJoin('services as s', 'soi.service_item_id', '=', 's.id')
+                ->where('so.encounter_id', $claim->encounter_id)
+                ->select('sr.*', 's.name as service_name')
+                ->get();
+
+            foreach ($serviceResultsWithDocs as $srd) {
+                if (!empty($srd->result_document_url)) {
+                    $parsedUrls = json_decode($srd->result_document_url, true);
+                    if (!is_array($parsedUrls)) {
+                        $parsedUrls = [$srd->result_document_url];
+                    }
+                    foreach ($parsedUrls as $idx => $docPath) {
+                        if (empty($docPath)) continue;
+                        $docUrl = \Illuminate\Support\Str::startsWith($docPath, 'http') ? $docPath : \Illuminate\Support\Facades\Storage::url($docPath);
+                        $supportingDocuments->push([
+                            'id' => 'sr_' . $srd->id . '_' . $idx,
+                            'name' => ($srd->service_name ?: 'Diagnostic Scan / Lab Result') . ' Report',
+                            'type' => 'radiology_scan',
+                            'url' => $docUrl,
+                            'file_path' => $docPath,
+                            'file_size' => 'N/A',
+                            'created_at' => $srd->reported_at ?: $srd->created_at,
+                            'source' => 'Lab / Radiology System',
+                        ]);
+                    }
+                }
             }
         }
 
@@ -2971,24 +3389,32 @@ class ClaimController extends Controller
         $esName = null;
         $financeName = null;
         
+        if (request()->has('return_url')) {
+            session(['claims_return_url' => request('return_url')]);
+        }
+        
         if (!empty($claim->verifier_id)) {
-            $verifier = DB::table('staff')->where('id', $claim->verifier_id)->first();
-            $verifierName = $verifier ? $verifier->fullname : 'N/A';
+            $verifier = DB::table('staff')->where('id', $claim->verifier_id)->first()
+                     ?: DB::table('users')->where('id', $claim->verifier_id)->first();
+            $verifierName = $verifier ? ($verifier->fullname ?? $verifier->name ?? 'N/A') : 'N/A';
         }
         
         if (!empty($claim->approver_id)) {
-            $approver = DB::table('staff')->where('id', $claim->approver_id)->first();
-            $approverName = $approver ? $approver->fullname : 'N/A';
+            $approver = DB::table('staff')->where('id', $claim->approver_id)->first()
+                     ?: DB::table('users')->where('id', $claim->approver_id)->first();
+            $approverName = $approver ? ($approver->fullname ?? $approver->name ?? 'N/A') : 'N/A';
         }
         
         if (!empty($claim->es_id)) {
-            $es = DB::table('staff')->where('id', $claim->es_id)->first();
-            $esName = $es ? $es->fullname : 'N/A';
+            $es = DB::table('staff')->where('id', $claim->es_id)->first()
+               ?: DB::table('users')->where('id', $claim->es_id)->first();
+            $esName = $es ? ($es->fullname ?? $es->name ?? 'N/A') : 'N/A';
         }
         
         if (!empty($claim->finance_id)) {
-            $finance = DB::table('staff')->where('id', $claim->finance_id)->first();
-            $financeName = $finance ? $finance->fullname : 'N/A';
+            $finance = DB::table('staff')->where('id', $claim->finance_id)->first()
+                    ?: DB::table('users')->where('id', $claim->finance_id)->first();
+            $financeName = $finance ? ($finance->fullname ?? $finance->name ?? 'N/A') : 'N/A';
         }
 
         // Fallback diagnosis from claim table when encounter is orphaned
@@ -3016,7 +3442,45 @@ class ClaimController extends Controller
         \Log::info('Claim ID: ' . $claim->id . ', Medications count: ' . count($medications));
         \Log::info('Medications data: ' . json_encode($medications));
 
-        return view('claims.facility-claim-show', compact('claim', 'medications', 'services', 'provisionalDiagnoses', 'confirmedDiagnoses', 'consultations', 'vitalSigns', 'actions', 'submittedByName', 'verifierName', 'approverName', 'esName', 'financeName', 'userPermissions'));
+        return view('claims.facility-claim-show', compact('claim', 'medications', 'services', 'provisionalDiagnoses', 'confirmedDiagnoses', 'consultations', 'vitalSigns', 'actions', 'submittedByName', 'verifierName', 'approverName', 'esName', 'financeName', 'userPermissions', 'supportingDocuments'));
+    }
+
+    /**
+     * Upload supporting document for a facility claim (lab results, radiological scans, operation sheets, etc.)
+     */
+    public function uploadFacilityClaimDocument(Request $request, $claimId)
+    {
+        $request->validate([
+            'document' => 'required|file|mimes:jpeg,png,jpg,pdf,doc,docx|max:10240',
+            'document_type' => 'required|string|max:100',
+            'notes' => 'nullable|string|max:500',
+        ]);
+
+        $claim = DB::table('facility_claims')->where('id', $claimId)->first();
+        if (!$claim) {
+            return redirect()->back()->with('error', 'Facility claim not found.');
+        }
+
+        if ($request->hasFile('document')) {
+            $file = $request->file('document');
+            $filename = time() . '_' . \Illuminate\Support\Str::slug(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME)) . '.' . $file->getClientOriginalExtension();
+            $path = $file->storeAs('claim_documents/' . $request->document_type, $filename, 'public');
+
+            DB::table('claim_documents')->insert([
+                'claim_id' => $claimId,
+                'document_type' => $request->document_type,
+                'document_name' => $file->getClientOriginalName(),
+                'file_path' => $path,
+                'file_size' => $file->getSize(),
+                'notes' => $request->notes,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            return redirect()->back()->with('success', 'Supporting document uploaded successfully.');
+        }
+
+        return redirect()->back()->with('error', 'Failed to upload document.');
     }
 
     /**

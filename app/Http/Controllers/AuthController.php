@@ -65,6 +65,15 @@ class AuthController extends Controller
                 return redirect()->route('drug-stock-requests.index');
             }
             
+            // Check if user has Claim Verifier role or permission and redirect to claims index
+            $isClaimVerifier = $staff->hasRole(['claim-verifier', 'Claim Verifier', 'Claims Verifier', 'claim_verifier', 'claims-verifier', 'claims_verifier', 'verifier', 'Verifier']);
+            if (!$isClaimVerifier && !$staff->hasRole(['super-admin', 'Super Admin', 'admin', 'Admin'])) {
+                $isClaimVerifier = $staff->can('claim.verify');
+            }
+            if ($isClaimVerifier) {
+                return redirect()->route('claims.index');
+            }
+            
             return redirect()->intended('/');
             } catch (\Exception $e) {
                 \Log::error('Staff login error: ' . $e->getMessage());
@@ -90,8 +99,20 @@ class AuthController extends Controller
                 session()->put('sector', 'basic');
                 
                 $user = Auth::user();
-                if ($user && method_exists($user, 'hasRole') && $user->hasRole('Customer Care')) {
-                    return redirect()->route('crm.index');
+                if ($user && method_exists($user, 'hasRole')) {
+                    if ($user->hasRole('Customer Care')) {
+                        return redirect()->route('crm.index');
+                    }
+                    if ($user->hasRole('BODMA')) {
+                        return redirect()->route('drug-stock-requests.index');
+                    }
+                    $isClaimVerifier = $user->hasRole(['claim-verifier', 'Claim Verifier', 'Claims Verifier', 'claim_verifier', 'claims-verifier', 'claims_verifier', 'verifier', 'Verifier']);
+                    if (!$isClaimVerifier && !$user->hasRole(['super-admin', 'Super Admin', 'admin', 'Admin']) && method_exists($user, 'can')) {
+                        $isClaimVerifier = $user->can('claim.verify');
+                    }
+                    if ($isClaimVerifier) {
+                        return redirect()->route('claims.index');
+                    }
                 }
                 
                 return redirect()->intended('/');

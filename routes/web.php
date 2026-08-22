@@ -587,6 +587,7 @@ Route::middleware(['auth:staff,web'])->group(function () {
     Route::get('claims/analytics/facility-report', [ClaimController::class, 'facilityReport'])->name('claims.analytics.facility-report')->middleware('permission:claim.view');
     Route::get('claims/audit-report', [ClaimController::class, 'auditReport'])->name('claims.audit.report')->middleware('permission:claim.edit');
     Route::get('claims/export-audit-trail', [ClaimController::class, 'exportAuditTrail'])->name('claims.audit.export')->middleware('permission:claim.edit');
+    Route::get('claims/export-audit-pdf', [ClaimController::class, 'exportAuditPdf'])->name('claims.audit.export-pdf')->middleware('permission:claim.edit');
     Route::get('claims/notifications', [ClaimController::class, 'notifications'])->name('claims.notifications')->middleware('permission:claim.edit');
     Route::get('claims/notifications/count', [ClaimController::class, 'getNotificationCount'])->name('claims.notifications.count')->middleware('permission:claim.edit');
     Route::get('claims/alerts', [ClaimController::class, 'alerts'])->name('claims.alerts')->middleware('permission:claim.edit');
@@ -607,6 +608,7 @@ Route::middleware(['auth:staff,web'])->group(function () {
     // Routes with path segments before {id}
     Route::get('claims/facility/{facilityId}', [ClaimController::class, 'facilityShow'])->name('claims.facility.show')->middleware('permission:claim.view');
     Route::get('claims/facility-claim/{claimId}', [ClaimController::class, 'showFacilityClaim'])->name('claims.facility-claim.show')->middleware('permission:claim.view');
+    Route::post('claims/facility-claim/{claimId}/upload-document', [ClaimController::class, 'uploadFacilityClaimDocument'])->name('claims.facility-claim.upload-document')->middleware('permission:claim.view');
     Route::get('claims/facility-claim/{claimId}/download-pdf', [ClaimController::class, 'downloadFacilityClaimPdf'])->name('claims.facility-claim.download-pdf')->middleware('permission:claim.view');
     Route::post('claims/facility-claim/{claimId}/update-item', [ClaimController::class, 'updateFacilityClaimItem'])->name('claims.facility-claim.update-item')->middleware('permission:claim.edit-items,staff');
     Route::post('claims/facility-claim/{claimId}/delete-item', [ClaimController::class, 'deleteFacilityClaimItem'])->name('claims.facility-claim.delete-item')->middleware('permission:claim.edit-items,staff');

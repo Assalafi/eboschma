@@ -31,7 +31,7 @@
                         @endcan
                         @can('approve-claims')
                             <a href="{{ route('claims.e5-review') }}" class="btn btn-primary shadow-sm">
-                                <i class="ti-shield-check me-1"></i>E5 Approval Queue 
+                                <i class="ti-shield-check me-1"></i>ES Approval Queue 
                                 <span class="badge bg-white text-dark ms-1 fw-bold">{{ number_format($stats['e5_pending'] ?? 0) }}</span>
                             </a>
                         @endcan
@@ -105,18 +105,18 @@
                     </div>
                 </div>
 
-                <!-- Card 3: Pending E5 Approval -->
+                <!-- Card 3: Pending ES Approval -->
                 <div class="col-sm-6 col-lg-4 col-xl-2">
                     <div class="card border-0 shadow-sm card-metric" style="border-radius: 14px; border-left: 4px solid #4299e1 !important;">
                         <div class="card-body p-3">
                             <div class="d-flex align-items-center justify-content-between mb-2">
-                                <span class="text-uppercase text-muted fw-bold" style="font-size: 0.7rem; letter-spacing: 0.5px;">Pending E5</span>
+                                <span class="text-uppercase text-muted fw-bold" style="font-size: 0.7rem; letter-spacing: 0.5px;">Pending ES</span>
                                 <div class="avatar avatar-xs bg-info-transparent rounded-2">
                                     <i class="ti-shield-check text-info"></i>
                                 </div>
                             </div>
                             <div class="h2 mb-1 fw-bold text-info">{{ number_format($stats['e5_pending'] ?? 0) }}</div>
-                            <div class="text-muted small">Verified, Awaiting E5</div>
+                            <div class="text-muted small">Verified, Awaiting ES</div>
                         </div>
                     </div>
                 </div>
@@ -200,7 +200,7 @@
                                     <th class="fw-bold text-muted text-uppercase" style="font-size: 0.75rem;">Healthcare Facility</th>
                                     <th class="fw-bold text-muted text-uppercase text-center" style="font-size: 0.75rem;">Total Claims</th>
                                     <th class="fw-bold text-muted text-uppercase text-center" style="font-size: 0.75rem;">Pending RO Review</th>
-                                    <th class="fw-bold text-muted text-uppercase text-center" style="font-size: 0.75rem;">Pending E5 Approval</th>
+                                    <th class="fw-bold text-muted text-uppercase text-center" style="font-size: 0.75rem;">Pending ES Approval</th>
                                     <th class="fw-bold text-muted text-uppercase text-end" style="font-size: 0.75rem;">Total Claimed Amount</th>
                                     <th class="fw-bold text-muted text-uppercase text-end" style="font-size: 0.75rem;">Approved Amount</th>
                                     <th class="fw-bold text-muted text-uppercase text-end" style="font-size: 0.75rem;">Actions</th>
@@ -327,7 +327,7 @@
                                         <option value="rejected" {{ request('status') === 'rejected' ? 'selected' : '' }}>Rejected</option>
                                     @else
                                         <option value="ro_pending" {{ request('status') === 'ro_pending' ? 'selected' : '' }}>Pending Verification (RO)</option>
-                                        <option value="e5_pending" {{ request('status') === 'e5_pending' ? 'selected' : '' }}>Pending Approval (E5)</option>
+                                        <option value="e5_pending" {{ request('status') === 'e5_pending' ? 'selected' : '' }}>Pending Approval (ES)</option>
                                         <option value="approved" {{ request('status') === 'approved' ? 'selected' : '' }}>Approved</option>
                                         <option value="paid" {{ request('status') === 'paid' ? 'selected' : '' }}>Paid</option>
                                         <option value="rejected" {{ request('status') === 'rejected' ? 'selected' : '' }}>Rejected</option>
@@ -393,7 +393,7 @@
                                                 </span>
                                             @elseif ($claim->status === 'verified')
                                                 <span class="badge bg-info text-white px-2 py-1 fw-bold">
-                                                    <i class="ti-shield-check me-1"></i>Verified (Pending E5)
+                                                    <i class="ti-shield-check me-1"></i>Verified (Pending ES)
                                                 </span>
                                             @elseif ($claim->status === 'approved')
                                                 <span class="badge bg-success text-white px-2 py-1 fw-bold">
@@ -488,7 +488,7 @@
                                                     <i class="ti-shield-check fs-2 text-primary"></i>
                                                 </div>
                                                 <div>
-                                                    <div class="fw-bold text-dark">E5 Approval Queue</div>
+                                                    <div class="fw-bold text-dark">ES Approval Queue</div>
                                                     <div class="text-muted small">{{ number_format($stats['e5_pending'] ?? 0) }} pending approval</div>
                                                 </div>
                                             </div>

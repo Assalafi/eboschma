@@ -113,14 +113,18 @@ class TwilioService
      * Initiate an outbound phone call (server-side REST API).
      * Twilio will hit the $twimlUrl to get call instructions.
      */
-    public function makeCall(string $to, string $twimlUrl): array
+    public function makeCall(string $to, string $twimlUrlOrXml): array
     {
         try {
             $normalizedTo = $this->normalizePhone($to);
+            $options = (str_starts_with($twimlUrlOrXml, 'http://') || str_starts_with($twimlUrlOrXml, 'https://'))
+                ? ['url' => $twimlUrlOrXml]
+                : ['twiml' => $twimlUrlOrXml];
+
             $call = $this->client->calls->create(
                 $normalizedTo,       // To (E.164)
                 $this->fromNumber,   // From (must be verified Twilio number)
-                ['url' => $twimlUrl]
+                $options
             );
 
             Log::info("Twilio Call initiated to {$normalizedTo}: SID={$call->sid}");

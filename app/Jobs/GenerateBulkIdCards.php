@@ -142,7 +142,7 @@ class GenerateBulkIdCards implements ShouldQueue, ShouldBeUnique
                         'disable-software-rasterizer',
                     ]);
                 
-                if (!$this->isLocalEnvironment()) {
+                if (file_exists('/opt/chrome-linux64/chrome')) {
                     $browsershot->setChromePath("/opt/chrome-linux64/chrome");
                 }
                 
@@ -819,7 +819,7 @@ class GenerateBulkIdCards implements ShouldQueue, ShouldBeUnique
                     'disable-software-rasterizer',
                 ]);
             
-            if (!$this->isLocalEnvironment()) {
+            if (file_exists('/opt/chrome-linux64/chrome')) {
                 $browsershot->setChromePath("/opt/chrome-linux64/chrome");
             }
             

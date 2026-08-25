@@ -75,10 +75,10 @@
                             <div class="d-flex align-items-center mb-1">
                                 <div class="subheader">Total Value</div>
                             </div>
-                            <div class="h3 mb-2 fw-bold text-dark text-truncate" style="font-size: 1.25rem;" title="₦{{ number_format($stats['total_amount'] ?? 0, 2) }}">
+                            <div class="h2 mb-2 fw-bold text-dark text-truncate" style="font-size: 1.5rem;" title="₦{{ number_format($stats['total_amount'] ?? 0, 2) }}">
                                 ₦{{ number_format($stats['total_amount'] ?? 0, 2) }}
                             </div>
-                            <div class="text-muted small">
+                            <div class="text-muted" style="font-size: 0.9rem;">
                                 Approved: <span class="fw-semibold text-success">₦{{ number_format($stats['approved_amount'] ?? 0, 2) }}</span>
                             </div>
                         </div>

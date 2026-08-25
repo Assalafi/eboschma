@@ -1724,6 +1724,7 @@ class ClaimController extends Controller
         $dateFrom = $request->input('date_from');
         $dateTo = $request->input('date_to');
         $reviewerId = $request->input('reviewer_id');
+        $programId = $request->input('program_id');
 
         if ($dateFrom && $dateTo) {
             $startDate = \Carbon\Carbon::parse($dateFrom)->startOfDay();
@@ -1738,6 +1739,67 @@ class ClaimController extends Controller
                 $endDate = now()->endOfDay();
             }
         }
+
+        // Program Filter Setup
+        $programs = \DB::table('programs')->where('status', 1)->get();
+        if ($programs->isEmpty()) {
+            $programs = \App\Models\Program::orderBy('name')->get();
+        }
+
+        $selectedProgram = null;
+        if ($programId) {
+            $selectedProgram = \DB::table('programs')->where('id', $programId)->first();
+        }
+
+        $applyProgramFilter = function ($q) use ($selectedProgram) {
+            if (!$selectedProgram) {
+                return;
+            }
+            $pId = $selectedProgram->id;
+            $format = $selectedProgram->format;
+
+            $q->where(function($subQ) use ($pId, $format) {
+                $subQ->whereIn('facility_claims.boschma_no', function($sub) use ($pId) {
+                    $sub->select('boschma_no')->from('beneficiaries')->where('program_id', $pId);
+                });
+                if (!empty($format)) {
+                    $subQ->orWhere('facility_claims.boschma_no', 'like', $format . '%');
+                }
+                if ($pId == 1) { // Formal Program
+                    $subQ->orWhere('facility_claims.boschma_no', 'like', 'BFS/%')
+                         ->orWhere('facility_claims.boschma_no', 'like', 'FS/%');
+                }
+                $subQ->orWhere(function($subEnrollee) use ($pId) {
+                    $subEnrollee->where('facility_claims.enrollee_type', 'beneficiary')
+                        ->whereExists(function($sub) use ($pId) {
+                            $sub->select(\DB::raw(1))
+                                ->from('beneficiaries')
+                                ->whereColumn('beneficiaries.boschma_no', 'facility_claims.enrollee_number')
+                                ->where('beneficiaries.program_id', $pId);
+                        });
+                })
+                ->orWhere(function($subEnrollee) use ($pId) {
+                    $subEnrollee->where('facility_claims.enrollee_type', 'spouse')
+                        ->whereExists(function($sub) use ($pId) {
+                            $sub->select(\DB::raw(1))
+                                ->from('spouses')
+                                ->join('beneficiaries', 'spouses.beneficiary_id', '=', 'beneficiaries.id')
+                                ->whereColumn('spouses.boschma_no', 'facility_claims.enrollee_number')
+                                ->where('beneficiaries.program_id', $pId);
+                        });
+                })
+                ->orWhere(function($subEnrollee) use ($pId) {
+                    $subEnrollee->where('facility_claims.enrollee_type', 'child')
+                        ->whereExists(function($sub) use ($pId) {
+                            $sub->select(\DB::raw(1))
+                                ->from('children')
+                                ->join('beneficiaries', 'children.beneficiary_id', '=', 'beneficiaries.id')
+                                ->whereColumn('children.boschma_no', 'facility_claims.enrollee_number')
+                                ->where('beneficiaries.program_id', $pId);
+                        });
+                });
+            });
+        };
 
         // Pre-load staff and users for fast name resolution
         $allStaff = \App\Models\Staff::orderBy('fullname', 'asc')->get();
@@ -1758,13 +1820,19 @@ class ClaimController extends Controller
         }
 
         // Retrieve active reviewer IDs from facility_claims
-        $verifierIds = \DB::table('facility_claims')->whereBetween('updated_at', [$startDate, $endDate])->whereNotNull('verifier_id')->pluck('verifier_id')->toArray();
-        $approverIds = \DB::table('facility_claims')->whereBetween('updated_at', [$startDate, $endDate])->whereNotNull('approver_id')->pluck('approver_id')->toArray();
-        $esIds = \DB::table('facility_claims')->whereBetween('updated_at', [$startDate, $endDate])->whereNotNull('es_id')->pluck('es_id')->toArray();
-        $financeIds = \DB::table('facility_claims')->whereBetween('updated_at', [$startDate, $endDate])->whereNotNull('finance_id')->pluck('finance_id')->toArray();
-        $roUpdatedBy = \DB::table('facility_claims')->whereBetween('updated_at', [$startDate, $endDate])->whereNotNull('ro_updated_by')->pluck('ro_updated_by')->toArray();
-        $e5UpdatedBy = \DB::table('facility_claims')->whereBetween('updated_at', [$startDate, $endDate])->whereNotNull('e5_updated_by')->pluck('e5_updated_by')->toArray();
-        $paidBy = \DB::table('facility_claims')->whereBetween('updated_at', [$startDate, $endDate])->whereNotNull('paid_by')->pluck('paid_by')->toArray();
+        $baseClaimsQuery = function() use ($startDate, $endDate, $applyProgramFilter) {
+            $q = \DB::table('facility_claims')->whereBetween('updated_at', [$startDate, $endDate]);
+            $applyProgramFilter($q);
+            return $q;
+        };
+
+        $verifierIds = $baseClaimsQuery()->whereNotNull('verifier_id')->pluck('verifier_id')->toArray();
+        $approverIds = $baseClaimsQuery()->whereNotNull('approver_id')->pluck('approver_id')->toArray();
+        $esIds = $baseClaimsQuery()->whereNotNull('es_id')->pluck('es_id')->toArray();
+        $financeIds = $baseClaimsQuery()->whereNotNull('finance_id')->pluck('finance_id')->toArray();
+        $roUpdatedBy = $baseClaimsQuery()->whereNotNull('ro_updated_by')->pluck('ro_updated_by')->toArray();
+        $e5UpdatedBy = $baseClaimsQuery()->whereNotNull('e5_updated_by')->pluck('e5_updated_by')->toArray();
+        $paidBy = $baseClaimsQuery()->whereNotNull('paid_by')->pluck('paid_by')->toArray();
 
         $allActiveUserIds = array_unique(array_filter(array_merge(
             $verifierIds, $approverIds, $esIds, $financeIds, $roUpdatedBy, $e5UpdatedBy, $paidBy
@@ -1782,33 +1850,37 @@ class ClaimController extends Controller
             $email = $emailMap[$uIdStr] ?? 'N/A';
 
             // Counts for each workflow step
-            $verifiedCount = \DB::table('facility_claims')
+            $verifiedQuery = \DB::table('facility_claims')
                 ->where('verifier_id', $uIdStr)
-                ->whereBetween('updated_at', [$startDate, $endDate])
-                ->count();
+                ->whereBetween('updated_at', [$startDate, $endDate]);
+            $applyProgramFilter($verifiedQuery);
+            $verifiedCount = $verifiedQuery->count();
 
-            $approvedCount = \DB::table('facility_claims')
+            $approvedQuery = \DB::table('facility_claims')
                 ->where(function($q) use ($uIdStr) {
                     $q->where('approver_id', $uIdStr)->orWhere('ro_updated_by', $uIdStr);
                 })
-                ->whereBetween('updated_at', [$startDate, $endDate])
-                ->count();
+                ->whereBetween('updated_at', [$startDate, $endDate]);
+            $applyProgramFilter($approvedQuery);
+            $approvedCount = $approvedQuery->count();
 
-            $esApprovedCount = \DB::table('facility_claims')
+            $esApprovedQuery = \DB::table('facility_claims')
                 ->where(function($q) use ($uIdStr) {
                     $q->where('es_id', $uIdStr)->orWhere('e5_updated_by', $uIdStr);
                 })
-                ->whereBetween('updated_at', [$startDate, $endDate])
-                ->count();
+                ->whereBetween('updated_at', [$startDate, $endDate]);
+            $applyProgramFilter($esApprovedQuery);
+            $esApprovedCount = $esApprovedQuery->count();
 
-            $paidCount = \DB::table('facility_claims')
+            $paidQuery = \DB::table('facility_claims')
                 ->where(function($q) use ($uIdStr) {
                     $q->where('finance_id', $uIdStr)->orWhere('paid_by', $uIdStr);
                 })
-                ->whereBetween('updated_at', [$startDate, $endDate])
-                ->count();
+                ->whereBetween('updated_at', [$startDate, $endDate]);
+            $applyProgramFilter($paidQuery);
+            $paidCount = $paidQuery->count();
 
-            $rejectedCount = \DB::table('facility_claims')
+            $rejectedQuery = \DB::table('facility_claims')
                 ->where('status', 'rejected')
                 ->where(function($q) use ($uIdStr) {
                     $q->where('verifier_id', $uIdStr)
@@ -1816,28 +1888,31 @@ class ClaimController extends Controller
                       ->orWhere('es_id', $uIdStr)
                       ->orWhere('finance_id', $uIdStr);
                 })
-                ->whereBetween('updated_at', [$startDate, $endDate])
-                ->count();
+                ->whereBetween('updated_at', [$startDate, $endDate]);
+            $applyProgramFilter($rejectedQuery);
+            $rejectedCount = $rejectedQuery->count();
 
-            $totalValue = \DB::table('facility_claims')
+            $totalValueQuery = \DB::table('facility_claims')
                 ->where(function($q) use ($uIdStr) {
                     $q->where('verifier_id', $uIdStr)
                       ->orWhere('approver_id', $uIdStr)
                       ->orWhere('es_id', $uIdStr)
                       ->orWhere('finance_id', $uIdStr);
                 })
-                ->whereBetween('updated_at', [$startDate, $endDate])
-                ->sum('total_amount');
+                ->whereBetween('updated_at', [$startDate, $endDate]);
+            $applyProgramFilter($totalValueQuery);
+            $totalValue = $totalValueQuery->sum('total_amount');
 
-            $lastActivity = \DB::table('facility_claims')
+            $lastActivityQuery = \DB::table('facility_claims')
                 ->where(function($q) use ($uIdStr) {
                     $q->where('verifier_id', $uIdStr)
                       ->orWhere('approver_id', $uIdStr)
                       ->orWhere('es_id', $uIdStr)
                       ->orWhere('finance_id', $uIdStr);
                 })
-                ->whereBetween('updated_at', [$startDate, $endDate])
-                ->max('updated_at');
+                ->whereBetween('updated_at', [$startDate, $endDate]);
+            $applyProgramFilter($lastActivityQuery);
+            $lastActivity = $lastActivityQuery->max('updated_at');
 
             $totalActions = $verifiedCount + $approvedCount + $esApprovedCount + $paidCount + $rejectedCount;
 
@@ -1876,6 +1951,8 @@ class ClaimController extends Controller
             });
         }
 
+        $applyProgramFilter($logsQuery);
+
         $totalClaimsProcessed = (clone $logsQuery)->count();
         $totalValueProcessed = (clone $logsQuery)->sum('total_amount');
 
@@ -1886,6 +1963,8 @@ class ClaimController extends Controller
             'dateFrom' => $dateFrom,
             'dateTo' => $dateTo,
             'reviewerId' => $reviewerId,
+            'programId' => $programId,
+            'programs' => $programs,
             'reviewerStats' => $reviewerStats,
             'logsQuery' => $logsQuery,
             'nameMap' => $nameMap,
@@ -3054,42 +3133,31 @@ class ClaimController extends Controller
             $query->whereDate('fc.service_date', '<=', $request->date_to);
         }
 
+        // Clone base query for statistics calculation (ensuring stats reflect active filters & permissions for this facility)
+        $statsQuery = clone $query;
+
+        $stats = [
+            'total_claims' => (clone $statsQuery)->count(),
+            'verifier_pending' => (clone $statsQuery)->where(function($q) {
+                                    $q->where('fc.status', 'submitted')
+                                      ->orWhere('fc.verifier_status', 'pending');
+                                })
+                                ->whereNotIn('fc.status', ['approved', 'es_approved', 'paid', 'rejected'])
+                                ->count(),
+            'es_pending' => (clone $statsQuery)->where(function($q) {
+                                    $q->where('fc.status', 'verified')
+                                      ->orWhere('fc.verifier_status', 'approved');
+                                })
+                                ->whereNotIn('fc.status', ['approved', 'es_approved', 'paid', 'rejected'])
+                                ->count(),
+            'approved' => (clone $statsQuery)->whereIn('fc.status', ['approved', 'es_approved'])->count(),
+            'total_amount' => (clone $statsQuery)->sum('fc.total_amount') ?: 0,
+            'approved_amount' => (clone $statsQuery)->whereIn('fc.status', ['approved', 'es_approved', 'paid'])->sum('fc.total_amount') ?: 0,
+        ];
+
         $claims = $query->orderBy('fc.created_at', 'desc')
             ->paginate(20)
             ->appends($request->query());
-
-        $stats = [
-            'total_claims' => DB::table('facility_claims')->where('facility_id', $facility->id)->whereNull('deleted_at')->count(),
-            'verifier_pending' => DB::table('facility_claims')
-                                ->where('facility_id', $facility->id)
-                                ->whereNull('deleted_at')
-                                ->where(function($q) {
-                                    $q->where('verifier_status', 'pending')
-                                      ->orWhereNull('verifier_status');
-                                })
-                                ->whereNotIn('status', ['rejected', 'paid'])
-                                ->count(),
-            'es_pending' => DB::table('facility_claims')
-                                ->where('facility_id', $facility->id)
-                                ->whereNull('deleted_at')
-                                ->where('verifier_status', 'approved')
-                                ->where('approver_status', 'approved')
-                                ->where(function($q) {
-                                    $q->where('es_status', 'pending')
-                                      ->orWhereNull('es_status');
-                                })
-                                ->whereNotIn('status', ['rejected'])
-                                ->count(),
-            'approved' => DB::table('facility_claims')->where('facility_id', $facility->id)->whereNull('deleted_at')->whereIn('status', ['approved', 'es_approved'])->count(),
-            'total_amount' => DB::table('facility_claims')->where('facility_id', $facility->id)->whereNull('deleted_at')->sum('total_amount'),
-            'approved_amount' => DB::table('facility_claims')
-                                    ->where('facility_id', $facility->id)
-                                    ->whereNull('deleted_at')
-                                    ->where(function($q) {
-                                        $q->whereIn('status', ['approved', 'es_approved', 'paid']);
-                                    })
-                                    ->sum('total_amount'),
-        ];
 
         $programs = Program::orderBy('name')->get();
 

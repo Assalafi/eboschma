@@ -26,13 +26,6 @@ class DashboardController extends Controller
                 if ($user->hasRole('BODMA')) {
                     return redirect()->route('drug-stock-requests.index');
                 }
-                $isClaimVerifier = $user->hasRole(['claim-verifier', 'Claim Verifier', 'Claims Verifier', 'claim_verifier', 'claims-verifier', 'claims_verifier', 'verifier', 'Verifier']);
-                if (!$isClaimVerifier && method_exists($user, 'can')) {
-                    $isClaimVerifier = $user->can('claim.verify');
-                }
-                if ($isClaimVerifier) {
-                    return redirect()->route('claims.index');
-                }
             }
         }
 

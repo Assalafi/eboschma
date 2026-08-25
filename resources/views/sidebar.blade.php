@@ -26,7 +26,7 @@
                     }
                 @endphp
                 @if(!$isCustomerCareOnly)
-                @can('dashboard.view')
+                @canany(['dashboard.view', 'claim.view', 'claim.verify'])
                     <li class="nav-header text-dark"><span class="nav-label text-dark">BOSCHMA</span></li>
                     <li class="nav-item @if (request()->routeIs('dashboard') || request()->is('/')) active @endif">
                         <a class="nav-link" href="/">
@@ -34,7 +34,7 @@
                             <span class="sidemenu-label text-dark">Dashboard</span>
                         </a>
                     </li>
-                @endcan
+                @endcanany
                 @can('beneficiary.view')
                     <!-- Beneficiaries -->
                     <li class="nav-item @if (request()->routeIs('beneficiaries.index') ||

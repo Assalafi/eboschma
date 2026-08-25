@@ -137,7 +137,13 @@
         <table class="meta-table">
             <tr>
                 <td><strong>Audit Date Range:</strong> {{ $startDate->format('d M, Y') }} to {{ $endDate->format('d M, Y') }}</td>
-                <td><strong>Filter Selection:</strong> {{ $dateRange === 'all' ? 'All Time' : ($dateRange . ' Days') }}</td>
+                <td><strong>Program:</strong> 
+                    @if(isset($programId) && $programId && isset($programs) && ($selProg = $programs->firstWhere('id', $programId)))
+                        {{ $selProg->name }}
+                    @else
+                        All Programs
+                    @endif
+                </td>
                 <td><strong>Selected Reviewer:</strong> 
                     @if($reviewerId && isset($nameMap[$reviewerId]))
                         {{ $nameMap[$reviewerId] }}

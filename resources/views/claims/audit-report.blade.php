@@ -55,6 +55,18 @@
                         </div>
 
                         <div class="col-md-3">
+                            <label for="program_id" class="form-label fw-bold text-secondary small mb-1">Program</label>
+                            <select name="program_id" id="program_id" class="form-select form-select-sm">
+                                <option value="">-- All Programs --</option>
+                                @foreach($programs as $prog)
+                                    <option value="{{ $prog->id }}" {{ (isset($programId) && (string)$programId === (string)$prog->id) ? 'selected' : '' }}>
+                                        {{ $prog->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div class="col-md-3">
                             <label for="reviewer_id" class="form-label fw-bold text-secondary small mb-1">Reviewer / Staff</label>
                             <select name="reviewer_id" id="reviewer_id" class="form-select form-select-sm">
                                 <option value="">-- All Reviewers & Staff --</option>
@@ -66,7 +78,7 @@
                             </select>
                         </div>
 
-                        <div class="col-md-2">
+                        <div class="col-md-3">
                             <div class="d-flex gap-2">
                                 <button type="submit" class="btn btn-primary btn-sm w-100">
                                     <i class="fas fa-filter me-1"></i> Apply Filter
@@ -167,31 +179,31 @@
                                         <div class="text-muted small">{{ $stat['email'] }}</div>
                                     </td>
                                     <td class="text-center">
-                                        <span class="badge bg-success bg-opacity-10 text-success fw-bold px-2 py-1">
+                                        <span class="badge bg-success text-white fw-bold px-2 py-1" style="font-size: 0.85rem;">
                                             {{ number_format($stat['verified_count']) }}
                                         </span>
                                     </td>
                                     <td class="text-center">
-                                        <span class="badge bg-primary bg-opacity-10 text-primary fw-bold px-2 py-1">
+                                        <span class="badge bg-primary text-white fw-bold px-2 py-1" style="font-size: 0.85rem;">
                                             {{ number_format($stat['approved_count']) }}
                                         </span>
                                     </td>
                                     <td class="text-center">
-                                        <span class="badge bg-info bg-opacity-10 text-info fw-bold px-2 py-1">
+                                        <span class="badge bg-info text-white fw-bold px-2 py-1" style="font-size: 0.85rem; color: #ffffff !important;">
                                             {{ number_format($stat['es_approved_count']) }}
                                         </span>
                                     </td>
                                     <td class="text-center">
-                                        <span class="badge bg-warning bg-opacity-10 text-warning fw-bold px-2 py-1">
+                                        <span class="badge bg-warning text-dark fw-bold px-2 py-1" style="font-size: 0.85rem; color: #182433 !important;">
                                             {{ number_format($stat['paid_count']) }}
                                         </span>
                                     </td>
                                     <td class="text-center">
-                                        <span class="badge bg-danger bg-opacity-10 text-danger fw-bold px-2 py-1">
+                                        <span class="badge bg-danger text-white fw-bold px-2 py-1" style="font-size: 0.85rem;">
                                             {{ number_format($stat['rejected_count']) }}
                                         </span>
                                     </td>
-                                    <td class="text-center fw-bold fs-6">
+                                    <td class="text-center fw-bold fs-6 text-dark">
                                         {{ number_format($stat['total_actions']) }}
                                     </td>
                                     <td class="text-end fw-bold text-success fs-6">
@@ -258,12 +270,12 @@
                                     $notes = $claim->rejection_reason ?: ($claim->verifier_notes ?: ($claim->approver_notes ?: ($claim->es_notes ?: $claim->finance_notes)));
 
                                     $statusBadge = match($claim->status) {
-                                        'verified' => 'bg-success',
-                                        'ro_approved', 'approved' => 'bg-primary',
-                                        'es_approved' => 'bg-info',
+                                        'verified' => 'bg-success text-white',
+                                        'ro_approved', 'approved' => 'bg-primary text-white',
+                                        'es_approved' => 'bg-info text-white',
                                         'paid' => 'bg-warning text-dark',
-                                        'rejected' => 'bg-danger',
-                                        default => 'bg-secondary'
+                                        'rejected' => 'bg-danger text-white',
+                                        default => 'bg-secondary text-white'
                                     };
                                 @endphp
                                 <tr>
@@ -281,7 +293,7 @@
                                         <div class="text-muted small">{{ $claim->boschma_no ?: $claim->enrollee_number }}</div>
                                     </td>
                                     <td>
-                                        <span class="badge {{ $statusBadge }} uppercase px-2 py-1">
+                                        <span class="badge {{ $statusBadge }} text-uppercase px-2.5 py-1 fw-bold" style="{{ $claim->status === 'paid' ? 'color: #182433 !important;' : '' }}">
                                             {{ strtoupper($claim->status) }}
                                         </span>
                                     </td>

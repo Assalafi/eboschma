@@ -129,7 +129,7 @@
                         <i class="ti-building-hospital me-2"></i>
                         Claims Per Facility
                         @if($statusFilter)
-                            <span class="badge bg-blue-lt ms-2">{{ ucfirst(str_replace('_', ' ', $statusFilter)) }}</span>
+                            <span class="badge bg-blue-lt text-dark ms-2" style="color: #182433 !important;">{{ ucfirst(str_replace('_', ' ', $statusFilter)) }}</span>
                         @endif
                     </h3>
                     <div class="card-actions">
@@ -143,7 +143,7 @@
                                 <tr>
                                     <th class="border-0 fw-semibold" style="width: 40px;">#</th>
                                     <th class="border-0 fw-semibold">Facility</th>
-                                    <th class="border-0 fw-semibold text-center">Claims</th>
+                                    <th class="border-0 fw-semibold text-center text-dark">Claims</th>
                                     <th class="border-0 fw-semibold text-end">Admin Charges</th>
                                     <th class="border-0 fw-semibold text-end">Pharmacy</th>
                                     <th class="border-0 fw-semibold text-end">Laboratory</th>
@@ -170,7 +170,7 @@
                                             </div>
                                         </td>
                                         <td class="align-middle text-center">
-                                            <span class="badge bg-blue-lt">{{ number_format($row->claim_count) }}</span>
+                                            <span class="badge bg-blue-lt text-dark fw-bold px-2 py-1" style="color: #182433 !important; font-size: 0.85rem;">{{ number_format($row->claim_count) }}</span>
                                         </td>
                                         <td class="align-middle text-end">₦{{ number_format($row->admin_charges, 2) }}</td>
                                         <td class="align-middle text-end">₦{{ number_format($row->pharmacy, 2) }}</td>
@@ -189,7 +189,7 @@
                                     <tr>
                                         <td></td>
                                         <td>Grand Total</td>
-                                        <td class="text-center">{{ number_format($grandTotals['claim_count']) }}</td>
+                                        <td class="text-center text-dark fw-bold">{{ number_format($grandTotals['claim_count']) }}</td>
                                         <td class="text-end">₦{{ number_format($grandTotals['admin_charges'], 2) }}</td>
                                         <td class="text-end">₦{{ number_format($grandTotals['pharmacy'], 2) }}</td>
                                         <td class="text-end">₦{{ number_format($grandTotals['laboratory'], 2) }}</td>
@@ -230,7 +230,7 @@
                                     <thead class="bg-light">
                                         <tr>
                                             <th class="border-0 fw-semibold">Type</th>
-                                            <th class="border-0 fw-semibold text-center">Claims</th>
+                                            <th class="border-0 fw-semibold text-center text-dark">Claims</th>
                                             <th class="border-0 fw-semibold text-end">Total Amount</th>
                                             <th class="border-0 fw-semibold text-end">Avg per Claim</th>
                                         </tr>
@@ -238,8 +238,8 @@
                                     <tbody>
                                         @foreach ($claimsByType as $type)
                                             <tr>
-                                                <td><span class="badge bg-azure-lt">{{ ucfirst($type->claim_type) }}</span></td>
-                                                <td class="text-center">{{ number_format($type->claim_count) }}</td>
+                                                <td><span class="badge bg-azure-lt text-dark fw-semibold" style="color: #182433 !important;">{{ ucfirst($type->claim_type) }}</span></td>
+                                                <td class="text-center text-dark fw-bold">{{ number_format($type->claim_count) }}</td>
                                                 <td class="text-end fw-semibold">₦{{ number_format($type->total_amount, 2) }}</td>
                                                 <td class="text-end text-muted">₦{{ number_format($type->claim_count > 0 ? $type->total_amount / $type->claim_count : 0, 2) }}</td>
                                             </tr>
@@ -264,7 +264,7 @@
                             <thead class="bg-light">
                                 <tr>
                                     <th class="border-0 fw-semibold">Month</th>
-                                    <th class="border-0 fw-semibold text-center">Claims</th>
+                                    <th class="border-0 fw-semibold text-center text-dark">Claims</th>
                                     <th class="border-0 fw-semibold text-end">Admin Charges</th>
                                     <th class="border-0 fw-semibold text-end">Pharmacy</th>
                                     <th class="border-0 fw-semibold text-end">Laboratory</th>
@@ -276,7 +276,7 @@
                                 @foreach ($monthlyTrends as $trend)
                                     <tr>
                                         <td class="fw-semibold">{{ \Carbon\Carbon::createFromFormat('Y-m', $trend->month)->format('F Y') }}</td>
-                                        <td class="text-center"><span class="badge bg-blue-lt">{{ number_format($trend->claim_count) }}</span></td>
+                                        <td class="text-center"><span class="badge bg-blue-lt text-dark fw-bold px-2 py-1" style="color: #182433 !important; font-size: 0.85rem;">{{ number_format($trend->claim_count) }}</span></td>
                                         <td class="text-end">₦{{ number_format($trend->admin_charges, 2) }}</td>
                                         <td class="text-end">₦{{ number_format($trend->pharmacy, 2) }}</td>
                                         <td class="text-end">₦{{ number_format($trend->laboratory, 2) }}</td>

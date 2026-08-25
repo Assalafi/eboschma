@@ -14,6 +14,7 @@ class ClaimWorkflowRolesSeeder extends Seeder
 
         // Workflow-specific permissions
         $permissions = [
+            'dashboard.view'        => 'View Main Dashboard',
             'claim.verify'          => 'Verify claims (first approval stage)',
             'claim.approve'         => 'Approve claims (RO/approver stage)',
             'claim.es-approve'      => 'Executive Secretary approval',
@@ -30,7 +31,7 @@ class ClaimWorkflowRolesSeeder extends Seeder
         // 1. Claim Verifier
         $verifier = Role::firstOrCreate(['name' => 'claim-verifier', 'guard_name' => 'staff']);
         $verifier->syncPermissions([
-            'claim.view', 'claim.verify', 'claim.edit-items',
+            'dashboard.view', 'claim.view', 'claim.verify', 'claim.edit-items',
         ]);
 
         // 2. Claim Approver (RO)

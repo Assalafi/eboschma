@@ -37,14 +37,12 @@
                 <div class="col-sm-6 col-lg-3">
                     <div class="card border-0 shadow-sm hover-lift" style="border-radius: 12px;">
                         <div class="card-body">
-                            <div class="d-flex align-items-center">
+                            <div class="d-flex align-items-center mb-1">
                                 <div class="subheader">Total Claims</div>
                             </div>
-                            <div class="h1 mb-3">{{ $stats['total_claims'] ?? 0 }}</div>
-                            <div class="d-flex mb-2">
-                                <div>Latest:
-                                    {{ $claims->first()?->created_at ? \Carbon\Carbon::parse($claims->first()->created_at)->format('M j, Y') : 'N/A' }}
-                                </div>
+                            <div class="h2 mb-2 fw-bold text-dark">{{ $stats['total_claims'] ?? 0 }}</div>
+                            <div class="text-muted small">
+                                Latest: {{ $claims->first()?->created_at ? \Carbon\Carbon::parse($claims->first()->created_at)->format('M j, Y') : 'N/A' }}
                             </div>
                         </div>
                     </div>
@@ -52,38 +50,36 @@
                 <div class="col-sm-6 col-lg-3">
                     <div class="card border-0 shadow-sm hover-lift" style="border-radius: 12px;">
                         <div class="card-body">
-                            <div class="d-flex align-items-center">
+                            <div class="d-flex align-items-center mb-1">
                                 <div class="subheader">Pending Verification</div>
                             </div>
-                            <div class="h1 mb-3">{{ $stats['verifier_pending'] ?? 0 }}</div>
-                            <div class="d-flex mb-2">
-                                <div>Awaiting Verifier Review</div>
-                            </div>
+                            <div class="h2 mb-2 fw-bold text-dark">{{ $stats['verifier_pending'] ?? 0 }}</div>
+                            <div class="text-muted small">Awaiting Verifier Review</div>
                         </div>
                     </div>
                 </div>
                 <div class="col-sm-6 col-lg-3">
                     <div class="card border-0 shadow-sm hover-lift" style="border-radius: 12px;">
                         <div class="card-body">
-                            <div class="d-flex align-items-center">
+                            <div class="d-flex align-items-center mb-1">
                                 <div class="subheader">ES Approval</div>
                             </div>
-                            <div class="h1 mb-3">{{ $stats['es_pending'] ?? 0 }}</div>
-                            <div class="d-flex mb-2">
-                                <div>Awaiting ES Final Approval</div>
-                            </div>
+                            <div class="h2 mb-2 fw-bold text-dark">{{ $stats['es_pending'] ?? 0 }}</div>
+                            <div class="text-muted small">Awaiting ES Final Approval</div>
                         </div>
                     </div>
                 </div>
                 <div class="col-sm-6 col-lg-3">
                     <div class="card border-0 shadow-sm hover-lift" style="border-radius: 12px;">
                         <div class="card-body">
-                            <div class="d-flex align-items-center">
+                            <div class="d-flex align-items-center mb-1">
                                 <div class="subheader">Total Value</div>
                             </div>
-                            <div class="h1 mb-3">₦{{ number_format($stats['total_amount'] ?? 0, 2) }}</div>
-                            <div class="d-flex mb-2">
-                                <div>Approved: ₦{{ number_format($stats['approved_amount'] ?? 0, 2) }}</div>
+                            <div class="h3 mb-2 fw-bold text-dark text-truncate" style="font-size: 1.25rem;" title="₦{{ number_format($stats['total_amount'] ?? 0, 2) }}">
+                                ₦{{ number_format($stats['total_amount'] ?? 0, 2) }}
+                            </div>
+                            <div class="text-muted small">
+                                Approved: <span class="fw-semibold text-success">₦{{ number_format($stats['approved_amount'] ?? 0, 2) }}</span>
                             </div>
                         </div>
                     </div>

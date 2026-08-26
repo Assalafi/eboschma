@@ -48,7 +48,10 @@ td, th { border: 1px solid #666; padding: 5px 8px; }
     </tr>
     <tr>
         <td><strong>Enrollee's ID No:</strong> &nbsp; {{ $claim->enrollee_number }}</td>
-        <td><strong>Diagnosis:</strong> &nbsp; {{ $diagnosisText }}</td>
+        <td><strong>Nature of Visit:</strong> &nbsp; {{ $claim->nature_of_visit ?? ($claim->encounter_nature_of_visit ?? 'N/A') }}</td>
+    </tr>
+    <tr>
+        <td colspan="2"><strong>Diagnosis:</strong> &nbsp; {{ $diagnosisText }}</td>
     </tr>
 </table>
 

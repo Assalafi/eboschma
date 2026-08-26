@@ -28,27 +28,27 @@ class CheckPermission
             // Get the authenticated user
             $user = Auth::user();
             
-            // Try first with the 'web' guard (default for users)
-            if ($user->hasPermissionTo($permission, 'web')) {
-                return $next($request);
+            $permissions = explode('|', $permission);
+            foreach ($permissions as $perm) {
+                $perm = trim($perm);
+                try {
+                    // Try first with the 'web' guard (default for users)
+                    if ($user->hasPermissionTo($perm, 'web')) {
+                        return $next($request);
+                    }
+                    
+                    // If that doesn't work, try with the 'staff' guard
+                    if ($user->hasPermissionTo($perm, 'staff')) {
+                        return $next($request);
+                    }
+                } catch (\Spatie\Permission\Exceptions\PermissionDoesNotExist $e) {
+                    // Continue checking other permissions
+                }
             }
             
-            // If that doesn't work, try with the 'staff' guard
-            if ($user->hasPermissionTo($permission, 'staff')) {
-                return $next($request);
-            }
-            
-            // If we're here, the user doesn't have permission in either guard
-            // Log this access attempt
-            \Illuminate\Support\Facades\Log::warning('Permission denied', [
-                'user' => $user->email,
-                'permission' => $permission,
-                'url' => $request->fullUrl()
-            ]);
-            
-            // For super admin users, grant special override access
-            if ($user->hasRole('Super Admin', 'staff') || $user->hasRole('super-admin', 'web')) {
-                \Illuminate\Support\Facades\Log::info('Super admin override', [
+            // For super admin/admin users, grant special override access
+            if ($user->hasRole('Super Admin', 'staff') || $user->hasRole('super-admin', 'web') || $user->hasRole('Admin', 'staff') || $user->hasRole('admin', 'web') || $user->hasRole('Super Admin') || $user->hasRole('Admin')) {
+                \Illuminate\Support\Facades\Log::info('Admin override', [
                     'user' => $user->email,
                     'permission' => $permission,
                     'url' => $request->fullUrl()

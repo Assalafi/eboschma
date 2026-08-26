@@ -528,10 +528,11 @@ Route::middleware(['auth:staff,web'])->group(function () {
     });
     
     // Referral System Routes
+    Route::get('referrals/{referral}/pdf', [ReferralController::class, 'downloadPdf'])->name('referrals.pdf')->middleware('permission:referral.view|claim.view,staff');
+
     Route::middleware(['permission:referral.view,staff'])->group(function () {
         Route::get('referrals', [ReferralController::class, 'index'])->name('referrals.index');
         Route::get('referrals/{referral}', [ReferralController::class, 'show'])->name('referrals.show');
-        Route::get('referrals/{referral}/pdf', [ReferralController::class, 'downloadPdf'])->name('referrals.pdf');
         Route::get('referrals/analytics', [ReferralController::class, 'analytics'])->name('referrals.analytics');
         Route::get('referrals/settings', [ReferralController::class, 'settings'])->name('referrals.settings');
         Route::get('referrals/export', [ReferralController::class, 'export'])->name('referrals.export');

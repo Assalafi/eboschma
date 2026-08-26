@@ -151,6 +151,19 @@
                                                         <td>{{ $claim->encounter ? $claim->encounter->visit_date->format('d M Y') : ($claim->service_date ? $claim->service_date->format('d M Y') : 'N/A') }}</td>
                                                     </tr>
                                                     <tr>
+                                                        <th>Nature of Visit:</th>
+                                                        <td>
+                                                            @php
+                                                                $natureVal = $claim->encounter->nature_of_visit ?? ($claim->nature_of_visit ?? null);
+                                                            @endphp
+                                                            @if($natureVal)
+                                                                <span class="badge bg-info text-white">{{ ucfirst($natureVal) }}</span>
+                                                            @else
+                                                                <span class="badge bg-secondary text-white">N/A</span>
+                                                            @endif
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
                                                         <th>Status:</th>
                                                         <td>{!! $claim->status_badge !!}</td>
                                                     </tr>

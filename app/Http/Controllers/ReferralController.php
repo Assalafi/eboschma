@@ -374,6 +374,11 @@ class ReferralController extends Controller
         ];
 
         $pdf = app('dompdf.wrapper')->loadView('referrals._referral_pdf', $data);
-        return $pdf->download("referral_{$id}.pdf");
+
+        if (request()->has('download')) {
+            return $pdf->download("referral_{$id}.pdf");
+        }
+
+        return $pdf->stream("referral_{$id}.pdf");
     }
 }

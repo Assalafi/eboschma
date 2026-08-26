@@ -176,6 +176,17 @@
             <div class="cl-tab-panel {{ $tab === 'awaiting' ? 'active' : '' }}" data-panel="awaiting">
                 <div class="cl-body">
                     @if ($awaitingItems->count() > 0)
+                        <div class="d-flex align-items-center justify-content-between px-3 py-2 bg-light border-bottom">
+                            <div class="form-check d-flex align-items-center gap-2 mb-0">
+                                <input type="checkbox" id="markAllAwaiting" class="form-check-input cl-mark-all-tab" style="cursor:pointer; width:18px; height:18px; margin-top:0;">
+                                <label for="markAllAwaiting" class="form-check-label fw-bold text-dark mb-0" style="cursor:pointer; font-size:13px;">
+                                    <i class="ti-check-box text-success me-1"></i> Mark All Awaiting Items (Select All)
+                                </label>
+                            </div>
+                            <div>
+                                <span id="awaitingSelectedSummary" class="badge bg-secondary" style="font-size:11px;">0 of {{ $awaitingItems->flatten(1)->where('can_claim', true)->count() }} items selected</span>
+                            </div>
+                        </div>
                         @foreach ($awaitingItems as $patientId => $items)
                             @include('facility.claims._patient_group', ['items' => $items, 'patientId' => $patientId, 'showClaimBtn' => true, 'tabName' => 'awaiting'])
                         @endforeach
@@ -193,6 +204,17 @@
             <div class="cl-tab-panel {{ $tab === 'referrals' ? 'active' : '' }}" data-panel="referrals">
                 <div class="cl-body">
                     @if ($referralItems->count() > 0)
+                        <div class="d-flex align-items-center justify-content-between px-3 py-2 bg-light border-bottom">
+                            <div class="form-check d-flex align-items-center gap-2 mb-0">
+                                <input type="checkbox" id="markAllReferrals" class="form-check-input cl-mark-all-tab" style="cursor:pointer; width:18px; height:18px; margin-top:0;">
+                                <label for="markAllReferrals" class="form-check-label fw-bold text-dark mb-0" style="cursor:pointer; font-size:13px;">
+                                    <i class="ti-check-box text-warning me-1"></i> Mark All Referred Items (Select All)
+                                </label>
+                            </div>
+                            <div>
+                                <span id="referralsSelectedSummary" class="badge bg-secondary" style="font-size:11px;">0 of {{ $referralItems->flatten(1)->where('can_claim', true)->count() }} items selected</span>
+                            </div>
+                        </div>
                         @foreach ($referralItems as $patientId => $items)
                             @include('facility.claims._patient_group', ['items' => $items, 'patientId' => $patientId, 'showClaimBtn' => true, 'tabName' => 'referrals'])
                         @endforeach
@@ -341,12 +363,25 @@
         });
     });
 
+    // Mark All tab checkbox (select all in active tab)
+    document.querySelectorAll('.cl-mark-all-tab').forEach(function(markAllCb) {
+        markAllCb.addEventListener('change', function() {
+            var panel = this.closest('.cl-tab-panel');
+            var isChecked = this.checked;
+            panel.querySelectorAll('.item-cb, .cl-select-all').forEach(function(cb) {
+                cb.checked = isChecked;
+            });
+            updateClaimBar();
+        });
+    });
+
     // Select all per patient group
     document.querySelectorAll('.cl-select-all').forEach(function(cb) {
         cb.addEventListener('change', function() {
             var group = this.closest('.cl-patient-group');
+            var isChecked = this.checked;
             group.querySelectorAll('.item-cb').forEach(function(icb) {
-                icb.checked = cb.checked;
+                icb.checked = isChecked;
             });
             updateClaimBar();
         });
@@ -354,19 +389,61 @@
 
     // Individual checkbox
     document.querySelectorAll('.item-cb').forEach(function(cb) {
-        cb.addEventListener('change', updateClaimBar);
+        cb.addEventListener('change', function() {
+            var group = this.closest('.cl-patient-group');
+            if (group) {
+                var groupCbs = group.querySelectorAll('.item-cb');
+                var groupChecked = group.querySelectorAll('.item-cb:checked');
+                var groupSelectAll = group.querySelector('.cl-select-all');
+                if (groupSelectAll) {
+                    groupSelectAll.checked = (groupCbs.length > 0 && groupCbs.length === groupChecked.length);
+                }
+            }
+            updateClaimBar();
+        });
     });
 
     function uncheckAll() {
-        document.querySelectorAll('.item-cb, .cl-select-all').forEach(cb => cb.checked = false);
+        document.querySelectorAll('.item-cb, .cl-select-all, .cl-mark-all-tab').forEach(cb => {
+            cb.checked = false;
+            cb.indeterminate = false;
+        });
         updateClaimBar();
     }
 
     function updateClaimBar() {
-        var checked = document.querySelectorAll('.cl-tab-panel.active .item-cb:checked');
-        var count = checked.length;
+        var activePanel = document.querySelector('.cl-tab-panel.active');
+        if (!activePanel) return;
+
+        var allItemCbs = activePanel.querySelectorAll('.item-cb');
+        var checkedItemCbs = activePanel.querySelectorAll('.item-cb:checked');
+        var count = checkedItemCbs.length;
         var total = 0;
-        checked.forEach(cb => total += parseFloat(cb.dataset.cost || 0));
+
+        checkedItemCbs.forEach(cb => total += parseFloat(cb.dataset.cost || 0));
+
+        // Update Mark All state in active tab
+        var markAllCb = activePanel.querySelector('.cl-mark-all-tab');
+        if (markAllCb && allItemCbs.length > 0) {
+            if (checkedItemCbs.length === allItemCbs.length) {
+                markAllCb.checked = true;
+                markAllCb.indeterminate = false;
+            } else if (checkedItemCbs.length === 0) {
+                markAllCb.checked = false;
+                markAllCb.indeterminate = false;
+            } else {
+                markAllCb.checked = false;
+                markAllCb.indeterminate = true;
+            }
+        }
+
+        // Update summary badge text
+        var summaryBadge = activePanel.querySelector('#awaitingSelectedSummary, #referralsSelectedSummary');
+        if (summaryBadge) {
+            summaryBadge.textContent = count + ' of ' + allItemCbs.length + ' items selected';
+            summaryBadge.className = count > 0 ? 'badge bg-success' : 'badge bg-secondary';
+        }
+
         var bar = document.getElementById('claimBar');
         if (count > 0) {
             bar.classList.add('visible');

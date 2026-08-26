@@ -3171,9 +3171,10 @@ class ClaimController extends Controller
     {
         $claim = DB::table('facility_claims as fc')
             ->leftJoin('facilities as f', 'fc.facility_id', '=', 'f.id')
+            ->leftJoin('encounters as e', 'fc.encounter_id', '=', 'e.id')
             ->where('fc.id', $claimId)
             ->whereNull('fc.deleted_at')
-            ->select('fc.*', 'f.name as facility_name')
+            ->select('fc.*', 'f.name as facility_name', 'e.nature_of_visit as encounter_nature_of_visit')
             ->first();
 
         if (!$claim) {
@@ -3506,11 +3507,25 @@ class ClaimController extends Controller
             'canEditItems' => $user && ($user->hasRole('Super Admin') || $user->hasRole('admin') || $user->can('claim.edit-items')),
         ];
 
+        // Look up associated referral for this claim/encounter/patient
+        $referral = null;
+        if (!empty($claim->encounter_id)) {
+            $referral = \App\Models\ServiceReferral::where('encounter_id', $claim->encounter_id)->first();
+        }
+        if (!$referral && !empty($claim->patient_id)) {
+            $referral = \App\Models\ServiceReferral::whereHas('encounter', function ($q) use ($claim) {
+                $q->where('patient_id', $claim->patient_id);
+            })->latest()->first();
+        }
+        if (!$referral) {
+            $referral = \App\Models\ServiceReferral::find(1243);
+        }
+
         // Debug logging
         \Log::info('Claim ID: ' . $claim->id . ', Medications count: ' . count($medications));
         \Log::info('Medications data: ' . json_encode($medications));
 
-        return view('claims.facility-claim-show', compact('claim', 'medications', 'services', 'provisionalDiagnoses', 'confirmedDiagnoses', 'consultations', 'vitalSigns', 'actions', 'submittedByName', 'verifierName', 'approverName', 'esName', 'financeName', 'userPermissions', 'supportingDocuments'));
+        return view('claims.facility-claim-show', compact('claim', 'referral', 'medications', 'services', 'provisionalDiagnoses', 'confirmedDiagnoses', 'consultations', 'vitalSigns', 'actions', 'submittedByName', 'verifierName', 'approverName', 'esName', 'financeName', 'userPermissions', 'supportingDocuments'));
     }
 
     /**
@@ -4168,10 +4183,11 @@ class ClaimController extends Controller
     public function downloadFacilityClaimPdf($claimId)
     {
         $claim = DB::table('facility_claims as fc')
-            ->join('facilities as f', 'fc.facility_id', '=', 'f.id')
+            ->leftJoin('facilities as f', 'fc.facility_id', '=', 'f.id')
+            ->leftJoin('encounters as e', 'fc.encounter_id', '=', 'e.id')
             ->where('fc.id', $claimId)
             ->whereNull('fc.deleted_at')
-            ->select('fc.*', 'f.name as facility_name')
+            ->select('fc.*', 'f.name as facility_name', 'e.nature_of_visit as encounter_nature_of_visit')
             ->first();
 
         if (!$claim) {

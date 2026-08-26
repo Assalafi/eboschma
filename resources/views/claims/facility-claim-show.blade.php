@@ -60,6 +60,11 @@
                 </a>
             </div>
             <div class="d-flex gap-2">
+                @if(isset($referral) && $referral)
+                    <button type="button" class="btn btn-sm btn-info text-white" data-bs-toggle="modal" data-bs-target="#referralPreviewModal">
+                        <i class="ti-file"></i> View Referral Slip
+                    </button>
+                @endif
                 <a href="{{ route('claims.facility-claim.download-pdf', $claim->id) }}" class="btn btn-sm btn-success">
                     <i class="ti-download"></i> Download PDF
                 </a>
@@ -110,14 +115,23 @@
                 </tr>
                 <tr>
                     <td><strong>Enrollee's ID No:</strong> &nbsp; {{ $claim->enrollee_number }}</td>
-                    <td><strong>Patient Type:</strong> &nbsp;
+                    <td>
+                        <strong>Patient Type:</strong> &nbsp;
                         @php
                             $hasAdmission = DB::table('admissions')->where('patient_id', $claim->patient_id)->exists();
                             $patientType = $hasAdmission ? 'IN' : 'OUT';
+                            $natureOfVisit = $claim->nature_of_visit ?? ($claim->encounter_nature_of_visit ?? null);
                         @endphp
                         <span class="badge bg-{{ $patientType === 'IN' ? 'primary' : 'secondary' }}">
                             {{ $patientType }}
                         </span>
+                        &nbsp;&nbsp;&nbsp;&nbsp;
+                        <strong>Nature of Visit:</strong> &nbsp;
+                        @if(!empty($natureOfVisit))
+                            <span class="badge bg-info text-white">{{ ucfirst($natureOfVisit) }}</span>
+                        @else
+                            <span class="badge bg-light text-dark">N/A</span>
+                        @endif
                     </td>
                 </tr>
                 <tr>
@@ -996,6 +1010,33 @@
             </div>
         </div>
     </div>
+
+    @if(isset($referral) && $referral)
+        <!-- Referral Slip Preview Modal -->
+        <div class="modal fade" id="referralPreviewModal" tabindex="-1" aria-labelledby="referralPreviewModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-xl modal-dialog-centered" style="max-width: 90vw;">
+                <div class="modal-content" style="height: 85vh;">
+                    <div class="modal-header bg-info text-white">
+                        <h5 class="modal-title" id="referralPreviewModalLabel">
+                            <i class="ti-file me-2"></i> Referral Slip Preview - #{{ $referral->id }}
+                        </h5>
+                        <div class="d-flex align-items-center gap-2">
+                            <a href="{{ route('referrals.pdf', $referral->id) }}" target="_blank" class="btn btn-sm btn-light text-dark">
+                                <i class="ti-new-window me-1"></i> Open in New Tab
+                            </a>
+                            <a href="{{ route('referrals.pdf', $referral->id) }}?download=1" class="btn btn-sm btn-light text-dark">
+                                <i class="ti-download me-1"></i> Download
+                            </a>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                    </div>
+                    <div class="modal-body p-0" style="height: calc(85vh - 56px);">
+                        <iframe src="{{ route('referrals.pdf', $referral->id) }}" style="width: 100%; height: 100%; border: none;"></iframe>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
 
     <script>
         function showUploadDocumentModal() {

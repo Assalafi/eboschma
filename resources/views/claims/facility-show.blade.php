@@ -32,6 +32,40 @@
 
     <div class="page-body">
         <div class="container-xl">
+            @if(session('success'))
+                <div class="alert alert-success alert-dismissible fade show mb-4" role="alert" style="border-radius: 10px;">
+                    <div class="d-flex align-items-center">
+                        <i class="ti-check fs-2 me-2"></i>
+                        <div>{{ session('success') }}</div>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                <script>
+                    document.addEventListener('DOMContentLoaded', function() {
+                        if (typeof showToast === 'function') {
+                            showToast(@json(session('success')), 'success');
+                        }
+                    });
+                </script>
+            @endif
+
+            @if(session('error'))
+                <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert" style="border-radius: 10px;">
+                    <div class="d-flex align-items-center">
+                        <i class="ti-alert-triangle fs-2 me-2"></i>
+                        <div>{{ session('error') }}</div>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                <script>
+                    document.addEventListener('DOMContentLoaded', function() {
+                        if (typeof showToast === 'function') {
+                            showToast(@json(session('error')), 'danger');
+                        }
+                    });
+                </script>
+            @endif
+
             <!-- Statistics Cards -->
             <div class="row row-deck row-cards mb-4">
                 <div class="col-sm-6 col-lg-3">
@@ -333,7 +367,7 @@
                                         </td>
                                         <td class="align-middle">
                                             <div class="btn-list flex-nowrap">
-                                                <a href="{{ route('claims.facility-claim.show', $claim->id) }}"
+                                                <a href="{{ route('claims.facility-claim.show', [$claim->id, 'return_url' => request()->fullUrl()]) }}"
                                                     class="btn btn-sm btn-primary" title="View Claim">
                                                     <i class="ti-eye"></i>
                                                 </a>

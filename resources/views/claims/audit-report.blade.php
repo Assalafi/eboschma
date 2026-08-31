@@ -284,7 +284,7 @@
                                         {{ \Carbon\Carbon::parse($claim->updated_at)->format('d M, Y H:i:s') }}
                                     </td>
                                     <td>
-                                        <a href="{{ route('claims.facility-claim.show', $claim->id) }}" class="fw-bold text-primary text-decoration-none">
+                                        <a href="{{ route('claims.facility-claim.show', [$claim->id, 'return_url' => request()->fullUrl()]) }}" class="fw-bold text-primary text-decoration-none">
                                             {{ $claim->claim_number ?: ('CLM-'.$claim->id) }}
                                         </a>
                                     </td>
@@ -307,7 +307,7 @@
                                         {{ $notes ?: '-' }}
                                     </td>
                                     <td class="text-end pe-3">
-                                        <a href="{{ route('claims.facility-claim.show', $claim->id) }}" class="btn btn-sm btn-outline-primary" title="View Claim Details">
+                                        <a href="{{ route('claims.facility-claim.show', [$claim->id, 'return_url' => request()->fullUrl()]) }}" class="btn btn-sm btn-outline-primary" title="View Claim Details">
                                             <i class="fas fa-eye"></i> View
                                         </a>
                                     </td>

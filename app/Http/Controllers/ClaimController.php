@@ -742,12 +742,9 @@ class ClaimController extends Controller
                     return response()->json(['success' => true, 'message' => 'Claim approved successfully']);
                 }
                 
-                $returnUrl = $request->input('return_url') ?: session('claims_return_url');
-                if ($returnUrl) {
-                    session()->forget('claims_return_url');
-                    return redirect($returnUrl)->with('success', 'Claim verified and approved successfully.');
-                }
-                return back()->with('success', 'Claim approved successfully');
+                $returnUrl = $request->input('return_url') ?: session('claims_return_url') ?: (isset($claim->facility_id) ? route('claims.facility.show', $claim->facility_id) : route('claims.index'));
+                session()->forget('claims_return_url');
+                return redirect($returnUrl)->with('success', 'Claim verified and approved successfully.');
             } catch (\Exception $e) {
                 if ($request->expectsJson()) {
                     return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
@@ -765,12 +762,9 @@ class ClaimController extends Controller
 
         try {
             $claim->approve(auth()->id());
-            $returnUrl = $request->input('return_url') ?: session('claims_return_url');
-            if ($returnUrl) {
-                session()->forget('claims_return_url');
-                return redirect($returnUrl)->with('success', 'Claim approved successfully.');
-            }
-            return response()->json(['success' => true, 'message' => 'Claim approved successfully.']);
+            $returnUrl = $request->input('return_url') ?: session('claims_return_url') ?: route('claims.index');
+            session()->forget('claims_return_url');
+            return redirect($returnUrl)->with('success', 'Claim approved successfully.');
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => 'Error approving claim: ' . $e->getMessage()]);
         }
@@ -886,12 +880,9 @@ class ClaimController extends Controller
                     return response()->json(['success' => true, 'message' => 'Claim rejected and sent back to previous level']);
                 }
                 
-                $returnUrl = $request->input('return_url') ?: session('claims_return_url');
-                if ($returnUrl) {
-                    session()->forget('claims_return_url');
-                    return redirect($returnUrl)->with('success', 'Claim rejected successfully.');
-                }
-                return back()->with('success', 'Claim rejected and sent back to previous level');
+                $returnUrl = $request->input('return_url') ?: session('claims_return_url') ?: (isset($claim->facility_id) ? route('claims.facility.show', $claim->facility_id) : route('claims.index'));
+                session()->forget('claims_return_url');
+                return redirect($returnUrl)->with('success', 'Claim rejected and sent back to previous level.');
             } catch (\Exception $e) {
                 if ($request->expectsJson()) {
                     return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
@@ -1015,7 +1006,9 @@ class ClaimController extends Controller
             $facilityId = $claim->facility_id;
             $claim->delete();
             
-            return redirect()->route('claims.facility.show', $facilityId)->with('success', 'Claim deleted successfully.');
+            $returnUrl = request('return_url') ?: session('claims_return_url') ?: route('claims.facility.show', $facilityId);
+            session()->forget('claims_return_url');
+            return redirect($returnUrl)->with('success', 'Claim deleted successfully.');
         } catch (\Exception $e) {
             return redirect()->back()->with('error', 'Error deleting claim: ' . $e->getMessage());
         }

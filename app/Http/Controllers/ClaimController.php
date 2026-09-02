@@ -1033,17 +1033,71 @@ class ClaimController extends Controller
     {
         $claims = \App\Models\FacilityClaim::with(['facility', 'diagnoses', 'submittedBy']);
 
-        // Apply filters
+        // Filter by facility
+        if ($request->filled('facility_id')) {
+            $claims->where('facility_id', $request->facility_id);
+        }
+
+        // Search by patient name, claim number, or boschma_no
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $claims->where(function($q) use ($search) {
+                $q->where('patient_name', 'LIKE', "%{$search}%")
+                  ->orWhere('claim_number', 'LIKE', "%{$search}%")
+                  ->orWhere('boschma_no', 'LIKE', "%{$search}%")
+                  ->orWhere('enrollee_number', 'LIKE', "%{$search}%");
+            });
+        }
+
+        // Filter by program
+        if ($request->filled('program_id')) {
+            $programId = $request->program_id;
+            $claims->where(function($q) use ($programId) {
+                $q->where(function($q1) use ($programId) {
+                    $q1->where('enrollee_type', 'beneficiary')
+                       ->whereExists(function($sub) use ($programId) {
+                           $sub->select(\DB::raw(1))
+                               ->from('beneficiaries')
+                               ->whereColumn('beneficiaries.boschma_no', 'facility_claims.enrollee_number')
+                               ->where('beneficiaries.program_id', $programId);
+                       });
+                })
+                ->orWhere(function($q2) use ($programId) {
+                    $q2->where('enrollee_type', 'spouse')
+                       ->whereExists(function($sub) use ($programId) {
+                           $sub->select(\DB::raw(1))
+                               ->from('spouses')
+                               ->join('beneficiaries', 'spouses.beneficiary_id', '=', 'beneficiaries.id')
+                               ->whereColumn('spouses.boschma_no', 'facility_claims.enrollee_number')
+                               ->where('beneficiaries.program_id', $programId);
+                       });
+                })
+                ->orWhere(function($q3) use ($programId) {
+                    $q3->where('enrollee_type', 'child')
+                       ->whereExists(function($sub) use ($programId) {
+                           $sub->select(\DB::raw(1))
+                               ->from('children')
+                               ->join('beneficiaries', 'children.beneficiary_id', '=', 'beneficiaries.id')
+                               ->whereColumn('children.boschma_no', 'facility_claims.enrollee_number')
+                               ->where('beneficiaries.program_id', $programId);
+                       });
+                });
+            });
+        }
+
+        // Filter by status
         if ($request->filled('status')) {
-            if ($request->status === 'approved') {
-                $claims->where('status', 'paid');
+            if ($request->status === 'rejected') {
+                $claims->where(function ($q) {
+                    $q->where('status', 'rejected')
+                      ->orWhere('verifier_status', 'rejected')
+                      ->orWhere('approver_status', 'rejected')
+                      ->orWhere('es_status', 'rejected')
+                      ->orWhere('finance_status', 'rejected');
+                });
             } else {
                 $claims->where('status', $request->status);
             }
-        }
-        
-        if ($request->filled('facility_id')) {
-            $claims->where('facility_id', $request->facility_id);
         }
         
         if ($request->filled('claim_type')) {
@@ -1058,11 +1112,37 @@ class ClaimController extends Controller
             $claims->whereDate('service_date', '<=', $request->date_to);
         }
 
-        $filteredClaims = $claims->get();
+        // Restrict visibility based on user workflow permissions
+        $user = auth()->user();
+        $isSuperAdmin = $user && ($user->hasRole('Super Admin') || $user->hasRole('admin'));
 
-        if ($request->status === 'approved' || $request->status === 'paid' || $request->status === 'es_approved') {
+        if (!$isSuperAdmin && $user) {
+            $allowedStatuses = [];
+            
+            if ($user->can('claim.verify')) {
+                $allowedStatuses = array_merge($allowedStatuses, ['submitted', 'verified', 'approved', 'es_approved', 'paid', 'rejected']);
+            }
+            if ($user->can('claim.approve')) {
+                $allowedStatuses = array_merge($allowedStatuses, ['verified', 'approved', 'es_approved', 'paid', 'rejected']);
+            }
+            if ($user->can('claim.es-approve')) {
+                $allowedStatuses = array_merge($allowedStatuses, ['approved', 'es_approved', 'paid', 'rejected']);
+            }
+            if ($user->can('claim.finance-approve')) {
+                $allowedStatuses = array_merge($allowedStatuses, ['es_approved', 'paid', 'rejected']);
+            }
+            
+            $allowedStatuses = array_unique($allowedStatuses);
+            
+            if (!empty($allowedStatuses)) {
+                $claims->whereIn('status', $allowedStatuses);
+            }
+        }
+
+        $filteredClaims = $claims->orderBy('created_at', 'desc')->get();
+
+        if (($request->status === 'approved' || $request->status === 'paid' || $request->status === 'es_approved') && $request->get('format') !== 'excel') {
             $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('claims.approved-pdf', ['claims' => $filteredClaims]);
-            // Set paper to A4
             $pdf->setPaper('A4', 'portrait');
             return $pdf->stream('approved-claims-slips.pdf');
         }

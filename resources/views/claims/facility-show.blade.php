@@ -243,8 +243,17 @@
                                     class="dropdown-item">
                                     <i class="ti-check me-2"></i>Export Approved
                                 </a>
+                                <div class="dropdown-divider"></div>
+                                <a href="{{ route('claims.export', array_merge(['facility_id' => $facility->id], request()->except('page'))) }}"
+                                    class="dropdown-item">
+                                    <i class="ti-filter me-2 text-primary"></i>Export Filtered Records
+                                </a>
                             </div>
                         </div>
+                        <a href="{{ route('claims.export', array_merge(['facility_id' => $facility->id], request()->except('page'))) }}"
+                            class="btn btn-outline-primary ms-2" title="Export Filtered Records">
+                            <i class="ti-filter me-1"></i>Export Filtered
+                        </a>
                     </div>
                 </div>
                 <div class="card-body p-0">

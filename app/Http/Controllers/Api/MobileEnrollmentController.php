@@ -1843,8 +1843,9 @@ class MobileEnrollmentController extends Controller
                 }
 
                 if ($request->spouse_id) {
-                    // UPDATE existing spouse
+                    // UPDATE existing spouse by id
                     $spouse = Spouse::find($request->spouse_id);
+                    // Only update if the spouse belongs to this beneficiary
                     if ($spouse && $spouse->beneficiary_id === $beneficiary->id) {
                         $spouse->update($spouseData);
                         Log::info('✅ Spouse Updated', [
@@ -1852,17 +1853,42 @@ class MobileEnrollmentController extends Controller
                             'name' => $spouse->name,
                             'photo_updated' => isset($spouseData['photo']) ? 'yes' : 'no'
                         ]);
+                    } else {
+                        // spouse_id given but not found / belongs elsewhere → fall back
+                        // to the beneficiary's actual existing spouse (if any)
+                        $spouse = $beneficiary->spouse;
+                        if ($spouse) {
+                            $spouse->update($spouseData);
+                            Log::info('✅ Spouse Updated (fallback)', [
+                                'spouse_id' => $spouse->id,
+                                'name' => $spouse->name,
+                                'photo_updated' => isset($spouseData['photo']) ? 'yes' : 'no'
+                            ]);
+                        }
                     }
                 } else {
-                    // CREATE new spouse
-                    $spouseData['beneficiary_id'] = $beneficiary->id;
-                    $spouseData['boschma_no'] = $existingBoschmaNo . 'A';
-                    $newSpouse = Spouse::create($spouseData);
-                    Log::info('✅ Spouse Created', [
-                        'spouse_id' => $newSpouse->id,
-                        'boschma_no' => $spouseData['boschma_no'],
-                        'name' => $spouseData['name']
-                    ]);
+                    // No spouse_id → update the beneficiary's existing spouse if present,
+                    // otherwise create a new one. Never re-create an existing spouse
+                    // (avoids duplicate key on spouses.boschma_no unique).
+                    $existingSpouse = $beneficiary->spouse;
+                    if ($existingSpouse) {
+                        $existingSpouse->update($spouseData);
+                        Log::info('✅ Existing Spouse Updated', [
+                            'spouse_id' => $existingSpouse->id,
+                            'name' => $existingSpouse->name,
+                            'photo_updated' => isset($spouseData['photo']) ? 'yes' : 'no'
+                        ]);
+                    } else {
+                        // CREATE new spouse
+                        $spouseData['beneficiary_id'] = $beneficiary->id;
+                        $spouseData['boschma_no'] = $existingBoschmaNo . 'A';
+                        $newSpouse = Spouse::create($spouseData);
+                        Log::info('✅ Spouse Created', [
+                            'spouse_id' => $newSpouse->id,
+                            'boschma_no' => $spouseData['boschma_no'],
+                            'name' => $spouseData['name']
+                        ]);
+                    }
                 }
             }
 

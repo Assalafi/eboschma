@@ -73,6 +73,19 @@ class DrugStockRequestController extends Controller
                         $query->where('facility_id', $request->get('facility_id'));
                     }
                     
+                    if ($request->filled('facility_type') && $isBoschmaAdmin) {
+                        $facilityType = $request->get('facility_type');
+                        $query->whereHas('facility', function($subQ) use ($facilityType) {
+                            if ($facilityType === 'Primary') {
+                                $subQ->where('type', 'LIKE', 'Primary%');
+                            } elseif ($facilityType === 'Secondary') {
+                                $subQ->where('type', 'LIKE', 'Secondary%');
+                            } else {
+                                $subQ->where('type', $facilityType);
+                            }
+                        });
+                    }
+                    
                     if ($request->filled('date_from')) {
                         $query->whereDate('requested_at', '>=', $request->get('date_from'));
                     }
@@ -175,7 +188,19 @@ class DrugStockRequestController extends Controller
         // Get filter options
         $statuses = DrugStockRequest::getStatuses();
         $priorities = DrugStockRequest::getPriorities();
-        $facilities = Facility::orderBy('name')->get();
+        
+        $facilitiesQuery = Facility::orderBy('name');
+        if ($request->filled('facility_type') && $isBoschmaAdmin) {
+            $facilityType = $request->get('facility_type');
+            if ($facilityType === 'Primary') {
+                $facilitiesQuery->where('type', 'LIKE', 'Primary%');
+            } elseif ($facilityType === 'Secondary') {
+                $facilitiesQuery->where('type', 'LIKE', 'Secondary%');
+            } else {
+                $facilitiesQuery->where('type', $facilityType);
+            }
+        }
+        $facilities = $facilitiesQuery->get();
         
         // Base query for stats to apply filters
         $statsQuery = DrugStockRequest::query();
@@ -190,6 +215,18 @@ class DrugStockRequestController extends Controller
         
         if ($request->filled('facility_id') && $isBoschmaAdmin) {
             $statsQuery->where('facility_id', $request->get('facility_id'));
+        }
+        if ($request->filled('facility_type') && $isBoschmaAdmin) {
+            $facilityType = $request->get('facility_type');
+            $statsQuery->whereHas('facility', function($q) use ($facilityType) {
+                if ($facilityType === 'Primary') {
+                    $q->where('type', 'LIKE', 'Primary%');
+                } elseif ($facilityType === 'Secondary') {
+                    $q->where('type', 'LIKE', 'Secondary%');
+                } else {
+                    $q->where('type', $facilityType);
+                }
+            });
         }
         if ($request->filled('date_from')) {
             $statsQuery->whereDate('requested_at', '>=', $request->get('date_from'));
@@ -221,6 +258,7 @@ class DrugStockRequestController extends Controller
                 'facilities.id as facility_id',
                 'facilities.name as facility_name',
                 'facilities.lga',
+                'facilities.type as facility_type',
                 DB::raw('COUNT(drug_stock_requests.id) as request_count'),
                 DB::raw('SUM(CASE WHEN drug_stock_requests.drug_id IS NOT NULL THEN drug_stock_requests.quantity_requested ELSE 0 END) as total_quantity'),
                 DB::raw('SUM(drug_stock_requests.estimated_cost) as total_cost'),
@@ -242,6 +280,16 @@ class DrugStockRequestController extends Controller
         if ($request->filled('facility_id') && $isBoschmaAdmin) {
             $query->where('drug_stock_requests.facility_id', $request->get('facility_id'));
         }
+        if ($request->filled('facility_type') && $isBoschmaAdmin) {
+            $facilityType = $request->get('facility_type');
+            if ($facilityType === 'Primary') {
+                $query->where('facilities.type', 'LIKE', 'Primary%');
+            } elseif ($facilityType === 'Secondary') {
+                $query->where('facilities.type', 'LIKE', 'Secondary%');
+            } else {
+                $query->where('facilities.type', $facilityType);
+            }
+        }
         if ($request->filled('date_from')) {
             $query->whereDate('drug_stock_requests.requested_at', '>=', $request->get('date_from'));
         }
@@ -249,7 +297,7 @@ class DrugStockRequestController extends Controller
             $query->whereDate('drug_stock_requests.requested_at', '<=', $request->get('date_to'));
         }
 
-        $query->groupBy('facilities.id', 'facilities.name', 'facilities.lga');
+        $query->groupBy('facilities.id', 'facilities.name', 'facilities.lga', 'facilities.type');
 
         $selectedStatus = $request->get('status', '');
         $dateFrom = $request->get('date_from', '');
@@ -257,7 +305,13 @@ class DrugStockRequestController extends Controller
 
         return DataTables::of($query)
             ->addColumn('facility_info', function ($row) {
-                return '<div class="fw-bold">' . e($row->facility_name) . '</div>' .
+                $typeBadge = '';
+                if (!empty($row->facility_type)) {
+                    $isPrimary = str_contains(strtolower($row->facility_type), 'primary');
+                    $badgeClass = $isPrimary ? 'bg-blue-lt' : 'bg-purple-lt';
+                    $typeBadge = ' <span class="badge ' . $badgeClass . ' ms-1">' . e($row->facility_type) . '</span>';
+                }
+                return '<div class="fw-bold">' . e($row->facility_name) . $typeBadge . '</div>' .
                        '<div class="text-muted small">' . e($row->lga ?? '') . '</div>';
             })
             ->addColumn('request_count_fmt', function ($row) {

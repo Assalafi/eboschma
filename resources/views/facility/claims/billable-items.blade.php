@@ -481,6 +481,17 @@
         if (e.key === 'Enter') { e.preventDefault(); applyFilters(); }
     });
 
+    // Escape HTML string helper
+    function escapeHtml(text) {
+        if (text === null || text === undefined) return '';
+        return String(text)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
     // Open claim modal
     window.openClaimModal = function() {
         var checked = document.querySelectorAll('.cl-tab-panel.active .item-cb:checked');
@@ -498,8 +509,8 @@
             if (!patients[patientId]) {
                 patients[patientId] = {
                     id: patientId,
-                    name: cb.dataset.patientName,
-                    enrollee: cb.dataset.enrollee,
+                    name: cb.dataset.patientName || '',
+                    enrollee: cb.dataset.enrollee || '',
                     items: []
                 };
             }
@@ -507,7 +518,7 @@
                 type: cb.dataset.type,
                 id: cb.dataset.id,
                 name: cb.dataset.name,
-                cost: parseFloat(cb.dataset.cost),
+                cost: parseFloat(cb.dataset.cost) || 0,
                 qty: parseInt(cb.dataset.quantity) || 1,
                 source: cb.dataset.source || 'direct',
                 fromFacility: cb.dataset.fromFacility || ''
@@ -521,13 +532,13 @@
         
         var patientInfo = '';
         if (isMultiPatient) {
-            patientInfo = '<div class="alert alert-info mb-2"><i class="ti-info-alt mr-1"></i> Creating claims for ' + patientIds.length + ' patients</div>';
+            patientInfo = '<div class="alert alert-info mb-2"><i class="ti-info-alt me-1"></i> Creating claims for ' + patientIds.length + ' patients</div>';
             patientIds.forEach(function(pid) {
-                patientInfo += '<div class="mb-1"><strong>' + patients[pid].name + '</strong> (' + patients[pid].enrollee + ') - ' + patients[pid].items.length + ' items</div>';
+                patientInfo += '<div class="mb-1"><strong>' + escapeHtml(patients[pid].name) + '</strong> (' + escapeHtml(patients[pid].enrollee) + ') - ' + patients[pid].items.length + ' items</div>';
             });
         } else {
             var p = patients[patientIds[0]];
-            patientInfo = '<div><strong>' + p.name + '</strong><br><small class="text-muted">' + p.enrollee + '</small></div>';
+            patientInfo = '<div><strong>' + escapeHtml(p.name) + '</strong><br><small class="text-muted">' + escapeHtml(p.enrollee) + '</small></div>';
         }
 
         document.getElementById('modalPatientId').value = isMultiPatient ? 'multiple' : patientIds[0];
@@ -535,33 +546,37 @@
 
         var tbody = document.getElementById('selectedItemsBody');
         var hiddenInputs = document.getElementById('hiddenInputs');
-        tbody.innerHTML = '';
-        hiddenInputs.innerHTML = '';
+        
+        var tbodyRows = [];
+        var hiddenInputsArr = [];
         var total = 0;
+        var maxPreview = 100;
 
-        checked.forEach(function(cb) {
+        checked.forEach(function(cb, index) {
             var type = cb.dataset.type;
             var id = cb.dataset.id;
-            var name = cb.dataset.name;
-            var cost = parseFloat(cb.dataset.cost);
+            var name = cb.dataset.name || '';
+            var cost = parseFloat(cb.dataset.cost) || 0;
             var qty = parseInt(cb.dataset.quantity) || 1;
             var source = cb.dataset.source || 'direct';
             var fromFac = cb.dataset.fromFacility || '';
             var patientId = cb.dataset.patient;
+            var patientName = cb.dataset.patientName || '';
 
             if (source !== 'direct') hasReferral = true;
-
-            var typeBadge = type === 'drug'
-                ? '<span class="cl-badge cl-badge-blue">Drug</span>'
-                : (type === 'admin' ? '<span class="cl-badge cl-badge-amber">Admin</span>' : '<span class="cl-badge cl-badge-purple">Service</span>');
-
-            var sourceTag = source === 'direct'
-                ? '<span class="cl-source-tag cl-source-direct">Direct</span>'
-                : '<span class="cl-source-tag cl-source-referral">Ref: ' + fromFac + '</span>';
-
-            var patientName = cb.dataset.patientName;
-            tbody.innerHTML += '<tr><td>' + typeBadge + '</td><td>' + name + '<br><small class="text-muted">' + patientName + '</small></td><td>' + sourceTag + '</td><td class="text-center">' + qty + '</td><td class="text-end">₦' + cost.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,') + '</td></tr>';
             total += cost;
+
+            if (index < maxPreview) {
+                var typeBadge = type === 'drug'
+                    ? '<span class="cl-badge cl-badge-blue">Drug</span>'
+                    : (type === 'admin' ? '<span class="cl-badge cl-badge-amber">Admin</span>' : '<span class="cl-badge cl-badge-purple">Service</span>');
+
+                var sourceTag = source === 'direct'
+                    ? '<span class="cl-source-tag cl-source-direct">Direct</span>'
+                    : '<span class="cl-source-tag cl-source-referral">Ref: ' + escapeHtml(fromFac) + '</span>';
+
+                tbodyRows.push('<tr><td>' + typeBadge + '</td><td>' + escapeHtml(name) + '<br><small class="text-muted">' + escapeHtml(patientName) + '</small></td><td>' + sourceTag + '</td><td class="text-center">' + qty + '</td><td class="text-end">₦' + cost.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,') + '</td></tr>');
+            }
 
             var prefix, nameKey;
             if (type === 'drug') {
@@ -574,17 +589,25 @@
                 prefix = 'service_items[' + id + ']';
                 nameKey = 'service_name';
             }
-            hiddenInputs.innerHTML += '<input type="hidden" name="' + prefix + '[cost]" value="' + cost + '">';
-            hiddenInputs.innerHTML += '<input type="hidden" name="' + prefix + '[' + nameKey + ']" value="' + name + '">';
-            hiddenInputs.innerHTML += '<input type="hidden" name="' + prefix + '[quantity]" value="' + qty + '">';
-            hiddenInputs.innerHTML += '<input type="hidden" name="' + prefix + '[patient_id]" value="' + patientId + '">';
+
+            hiddenInputsArr.push('<input type="hidden" name="' + prefix + '[cost]" value="' + cost + '">');
+            hiddenInputsArr.push('<input type="hidden" name="' + prefix + '[' + nameKey + ']" value="' + escapeHtml(name) + '">');
+            hiddenInputsArr.push('<input type="hidden" name="' + prefix + '[quantity]" value="' + qty + '">');
+            hiddenInputsArr.push('<input type="hidden" name="' + prefix + '[patient_id]" value="' + patientId + '">');
             if (type === 'service') {
                 var serviceTypeName = cb.dataset.serviceType || 'Service';
                 var serviceCategoryName = cb.dataset.serviceCategory || 'Category';
-                hiddenInputs.innerHTML += '<input type="hidden" name="' + prefix + '[service_type_name]" value="' + serviceTypeName + '">';
-                hiddenInputs.innerHTML += '<input type="hidden" name="' + prefix + '[service_category_name]" value="' + serviceCategoryName + '">';
+                hiddenInputsArr.push('<input type="hidden" name="' + prefix + '[service_type_name]" value="' + escapeHtml(serviceTypeName) + '">');
+                hiddenInputsArr.push('<input type="hidden" name="' + prefix + '[service_category_name]" value="' + escapeHtml(serviceCategoryName) + '">');
             }
         });
+
+        if (checked.length > maxPreview) {
+            tbodyRows.push('<tr><td colspan="5" class="text-center text-muted py-2 bg-light"><em>...and ' + (checked.length - maxPreview) + ' more items selected (all will be included in the claim).</em></td></tr>');
+        }
+
+        tbody.innerHTML = tbodyRows.join('');
+        hiddenInputs.innerHTML = hiddenInputsArr.join('');
 
         document.getElementById('modalTotalAmount').textContent = '₦' + total.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
 

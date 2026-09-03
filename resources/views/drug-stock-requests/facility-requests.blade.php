@@ -11,7 +11,11 @@
     <li class="breadcrumb-item"><a href="{{ route('drug-stock-requests.index') }}">Stock Requests</a></li>
     <li class="breadcrumb-item active" aria-current="page">{{ $facility->name }}</li>
 </ol>
-<h2 class="page-title"><i class="ti-building me-2 text-primary"></i>{{ $facility->name }}</h2>
+<h2 class="page-title"><i class="ti-building me-2 text-primary"></i>{{ $facility->name }}
+@if($facility->type)
+    <span class="badge {{ str_contains(strtolower($facility->type), 'primary') ? 'bg-blue-lt' : 'bg-purple-lt' }} ms-2" style="font-size:.85rem">{{ $facility->type }}</span>
+@endif
+</h2>
 <div class="text-muted mt-1">{{ $facility->lga ?? '' }}</div>
 </div>
 <div class="col-md-4 d-print-none"><div class="d-flex justify-content-end"><a href="{{ route('drug-stock-requests.index') }}" class="btn btn-outline-secondary"><i class="ti-arrow-left me-1"></i>Back</a></div></div>

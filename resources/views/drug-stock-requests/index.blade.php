@@ -96,21 +96,30 @@
                 <div class="card-body py-3">
                     <div class="row g-3 align-items-end">
                         @if($isBoschmaAdmin)
-                        <div class="col-md-4">
+                        <div class="col-md-3">
+                            <label class="form-label">Facility Level / Type</label>
+                            <select name="facility_type" id="filter-facility-type" class="form-select">
+                                <option value="">All Types (Primary & Secondary)</option>
+                                <option value="Primary" {{ request('facility_type') == 'Primary' ? 'selected' : '' }}>Primary Facilities</option>
+                                <option value="Secondary" {{ request('facility_type') == 'Secondary' ? 'selected' : '' }}>Secondary Facilities</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
                             <label class="form-label">Facility</label>
                             <select name="facility_id" id="filter-facility" class="form-select">
                                 <option value="">All Facilities</option>
                                 @foreach($facilities as $facility)
-                                    <option value="{{ $facility->id }}" {{ request('facility_id') == $facility->id ? 'selected' : '' }}>{{ $facility->name }}</option>
+                                    <option value="{{ $facility->id }}" {{ request('facility_id') == $facility->id ? 'selected' : '' }}>
+                                        {{ $facility->name }} {{ $facility->type ? '('.$facility->type.')' : '' }}
+                                    </option>
                                 @endforeach
                             </select>
                         </div>
-                        @endif
-                        <div class="col-md-3">
+                        <div class="col-md-2">
                             <label class="form-label">Date From</label>
                             <input type="date" name="date_from" id="filter-date-from" class="form-control" value="{{ request('date_from') }}">
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-2">
                             <label class="form-label">Date To</label>
                             <input type="date" name="date_to" id="filter-date-to" class="form-control" value="{{ request('date_to') }}">
                         </div>
@@ -119,6 +128,21 @@
                                 <i class="ti-filter me-1"></i>Filter
                             </button>
                         </div>
+                        @else
+                        <div class="col-md-5">
+                            <label class="form-label">Date From</label>
+                            <input type="date" name="date_from" id="filter-date-from" class="form-control" value="{{ request('date_from') }}">
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label">Date To</label>
+                            <input type="date" name="date_to" id="filter-date-to" class="form-control" value="{{ request('date_to') }}">
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="ti-filter me-1"></i>Filter
+                            </button>
+                        </div>
+                        @endif
                     </div>
                 </div>
             </form>
@@ -288,6 +312,12 @@
             clearSelection();
         });
 
+        $('#filter-facility-type, #filter-facility').on('change', function() {
+            if (facilityTable) {
+                facilityTable.ajax.reload();
+            }
+        });
+
         function clearSelection() {
             selectedStatus = '';
             $('.status-card').removeClass('active');
@@ -309,6 +339,7 @@
                     data: function(d) {
                         d.view = 'facilities';
                         d.status = selectedStatus;
+                        d.facility_type = $('#filter-facility-type').length ? $('#filter-facility-type').val() : '';
                         d.facility_id = $('#filter-facility').length ? $('#filter-facility').val() : '';
                         d.date_from = $('#filter-date-from').val();
                         d.date_to = $('#filter-date-to').val();

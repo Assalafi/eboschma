@@ -55,6 +55,8 @@ class AuthController extends Controller
             
             \Log::info('Staff session set, redirecting');
             
+            $this->sanitizeIntendedUrl();
+
             // Check if user has Customer Care role and redirect to crm
             if ($staff->hasRole('Customer Care')) {
                 return redirect()->route('crm.index');
@@ -98,6 +100,8 @@ class AuthController extends Controller
                 session()->put('session', date('Y'));
                 session()->put('sector', 'basic');
                 
+                $this->sanitizeIntendedUrl();
+
                 $user = Auth::user();
                 if ($user && method_exists($user, 'hasRole')) {
                     if ($user->hasRole('Customer Care')) {
@@ -129,6 +133,20 @@ class AuthController extends Controller
         return back()->withErrors([
             'email' => 'The provided credentials do not match our records.',
         ]);
+    }
+
+    /**
+     * Clear intended URL if it points to an API or notification polling endpoint.
+     */
+    private function sanitizeIntendedUrl()
+    {
+        $intended = session('url.intended');
+        if ($intended) {
+            $path = parse_url($intended, PHP_URL_PATH) ?? '';
+            if (str_contains($path, '/api') || str_contains($path, '/notifications') || str_contains($path, '/ajax') || str_contains($path, '.json')) {
+                session()->forget('url.intended');
+            }
+        }
     }
 
     public function logout(Request $request)

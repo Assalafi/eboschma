@@ -1187,16 +1187,20 @@ class DrugStockRequestController extends Controller
      */
     private function isBoschmaAdmin(): bool
     {
-        $user = Auth::guard('staff')->user();
+        $user = Auth::guard('staff')->user() ?? Auth::user();
         $boschmaRoles = [
             'Super Admin',
             'Super Administrator',
             'Boschma Administrator',
             'System Administrator',
-            'Admin'
+            'Admin',
+            'BODMA',
+            'bodma',
+            'Bodma',
+            'BODMA Administrator'
         ];
         
-        if ($user) {
+        if ($user && method_exists($user, 'getRoleNames')) {
             $roles = $user->getRoleNames()->toArray();
             return !empty(array_intersect($roles, $boschmaRoles));
         }

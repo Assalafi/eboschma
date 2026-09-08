@@ -71,7 +71,7 @@
                 <a href="#" onclick="window.print()" class="btn btn-sm btn-outline-primary">
                     <i class="ti-printer"></i> Print
                 </a>
-                @if (auth()->user()->can('claim.delete'))
+                @if ((auth('staff')->user() ?: auth()->user())?->can('claim.delete'))
                     <form action="{{ route('claims.facility-claim.destroy', $claim->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this claim?');">
                         @csrf
                         @method('DELETE')
@@ -219,7 +219,7 @@
             {{-- MEDICATIONS --}}
             <table style="margin-top:-1px">
                 <tr class="section-header">
-                    <td colspan="{{ $userPermissions['canEditItems'] ? 7 : 6 }}" style="text-align:center; position: relative;">
+                    <td colspan="{{ $userPermissions['canEditItems'] ? 11 : 10 }}" style="text-align:center; position: relative;">
                         Services Provided<br>Medication(s)
                         @if($userPermissions['canEditItems'])
                             <button type="button" class="btn btn-sm btn-light d-print-none" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); padding: 2px 8px; font-weight: bold; border-radius: 4px; color: var(--g);" onclick="showAddMedicationModal()">
@@ -229,12 +229,16 @@
                     </td>
                 </tr>
                 <tr class="items-head">
-                    <th style="width:50px">S/N</th>
+                    <th style="width:40px">S/N</th>
                     <th>Medication(s)</th>
-                    <th style="width:100px">Rate</th>
-                    <th style="width:100px">Frequency</th>
-                    <th style="width:110px">Amount Claimed</th>
-                    <th style="width:110px">Amount Due</th>
+                    <th style="width:85px">Dosage</th>
+                    <th style="width:80px">Frequency</th>
+                    <th style="width:60px">Days</th>
+                    <th style="width:65px">Quantity</th>
+                    <th style="width:90px">Rate (₦)</th>
+                    <th style="width:105px">Amount Claimed</th>
+                    <th style="width:105px">Amount Due</th>
+                    <th style="width:90px">Notes</th>
                     @if($userPermissions['canEditItems'])
                         <th style="width:70px" class="d-print-none">Actions</th>
                     @endif
@@ -242,38 +246,34 @@
                 @forelse ($medications as $i => $med)
                     <tr class="items-body" id="med-row-{{ $i }}">
                         <td>{{ $i + 1 }}</td>
-                        <td>{{ $med['name'] }}</td>
+                        <td style="text-align:left; font-weight: 500;">{{ $med['name'] }}</td>
+                        <td>{{ $med['dosage'] }}</td>
                         <td>
-                            @if($userPermissions['canEditItems'])
-                                <span class="val-display" data-field="rate">{{ number_format($med['cost'] / max(1, $med['quantity']), 2) }}</span>
-                            @else
-                                {{ number_format($med['cost'] / max(1, $med['quantity']), 2) }}
-                            @endif
+                            <span class="badge bg-light text-dark border" style="font-size: 11px; padding: 3px 6px;">
+                                {{ $med['frequency'] }}
+                            </span>
                         </td>
-                        <td>
-                            @if($userPermissions['canEditItems'])
-                                <span class="val-display" data-field="qty">{{ $med['quantity'] }}</span>
-                            @else
-                                {{ $med['quantity'] }}
-                            @endif
-                        </td>
+                        <td>{{ $med['days'] }}</td>
+                        <td>{{ $med['quantity'] }}</td>
+                        <td>{{ number_format($med['unit_price'], 2) }}</td>
                         <td>{{ number_format($med['cost'], 2) }}</td>
                         <td>{{ number_format($med['cost'], 2) }}</td>
+                        <td style="font-size:11px; color:#666;">{{ $med['notes'] ?: '—' }}</td>
                         @if($userPermissions['canEditItems'])
                             <td class="d-print-none">
-                                <button class="edit-btn" onclick="editItem('medication', '{{ $med['id'] }}', {{ $med['cost'] / max(1, $med['quantity']) }}, {{ $med['quantity'] }})" title="Edit"><i class="ti-pencil"></i></button>
+                                <button class="edit-btn" onclick="editMedicationItem('{{ $med['id'] }}', '{{ addslashes($med['name']) }}', '{{ addslashes($med['dosage'] ?? '') }}', '{{ addslashes($med['frequency_raw'] ?? $med['frequency'] ?? '') }}', {{ $med['days'] ?? 1 }}, {{ $med['unit_price'] }}, {{ $med['quantity'] }}, '{{ addslashes($med['notes'] ?? '') }}')" title="Edit"><i class="ti-pencil"></i></button>
                                 <button class="del-btn" onclick="deleteItem('medication', '{{ $med['id'] }}', '{{ addslashes($med['name']) }}')" title="Delete"><i class="ti-trash"></i></button>
                             </td>
                         @endif
                     </tr>
                 @empty
-                    <tr class="items-body"><td colspan="{{ $userPermissions['canEditItems'] ? 7 : 6 }}" style="text-align:center;color:#999">No medications</td></tr>
+                    <tr class="items-body"><td colspan="{{ $userPermissions['canEditItems'] ? 11 : 10 }}" style="text-align:center;color:#999">No medications</td></tr>
                 @endforelse
                 <tr class="sub-total">
-                    <td colspan="4" style="text-align:center;font-weight:700">SUB TOTAL</td>
+                    <td colspan="7" style="text-align:center;font-weight:700">SUB TOTAL</td>
                     <td style="text-align:center">N {{ number_format(array_sum(array_column($medications, 'cost')), 2) }}</td>
                     <td style="text-align:center">N {{ number_format(array_sum(array_column($medications, 'cost')), 2) }}</td>
-                    @if($userPermissions['canEditItems'])<td class="d-print-none"></td>@endif
+                    <td colspan="{{ $userPermissions['canEditItems'] ? 2 : 1 }}"></td>
                 </tr>
             </table>
 
@@ -344,7 +344,7 @@
                         <td>{{ number_format($service['cost'], 2) }}</td>
                         @if($userPermissions['canEditItems'])
                             <td class="d-print-none">
-                                <button class="edit-btn" onclick="editItem('service', '{{ $service['id'] }}', {{ $service['unit_price'] ?? ($service['cost'] / max(1, $service['frequency'] ?? 1)) }}, {{ $service['frequency'] ?? 1 }})" title="Edit"><i class="ti-pencil"></i></button>
+                                <button class="edit-btn" onclick="editItem('service', '{{ $service['id'] }}', {{ $service['unit_price'] ?? ($service['cost'] / max(1, $service['frequency'] ?? 1)) }}, {{ $service['frequency'] ?? 1 }}, '{{ addslashes($service['name']) }}')" title="Edit"><i class="ti-pencil"></i></button>
                                 <button class="del-btn" onclick="deleteItem('service', '{{ $service['id'] }}', '{{ addslashes($service['name']) }}')" title="Delete"><i class="ti-trash"></i></button>
                             </td>
                         @endif
@@ -609,22 +609,86 @@
 
     <!-- Edit Item Modal -->
     <div class="modal fade" id="editItemModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-sm">
+        <div class="modal-dialog modal-md">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Edit Item</h5>
+                    <h5 class="modal-title" id="editItemModalTitle">Edit Item</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <input type="hidden" id="editItemType">
                     <input type="hidden" id="editItemId">
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Unit Price (₦)</label>
-                        <input type="number" class="form-control" id="editItemPrice" step="0.01" min="0">
+                    <div class="mb-3 p-2 bg-light rounded border">
+                        <small class="text-muted d-block" style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Item Name</small>
+                        <strong id="editItemNameDisplay" class="text-dark"></strong>
                     </div>
-                    <div class="mb-3" id="editQtyGroup">
-                        <label class="form-label fw-semibold">Quantity</label>
-                        <input type="number" class="form-control" id="editItemQty" min="1">
+
+                    <!-- Medication Specific Fields -->
+                    <div id="editMedicationFields" style="display:none;">
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <label class="form-label fw-semibold">Rate / Unit Price (₦) <span class="text-danger">*</span></label>
+                                <input type="number" class="form-control" id="editMedPrice" step="0.01" min="0">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label fw-semibold">Dosage</label>
+                                <input type="text" class="form-control" id="editMedDosage" placeholder="e.g. 1 tab, 2 tabs, 5ml">
+                            </div>
+                        </div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <label class="form-label fw-semibold">Frequency <span class="text-danger">*</span></label>
+                                <select class="form-select" id="editMedFreqSelect">
+                                    <option value="OD">OD — Once daily (1x)</option>
+                                    <option value="BD">BD — Twice daily (2x)</option>
+                                    <option value="TDS">TDS — 3 times daily (3x)</option>
+                                    <option value="QDS">QDS — 4 times daily (4x)</option>
+                                    <option value="Nocte">Nocte — At night (1x)</option>
+                                    <option value="STAT">STAT — Once immediately (1x)</option>
+                                    <option value="PRN">PRN — As needed (1x)</option>
+                                    <option value="custom">Custom (Numeric / per day)...</option>
+                                </select>
+                                <input type="number" class="form-control mt-1" id="editMedFreqCustom" placeholder="Times per day" min="1" style="display:none;">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label fw-semibold">Days (Duration) <span class="text-danger">*</span></label>
+                                <input type="number" class="form-control" id="editMedDays" min="1" value="1">
+                            </div>
+                        </div>
+                        <div class="row g-2 mb-3 align-items-center">
+                            <div class="col-6">
+                                <label class="form-label fw-semibold">Quantity <span class="text-danger">*</span></label>
+                                <input type="number" class="form-control" id="editMedQty" min="1">
+                                <small class="text-muted d-block" style="font-size: 11px;">Auto: Frequency × Days</small>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label fw-semibold">Claimed Amount</label>
+                                <div class="p-2 bg-success bg-opacity-10 text-success rounded fw-bold fs-6 border border-success border-opacity-25" id="editMedTotalPreview">₦ 0.00</div>
+                                <small class="text-muted d-block" style="font-size: 11px;">Rate × Quantity</small>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Notes</label>
+                            <input type="text" class="form-control" id="editMedNotes" placeholder="Optional notes">
+                        </div>
+                    </div>
+
+                    <!-- Service Specific Fields -->
+                    <div id="editServiceFields" style="display:none;">
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <label class="form-label fw-semibold">Unit Price (₦) <span class="text-danger">*</span></label>
+                                <input type="number" class="form-control" id="editServicePrice" step="0.01" min="0">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label fw-semibold">Frequency / Quantity</label>
+                                <input type="number" class="form-control" id="editServiceQty" min="1" value="1">
+                            </div>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label fw-semibold">Total Claimed</label>
+                            <div class="p-2 bg-success bg-opacity-10 text-success rounded fw-bold fs-6 border border-success border-opacity-25" id="editServiceTotalPreview">₦ 0.00</div>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -754,15 +818,105 @@
     }
 
     @if($userPermissions['canEditItems'])
-    function editItem(type, id, currentUnitPrice, currentQty) {
-        document.getElementById('editItemType').value = type;
+    function editMedicationItem(id, name, dosage, freq, days, unitPrice, qty, notes) {
+        document.getElementById('editItemType').value = 'medication';
         document.getElementById('editItemId').value = id;
-        document.getElementById('editItemPrice').value = parseFloat(currentUnitPrice).toFixed(2);
-        document.getElementById('editItemQty').value = parseInt(currentQty);
-        // Show/hide qty field for services
-        document.getElementById('editQtyGroup').style.display = (type === 'medication') ? '' : 'none';
+        document.getElementById('editItemModalTitle').textContent = 'Edit Medication';
+        document.getElementById('editItemNameDisplay').textContent = name;
+
+        document.getElementById('editMedicationFields').style.display = 'block';
+        document.getElementById('editServiceFields').style.display = 'none';
+
+        document.getElementById('editMedPrice').value = parseFloat(unitPrice || 0).toFixed(2);
+        document.getElementById('editMedDosage').value = (dosage && dosage !== '—') ? dosage : '';
+        document.getElementById('editMedDays').value = parseInt(days) || 1;
+        document.getElementById('editMedNotes').value = (notes && notes !== '—') ? notes : '';
+
+        // Match frequency dropdown
+        var freqUpper = (freq || '').toUpperCase().trim();
+        var select = document.getElementById('editMedFreqSelect');
+        var customInput = document.getElementById('editMedFreqCustom');
+        var matched = false;
+        for (var i = 0; i < select.options.length; i++) {
+            if (select.options[i].value.toUpperCase() === freqUpper) {
+                select.selectedIndex = i;
+                matched = true;
+                break;
+            }
+        }
+        if (!matched) {
+            if (freqUpper && !isNaN(freqUpper)) {
+                select.value = 'custom';
+                customInput.value = freqUpper;
+                customInput.style.display = 'block';
+            } else {
+                select.value = 'OD';
+                customInput.style.display = 'none';
+            }
+        } else {
+            customInput.style.display = 'none';
+        }
+
+        document.getElementById('editMedQty').value = parseInt(qty) || 1;
+        updateMedModalCalculation(false);
+
         var modal = new bootstrap.Modal(document.getElementById('editItemModal'));
         modal.show();
+    }
+
+    function editItem(type, id, currentUnitPrice, currentQty, name) {
+        if (type === 'medication') {
+            editMedicationItem(id, name || 'Medication', '', 'OD', 1, currentUnitPrice, currentQty, '');
+            return;
+        }
+        document.getElementById('editItemType').value = 'service';
+        document.getElementById('editItemId').value = id;
+        document.getElementById('editItemModalTitle').textContent = 'Edit Service';
+        document.getElementById('editItemNameDisplay').textContent = name || 'Service';
+
+        document.getElementById('editMedicationFields').style.display = 'none';
+        document.getElementById('editServiceFields').style.display = 'block';
+
+        document.getElementById('editServicePrice').value = parseFloat(currentUnitPrice || 0).toFixed(2);
+        document.getElementById('editServiceQty').value = parseInt(currentQty) || 1;
+        updateServiceModalCalculation();
+
+        var modal = new bootstrap.Modal(document.getElementById('editItemModal'));
+        modal.show();
+    }
+
+    function getMedFreqMultiplier() {
+        var sel = document.getElementById('editMedFreqSelect').value;
+        if (sel === 'BD') return 2;
+        if (sel === 'TDS') return 3;
+        if (sel === 'QDS') return 4;
+        if (sel === 'custom') {
+            return parseFloat(document.getElementById('editMedFreqCustom').value) || 1;
+        }
+        return 1;
+    }
+
+    function updateMedModalCalculation(recalcQty) {
+        var price = parseFloat(document.getElementById('editMedPrice').value) || 0;
+        var qtyInput = document.getElementById('editMedQty');
+        var qty;
+        if (recalcQty) {
+            var mult = getMedFreqMultiplier();
+            var days = parseInt(document.getElementById('editMedDays').value) || 1;
+            qty = Math.max(1, Math.round(mult * days));
+            qtyInput.value = qty;
+        } else {
+            qty = parseInt(qtyInput.value) || 0;
+        }
+        var total = price * qty;
+        document.getElementById('editMedTotalPreview').textContent = '₦ ' + total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function updateServiceModalCalculation() {
+        var price = parseFloat(document.getElementById('editServicePrice').value) || 0;
+        var qty = parseInt(document.getElementById('editServiceQty').value) || 1;
+        var total = price * qty;
+        document.getElementById('editServiceTotalPreview').textContent = '₦ ' + total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
     function deleteItem(type, id, name) {
@@ -795,21 +949,79 @@
             });
         }
 
+        // Setup live calculations in Edit Item modal
+        var editMedFreqSelect = document.getElementById('editMedFreqSelect');
+        var editMedFreqCustom = document.getElementById('editMedFreqCustom');
+        var editMedDays = document.getElementById('editMedDays');
+        var editMedPrice = document.getElementById('editMedPrice');
+        var editMedQty = document.getElementById('editMedQty');
+        var editServicePrice = document.getElementById('editServicePrice');
+        var editServiceQty = document.getElementById('editServiceQty');
+
+        if (editMedFreqSelect) {
+            editMedFreqSelect.addEventListener('change', function() {
+                if (this.value === 'custom') {
+                    editMedFreqCustom.style.display = 'block';
+                } else {
+                    editMedFreqCustom.style.display = 'none';
+                }
+                updateMedModalCalculation(true);
+            });
+        }
+        if (editMedFreqCustom) {
+            editMedFreqCustom.addEventListener('input', function() { updateMedModalCalculation(true); });
+        }
+        if (editMedDays) {
+            editMedDays.addEventListener('input', function() { updateMedModalCalculation(true); });
+        }
+        if (editMedPrice) {
+            editMedPrice.addEventListener('input', function() { updateMedModalCalculation(false); });
+        }
+        if (editMedQty) {
+            editMedQty.addEventListener('input', function() { updateMedModalCalculation(false); });
+        }
+        if (editServicePrice) {
+            editServicePrice.addEventListener('input', updateServiceModalCalculation);
+        }
+        if (editServiceQty) {
+            editServiceQty.addEventListener('input', updateServiceModalCalculation);
+        }
+
         // Edit Item Save
         var editSaveBtn = document.getElementById('editItemSaveBtn');
         if (editSaveBtn) {
             editSaveBtn.addEventListener('click', function() {
                 var type  = document.getElementById('editItemType').value;
                 var id    = document.getElementById('editItemId').value;
-                var price = parseFloat(document.getElementById('editItemPrice').value);
-                var qty   = parseInt(document.getElementById('editItemQty').value) || 1;
-                if (isNaN(price) || price < 0) { alert('Please enter a valid price.'); return; }
+                var payload = { item_type: type, item_index: id };
+
+                if (type === 'medication') {
+                    var price = parseFloat(document.getElementById('editMedPrice').value);
+                    var qty   = parseInt(document.getElementById('editMedQty').value) || 1;
+                    if (isNaN(price) || price < 0) { alert('Please enter a valid price.'); return; }
+                    var sel = document.getElementById('editMedFreqSelect').value;
+                    var freq = (sel === 'custom') ? document.getElementById('editMedFreqCustom').value : sel;
+
+                    payload.price = price;
+                    payload.quantity = qty;
+                    payload.dosage = document.getElementById('editMedDosage').value;
+                    payload.frequency = freq;
+                    payload.days = parseInt(document.getElementById('editMedDays').value) || 1;
+                    payload.notes = document.getElementById('editMedNotes').value;
+                } else {
+                    var price = parseFloat(document.getElementById('editServicePrice').value);
+                    var qty   = parseInt(document.getElementById('editServiceQty').value) || 1;
+                    if (isNaN(price) || price < 0) { alert('Please enter a valid price.'); return; }
+                    payload.price = price;
+                    payload.quantity = qty;
+                }
+
                 editSaveBtn.disabled = true;
                 editSaveBtn.textContent = 'Saving...';
                 fetch('{{ route("claims.facility-claim.update-item", $claim->id) }}', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' },
-                    body: JSON.stringify({ item_type: type, item_index: id, price: price, quantity: qty })
+                    body: JSON.stringify(payload)
                 })
                 .then(r => r.json())
                 .then(data => {

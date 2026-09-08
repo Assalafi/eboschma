@@ -3334,115 +3334,179 @@ class ClaimController extends Controller
                         $actions = collect([]);
                         $prescriptions = collect([]);
                     }
-                    
-                    // Get medications from facility_claim_medications table with drug details
-                    $claimMedications = DB::table('facility_claim_medications')
-                        ->leftJoin('prescription_items', 'facility_claim_medications.prescription_item_id', '=', 'prescription_items.id')
-                        ->leftJoin('drugs', 'prescription_items.drug_id', '=', 'drugs.id')
-                        ->where('facility_claim_medications.facility_claim_id', $claim->id)
-                        ->select(
-                            'facility_claim_medications.*',
-                            'drugs.description as drug_description',
-                            'drugs.dosage_form as drug_dosage_form',
-                            'drugs.strength as drug_strength',
-                            'drugs.unit as drug_unit'
-                        )
-                        ->get();
-                    
-                    foreach ($claimMedications as $item) {
-                        // Build enhanced drug name with attributes
-                        $drugName = $item->drug_name ?? 'N/A';
-                        $attributes = [];
-                        
-                        if ($item->drug_strength) {
-                            $attributes[] = $item->drug_strength;
-                        }
-                        if ($item->drug_unit) {
-                            $attributes[] = $item->drug_unit;
-                        }
-                        if ($item->drug_dosage_form) {
-                            $attributes[] = $item->drug_dosage_form;
-                        }
-                        
-                        $enhancedName = $drugName;
-                        if (!empty($attributes)) {
-                            $enhancedName .= ' (' . implode(', ', $attributes) . ')';
-                        }
-                        
-                        $medications[] = [
-                            'id' => $item->id,
-                            'name' => $enhancedName,
-                            'base_name' => $drugName,
-                            'description' => $item->drug_description ?? '',
-                            'dosage_form' => $item->drug_dosage_form ?? '',
-                            'strength' => $item->drug_strength ?? '',
-                            'unit' => $item->drug_unit ?? '',
-                            'dosage' => $item->dosage ?? 'N/A',
-                            'quantity' => $item->quantity ?? 0,
-                            'duration' => $item->days ?? 0,
-                            'cost' => $item->total_price ?? 0,
-                            'status' => 'approved' // Claim items are typically approved
-                        ];
-                    }
-                    
-                    // Get services from facility_claim_services table (for editing)
-                    $claimServices = DB::table('facility_claim_services')
-                        ->where('facility_claim_id', $claim->id)
-                        ->get();
-                    
-                    foreach ($claimServices as $item) {
-                        $svcResults = [];
-                        if (!empty($claim->encounter_id)) {
-                            $resQuery = DB::table('service_orders as so')
-                                ->join('service_order_items as soi', 'soi.service_order_id', '=', 'so.id')
-                                ->join('service_results as sr', 'sr.service_order_item_id', '=', 'soi.id')
-                                ->where('so.encounter_id', $claim->encounter_id)
-                                ->select('sr.*')
-                                ->get();
-
-                            foreach ($resQuery as $res) {
-                                $docs = [];
-                                if (!empty($res->result_document_url)) {
-                                    $parsedDocs = json_decode($res->result_document_url, true);
-                                    if (is_array($parsedDocs)) {
-                                        foreach ($parsedDocs as $pd) {
-                                            if ($pd) {
-                                                $docs[] = \Illuminate\Support\Str::startsWith($pd, 'http') ? $pd : \Illuminate\Support\Facades\Storage::url($pd);
-                                            }
-                                        }
-                                    } else {
-                                        $docs[] = \Illuminate\Support\Str::startsWith($res->result_document_url, 'http') ? $res->result_document_url : \Illuminate\Support\Facades\Storage::url($res->result_document_url);
-                                    }
-                                }
-                                $svcResults[] = [
-                                    'value' => $res->result_value,
-                                    'unit' => null,
-                                    'reference_range' => $res->reference_range,
-                                    'remark' => $res->remark,
-                                    'note' => $res->result_note ?: ($res->findings ?: $res->technical_comment),
-                                    'documents' => $docs,
-                                    'findings' => $res->findings,
-                                    'recommendation' => $res->recommendation,
-                                ];
-                            }
-                        }
-
-                        $services[] = [
-                            'id' => $item->id,
-                            'name' => $item->service_name ?? 'N/A',
-                            'type' => $item->service_type ?? 'Service',
-                            'description' => $item->service_description ?? 'N/A',
-                            'cost' => $item->total_price ?? 0,
-                            'unit_price' => $item->unit_price ?? ($item->total_price ?? 0),
-                            'frequency' => $item->frequency ?? 1,
-                            'status' => 'approved', // Claim items are typically approved
-                            'results' => $svcResults,
-                        ];
-                    }
                 }
             } catch (\Exception $e) {
                 \Log::error('Error loading encounter data: ' . $e->getMessage());
             }
+        }
+
+        // Get medications from facility_claim_medications table with drug and prescription details
+        $claimMedications = DB::table('facility_claim_medications')
+            ->leftJoin('prescription_items', 'facility_claim_medications.prescription_item_id', '=', 'prescription_items.id')
+            ->leftJoin('drugs', 'prescription_items.drug_id', '=', 'drugs.id')
+            ->where('facility_claim_medications.facility_claim_id', $claim->id)
+            ->select(
+                'facility_claim_medications.*',
+                'prescription_items.dosage as pi_dosage',
+                'prescription_items.frequency as pi_frequency',
+                'prescription_items.duration as pi_duration',
+                'prescription_items.instructions as pi_instructions',
+                'drugs.description as drug_description',
+                'drugs.dosage_form as drug_dosage_form',
+                'drugs.strength as drug_strength',
+                'drugs.unit as drug_unit'
+            )
+            ->get();
+
+        foreach ($claimMedications as $item) {
+            // Build enhanced drug name with attributes
+            $drugName = $item->drug_name ?? 'N/A';
+            $attributes = [];
+
+            if ($item->drug_strength) {
+                $attributes[] = $item->drug_strength;
+            }
+            if ($item->drug_unit) {
+                $attributes[] = $item->drug_unit;
+            }
+            if ($item->drug_dosage_form) {
+                $attributes[] = $item->drug_dosage_form;
+            }
+
+            $enhancedName = $drugName;
+            if (!empty($attributes)) {
+                $enhancedName .= ' (' . implode(', ', $attributes) . ')';
+            }
+
+            // Frequency formatting (e.g. BD, OD, TDS, QDS)
+            $freq = $item->frequency ?: ($item->pi_frequency ?: '');
+            $formattedFreq = $freq;
+            if (!empty($freq)) {
+                $fLower = strtolower(trim($freq));
+                if ($fLower === '1' || $fLower === 'od') {
+                    $formattedFreq = 'OD';
+                } elseif ($fLower === '2' || $fLower === 'bd') {
+                    $formattedFreq = 'BD';
+                } elseif ($fLower === '3' || $fLower === 'tds') {
+                    $formattedFreq = 'TDS';
+                } elseif ($fLower === '4' || $fLower === 'qds') {
+                    $formattedFreq = 'QDS';
+                } elseif ($fLower === 'nocte') {
+                    $formattedFreq = 'Nocte';
+                } elseif ($fLower === 'stat') {
+                    $formattedFreq = 'STAT';
+                } elseif ($fLower === 'prn') {
+                    $formattedFreq = 'PRN';
+                } elseif (is_numeric($fLower)) {
+                    $formattedFreq = $fLower . 'x daily';
+                } else {
+                    $formattedFreq = strtoupper($freq);
+                }
+            } else {
+                $formattedFreq = '—';
+            }
+
+            // Days calculation
+            $days = (int)($item->days ?? 0);
+            if ($days <= 1 && !empty($item->pi_duration)) {
+                $d = trim($item->pi_duration);
+                if (preg_match('/^(\d+)\s*\/\s*7$/', $d, $m)) {
+                    $days = (int)$m[1];
+                } elseif (is_numeric($d) && (int)$d > 0) {
+                    $days = (int)$d;
+                }
+            }
+            if ($days < 1) {
+                $days = 1;
+            }
+
+            // Dosage
+            $dosage = $item->dosage ?: ($item->pi_dosage ?: '—');
+
+            // Notes
+            $notes = $item->notes ?: ($item->pi_instructions ?: '');
+
+            // Unit Price & Total Price
+            $quantity = (int)($item->quantity ?? 0);
+            $totalPrice = (float)($item->total_price ?? 0);
+            $unitPrice = (float)($item->unit_price ?? 0);
+            if ($unitPrice <= 0 && $quantity > 0) {
+                $unitPrice = $totalPrice / $quantity;
+            }
+
+            $medications[] = [
+                'id' => $item->id,
+                'name' => $enhancedName,
+                'base_name' => $drugName,
+                'description' => $item->drug_description ?? '',
+                'dosage_form' => $item->drug_dosage_form ?? '',
+                'strength' => $item->drug_strength ?? '',
+                'unit' => $item->drug_unit ?? '',
+                'dosage' => $dosage,
+                'frequency' => $formattedFreq,
+                'frequency_raw' => $freq,
+                'days' => $days,
+                'quantity' => $quantity,
+                'unit_price' => $unitPrice,
+                'cost' => $totalPrice,
+                'notes' => $notes,
+                'status' => 'approved'
+            ];
+        }
+
+        // Get services from facility_claim_services table (for editing)
+        $claimServices = DB::table('facility_claim_services')
+            ->where('facility_claim_id', $claim->id)
+            ->get();
+
+        foreach ($claimServices as $item) {
+            $svcResults = [];
+            if (!empty($claim->encounter_id)) {
+                $resQuery = DB::table('service_orders as so')
+                    ->join('service_order_items as soi', 'soi.service_order_id', '=', 'so.id')
+                    ->join('service_results as sr', 'sr.service_order_item_id', '=', 'soi.id')
+                    ->where('so.encounter_id', $claim->encounter_id)
+                    ->select('sr.*')
+                    ->get();
+
+                foreach ($resQuery as $res) {
+                    $docs = [];
+                    if (!empty($res->result_document_url)) {
+                        $parsedDocs = json_decode($res->result_document_url, true);
+                        if (is_array($parsedDocs)) {
+                            foreach ($parsedDocs as $pd) {
+                                if ($pd) {
+                                    $docs[] = \Illuminate\Support\Str::startsWith($pd, 'http') ? $pd : \Illuminate\Support\Facades\Storage::url($pd);
+                                }
+                            }
+                        } else {
+                            $docs[] = \Illuminate\Support\Str::startsWith($res->result_document_url, 'http') ? $res->result_document_url : \Illuminate\Support\Facades\Storage::url($res->result_document_url);
+                        }
+                    }
+                    $svcResults[] = [
+                        'value' => $res->result_value,
+                        'unit' => null,
+                        'reference_range' => $res->reference_range,
+                        'remark' => $res->remark,
+                        'note' => $res->result_note ?: ($res->findings ?: $res->technical_comment),
+                        'documents' => $docs,
+                        'findings' => $res->findings,
+                        'recommendation' => $res->recommendation,
+                    ];
+                }
+            }
+
+            $services[] = [
+                'id' => $item->id,
+                'name' => $item->service_name ?? 'N/A',
+                'type' => $item->service_type ?? 'Service',
+                'description' => $item->service_description ?? 'N/A',
+                'cost' => $item->total_price ?? 0,
+                'unit_price' => $item->unit_price ?? ($item->total_price ?? 0),
+                'frequency' => $item->frequency ?? 1,
+                'status' => 'approved',
+                'results' => $svcResults,
+            ];
         }
 
         // Supporting Documents & Radiological Scans aggregation
@@ -3736,22 +3800,61 @@ class ClaimController extends Controller
 
         try {
             if ($itemType === 'medication') {
-                // Update medication in facility_claim_medications table
-                $updateData = ['updated_at' => now()];
-                if ($newQty !== null) $updateData['quantity'] = (int) $newQty;
-                if ($newPrice !== null) {
-                    $updateData['unit_price'] = (float) $newPrice;
-                    $updateData['total_price'] = (float) $newPrice * (int) ($newQty ?? 1);
+                $med = DB::table('facility_claim_medications')
+                    ->where('id', $itemId)
+                    ->where('facility_claim_id', $claimId)
+                    ->first();
+
+                if (!$med) {
+                    return response()->json(['success' => false, 'message' => 'Medication not found'], 404);
                 }
-                
-                $updated = DB::table('facility_claim_medications')
+
+                $dosage = $request->has('dosage') ? $request->input('dosage') : $med->dosage;
+                $frequency = $request->has('frequency') ? $request->input('frequency') : $med->frequency;
+                $days = $request->has('days') ? (int)$request->input('days') : (int)($med->days ?: 1);
+                $unitPrice = $request->has('price') && $request->input('price') !== null ? (float)$request->input('price') : (float)$med->unit_price;
+                $notes = $request->has('notes') ? $request->input('notes') : $med->notes;
+
+                // Frequency multiplier determination
+                $freqMultiplier = 1;
+                if (!empty($frequency)) {
+                    $fLower = strtolower(trim($frequency));
+                    if ($fLower === '1' || $fLower === 'od' || $fLower === 'nocte' || $fLower === 'stat') {
+                        $freqMultiplier = 1;
+                    } elseif ($fLower === '2' || $fLower === 'bd') {
+                        $freqMultiplier = 2;
+                    } elseif ($fLower === '3' || $fLower === 'tds') {
+                        $freqMultiplier = 3;
+                    } elseif ($fLower === '4' || $fLower === 'qds') {
+                        $freqMultiplier = 4;
+                    } elseif (is_numeric($fLower) && (int)$fLower > 0) {
+                        $freqMultiplier = (int)$fLower;
+                    }
+                }
+
+                if ($request->filled('quantity')) {
+                    $qty = (int)$request->input('quantity');
+                } else {
+                    $qty = $freqMultiplier * max(1, $days);
+                }
+
+                $totalPrice = $unitPrice * $qty;
+
+                $updateData = [
+                    'dosage' => $dosage,
+                    'frequency' => $frequency,
+                    'days' => $days,
+                    'quantity' => $qty,
+                    'unit_price' => $unitPrice,
+                    'total_price' => $totalPrice,
+                    'notes' => $notes,
+                    'updated_at' => now(),
+                ];
+
+                DB::table('facility_claim_medications')
                     ->where('id', $itemId)
                     ->where('facility_claim_id', $claimId)
                     ->update($updateData);
-                    
-                if (!$updated) {
-                    return response()->json(['success' => false, 'message' => 'Medication not found'], 404);
-                }
             } else {
                 // Update service in facility_claim_services table
                 $updateData = ['updated_at' => now()];
@@ -3928,6 +4031,7 @@ class ClaimController extends Controller
                 'prescription_item_id' => $prescriptionItemId,
                 'drug_name'            => $drugName,
                 'dosage'               => $request->dosage,
+                'frequency'            => $request->frequency,
                 'days'                 => $request->duration,
                 'quantity'             => $quantity,
                 'unit_price'           => $unitPrice,
@@ -4300,40 +4404,89 @@ class ClaimController extends Controller
                         }
                     }
 
-                    foreach ($prescriptions as $prescription) {
-                        foreach ($prescription->prescriptionItems as $item) {
-                            $dispensation = $item->dispensations->first();
-                            $drug = $item->drug;
-                            $status = $dispensation ? ($dispensation->status ?? 'pending') : ($item->dispensing_status ?? 'pending');
-                            $cost = 0;
-                            if ($status === 'dispensed') {
-                                $cost = ($dispensation && $dispensation->cost_of_medication > 0)
-                                    ? $dispensation->cost_of_medication
-                                    : (($drug && $drug->unit_price > 0) ? $drug->unit_price * ($item->quantity ?? 1) : 0);
-                            }
-                            $medications[] = [
-                                'name' => $drug->name ?? 'N/A',
-                                'quantity' => $item->quantity ?? 0,
-                                'cost' => $cost,
-                            ];
-                        }
-                    }
-
-                    foreach ($encounter->serviceOrders ?? collect([]) as $order) {
-                        foreach ($order->serviceOrderItems as $orderItem) {
-                            $si = $orderItem->serviceItem;
-                            $status = $orderItem->status ?? 'pending';
-                            $price = in_array($status, ['completed', 'approved', 'delivered']) ? ($si->price ?? 0) : 0;
-                            $services[] = [
-                                'name' => $si->name ?? 'N/A',
-                                'cost' => $price,
-                            ];
-                        }
-                    }
                 }
             } catch (\Exception $e) {
                 \Log::error('PDF encounter error: ' . $e->getMessage());
             }
+        }
+
+        // Load medications from facility_claim_medications table with drug and prescription details
+        $claimMedications = DB::table('facility_claim_medications')
+            ->leftJoin('prescription_items', 'facility_claim_medications.prescription_item_id', '=', 'prescription_items.id')
+            ->leftJoin('drugs', 'prescription_items.drug_id', '=', 'drugs.id')
+            ->where('facility_claim_medications.facility_claim_id', $claim->id)
+            ->select(
+                'facility_claim_medications.*',
+                'prescription_items.dosage as pi_dosage',
+                'prescription_items.frequency as pi_frequency',
+                'prescription_items.duration as pi_duration',
+                'prescription_items.instructions as pi_instructions',
+                'drugs.strength as drug_strength',
+                'drugs.unit as drug_unit',
+                'drugs.dosage_form as drug_dosage_form'
+            )
+            ->get();
+
+        foreach ($claimMedications as $item) {
+            $drugName = $item->drug_name ?? 'N/A';
+            $attrs = array_filter([$item->drug_strength, $item->drug_unit, $item->drug_dosage_form]);
+            $enhancedName = $drugName . (!empty($attrs) ? ' (' . implode(', ', $attrs) . ')' : '');
+
+            $freq = $item->frequency ?: ($item->pi_frequency ?: '');
+            $formattedFreq = $freq;
+            if (!empty($freq)) {
+                $fLower = strtolower(trim($freq));
+                if ($fLower === '1' || $fLower === 'od') $formattedFreq = 'OD';
+                elseif ($fLower === '2' || $fLower === 'bd') $formattedFreq = 'BD';
+                elseif ($fLower === '3' || $fLower === 'tds') $formattedFreq = 'TDS';
+                elseif ($fLower === '4' || $fLower === 'qds') $formattedFreq = 'QDS';
+                elseif ($fLower === 'nocte') $formattedFreq = 'Nocte';
+                elseif ($fLower === 'stat') $formattedFreq = 'STAT';
+                elseif ($fLower === 'prn') $formattedFreq = 'PRN';
+                elseif (is_numeric($fLower)) $formattedFreq = $fLower . 'x daily';
+                else $formattedFreq = strtoupper($freq);
+            } else {
+                $formattedFreq = '—';
+            }
+
+            $days = (int)($item->days ?? 0);
+            if ($days <= 1 && !empty($item->pi_duration)) {
+                $d = trim($item->pi_duration);
+                if (preg_match('/^(\d+)\s*\/\s*7$/', $d, $m)) $days = (int)$m[1];
+                elseif (is_numeric($d) && (int)$d > 0) $days = (int)$d;
+            }
+            if ($days < 1) $days = 1;
+
+            $dosage = $item->dosage ?: ($item->pi_dosage ?: '—');
+            $quantity = (int)($item->quantity ?? 0);
+            $totalPrice = (float)($item->total_price ?? 0);
+            $unitPrice = (float)($item->unit_price ?? 0);
+            if ($unitPrice <= 0 && $quantity > 0) $unitPrice = $totalPrice / $quantity;
+
+            $medications[] = [
+                'name' => $enhancedName,
+                'dosage' => $dosage,
+                'frequency' => $formattedFreq,
+                'days' => $days,
+                'quantity' => $quantity,
+                'unit_price' => $unitPrice,
+                'cost' => $totalPrice,
+                'notes' => $item->notes ?: ($item->pi_instructions ?: ''),
+            ];
+        }
+
+        // Load services from facility_claim_services table
+        $claimServices = DB::table('facility_claim_services')
+            ->where('facility_claim_id', $claim->id)
+            ->get();
+
+        foreach ($claimServices as $item) {
+            $services[] = [
+                'name' => $item->service_name ?? 'N/A',
+                'unit_price' => (float)($item->unit_price ?? 0),
+                'frequency' => (int)($item->frequency ?? 1),
+                'cost' => (float)($item->total_price ?? 0),
+            ];
         }
 
         // Fallback diagnosis from claim table

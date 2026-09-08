@@ -58,33 +58,39 @@ td, th { border: 1px solid #666; padding: 5px 8px; }
 {{-- MEDICATIONS --}}
 @php $medTotal = 0; @endphp
 <table style="margin-top:-1px">
-    <tr class="sec-hdr"><td colspan="6">Services Provided<br>Medication(s)</td></tr>
+    <tr class="sec-hdr"><td colspan="9">Services Provided<br>Medication(s)</td></tr>
     <tr class="items">
-        <th style="width:40px">S/N</th>
+        <th style="width:30px">S/N</th>
         <th>Medication(s)</th>
-        <th style="width:80px">Rate</th>
-        <th style="width:80px">Frequency</th>
-        <th style="width:100px">Amount Claimed</th>
-        <th style="width:100px">Amount Due</th>
+        <th style="width:60px">Dosage</th>
+        <th style="width:60px">Frequency</th>
+        <th style="width:45px">Days</th>
+        <th style="width:45px">Qty</th>
+        <th style="width:70px">Rate (₦)</th>
+        <th style="width:85px">Amount Claimed</th>
+        <th style="width:85px">Amount Due</th>
     </tr>
     @forelse ($medications as $i => $med)
         @php
-            $rate = ($med['quantity'] > 0) ? $med['cost'] / $med['quantity'] : $med['cost'];
+            $rate = $med['unit_price'] ?? (($med['quantity'] > 0) ? $med['cost'] / $med['quantity'] : $med['cost']);
             $medTotal += $med['cost'];
         @endphp
         <tr class="items">
             <td>{{ $i + 1 }}</td>
             <td style="text-align:left">{{ $med['name'] }}</td>
-            <td>{{ number_format($rate, 2) }}</td>
+            <td>{{ $med['dosage'] ?? '—' }}</td>
+            <td>{{ $med['frequency'] ?? '—' }}</td>
+            <td>{{ $med['days'] ?? 1 }}</td>
             <td>{{ $med['quantity'] }}</td>
+            <td>{{ number_format($rate, 2) }}</td>
             <td>{{ number_format($med['cost'], 2) }}</td>
             <td>{{ number_format($med['cost'], 2) }}</td>
         </tr>
     @empty
-        <tr class="items"><td colspan="6" style="text-align:center;color:#999">No medications</td></tr>
+        <tr class="items"><td colspan="9" style="text-align:center;color:#999">No medications</td></tr>
     @endforelse
     <tr class="sub">
-        <td colspan="4" style="text-align:center">SUB TOTAL</td>
+        <td colspan="7" style="text-align:center">SUB TOTAL</td>
         <td style="text-align:center">N {{ number_format($medTotal, 2) }}</td>
         <td style="text-align:center">N {{ number_format($medTotal, 2) }}</td>
     </tr>

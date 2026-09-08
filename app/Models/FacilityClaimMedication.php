@@ -11,6 +11,7 @@ class FacilityClaimMedication extends Model
         'prescription_item_id',
         'drug_name',
         'dosage',
+        'frequency',
         'quantity',
         'days',
         'unit_price',

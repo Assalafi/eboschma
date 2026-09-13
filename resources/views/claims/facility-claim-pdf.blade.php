@@ -50,10 +50,12 @@ td, th { border: 1px solid #666; padding: 5px 8px; }
         <td><strong>Enrollee's ID No:</strong> &nbsp; {{ $claim->enrollee_number }}</td>
         <td><strong>Nature of Visit:</strong> &nbsp; {{ $claim->nature_of_visit ?? ($claim->encounter_nature_of_visit ?? 'N/A') }}</td>
     </tr>
+    @if(!empty($admissionDate) || !empty($dischargeDate))
     <tr>
         <td><strong>Date of Admission:</strong> &nbsp; {{ !empty($admissionDate) ? \Carbon\Carbon::parse($admissionDate)->format('Y-m-d') : 'N/A' }}</td>
         <td><strong>Discharged Date:</strong> &nbsp; {{ !empty($dischargeDate) ? \Carbon\Carbon::parse($dischargeDate)->format('Y-m-d') : 'N/A' }}</td>
     </tr>
+    @endif
     <tr>
         <td colspan="2"><strong>Diagnosis:</strong> &nbsp; {{ $diagnosisText }}</td>
     </tr>

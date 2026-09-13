@@ -125,6 +125,11 @@
                         <span class="badge bg-{{ $patientType === 'IN' ? 'primary' : 'secondary' }}">
                             {{ $patientType }}
                         </span>
+                        @if($patientType === 'OUT' && $userPermissions['canEditItems'])
+                            <button type="button" class="btn btn-xs btn-outline-primary ms-1 py-0 px-1 d-print-none" onclick="showEditAdmissionDatesModal()" title="Record Admission for this patient" style="font-size: 10px; line-height: 1.2;">
+                                <i class="ti-plus"></i> Add Admission
+                            </button>
+                        @endif
                         &nbsp;&nbsp;&nbsp;&nbsp;
                         <strong>Nature of Visit:</strong> &nbsp;
                         @if(!empty($natureOfVisit))
@@ -134,6 +139,7 @@
                         @endif
                     </td>
                 </tr>
+                @if($patientType === 'IN' || !empty($admissionDate) || !empty($dischargeDate))
                 <tr>
                     <td>
                         <strong>Date of Admission:</strong> &nbsp;
@@ -150,6 +156,7 @@
                         @endif
                     </td>
                 </tr>
+                @endif
                 <tr>
                     <td colspan="2"><strong>Presentation:</strong> &nbsp;
                         @php

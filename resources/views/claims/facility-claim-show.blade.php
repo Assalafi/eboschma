@@ -118,7 +118,7 @@
                     <td>
                         <strong>Patient Type:</strong> &nbsp;
                         @php
-                            $hasAdmission = DB::table('admissions')->where('patient_id', $claim->patient_id)->exists();
+                            $hasAdmission = !empty($admissionDate) || DB::table('admissions')->where('patient_id', $claim->patient_id)->exists();
                             $patientType = $hasAdmission ? 'IN' : 'OUT';
                             $natureOfVisit = $claim->nature_of_visit ?? ($claim->encounter_nature_of_visit ?? null);
                         @endphp
@@ -131,6 +131,22 @@
                             <span class="badge bg-info text-white">{{ ucfirst($natureOfVisit) }}</span>
                         @else
                             <span class="badge bg-light text-dark">N/A</span>
+                        @endif
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <strong>Date of Admission:</strong> &nbsp;
+                        <span id="displayAdmissionDate">{{ !empty($admissionDate) ? \Carbon\Carbon::parse($admissionDate)->format('Y-m-d') : 'N/A' }}</span>
+                        @if($userPermissions['canEditItems'])
+                            <button type="button" class="edit-btn d-print-none ms-1" onclick="showEditAdmissionDatesModal()" title="Edit Date of Admission & Discharged Date"><i class="ti-pencil"></i></button>
+                        @endif
+                    </td>
+                    <td>
+                        <strong>Discharged Date:</strong> &nbsp;
+                        <span id="displayDischargeDate">{{ !empty($dischargeDate) ? \Carbon\Carbon::parse($dischargeDate)->format('Y-m-d') : 'N/A' }}</span>
+                        @if($userPermissions['canEditItems'])
+                            <button type="button" class="edit-btn d-print-none ms-1" onclick="showEditAdmissionDatesModal()" title="Edit Date of Admission & Discharged Date"><i class="ti-pencil"></i></button>
                         @endif
                     </td>
                 </tr>
@@ -339,7 +355,12 @@
                                 {{ number_format($service['unit_price'] ?? ($service['cost'] / max(1, $service['frequency'] ?? 1)), 2) }}
                             @endif
                         </td>
-                        <td>{{ $service['frequency'] ?? 1 }}</td>
+                        <td>
+                            {{ $service['frequency'] ?? 1 }}
+                            @if($userPermissions['canEditItems'])
+                                <button class="edit-btn d-print-none ms-1" onclick="editItem('service', '{{ $service['id'] }}', {{ $service['unit_price'] ?? ($service['cost'] / max(1, $service['frequency'] ?? 1)) }}, {{ $service['frequency'] ?? 1 }}, '{{ addslashes($service['name']) }}')" title="Edit Frequency"><i class="ti-pencil"></i></button>
+                            @endif
+                        </td>
                         <td>{{ number_format($service['cost'], 2) }}</td>
                         <td>{{ number_format($service['cost'], 2) }}</td>
                         @if($userPermissions['canEditItems'])
@@ -677,11 +698,11 @@
                     <div id="editServiceFields" style="display:none;">
                         <div class="row g-2 mb-3">
                             <div class="col-6">
-                                <label class="form-label fw-semibold">Unit Price (₦) <span class="text-danger">*</span></label>
+                                <label class="form-label fw-semibold">Unit Price / Rate (₦) <span class="text-danger">*</span></label>
                                 <input type="number" class="form-control" id="editServicePrice" step="0.01" min="0">
                             </div>
                             <div class="col-6">
-                                <label class="form-label fw-semibold">Frequency / Quantity</label>
+                                <label class="form-label fw-semibold">Frequency <span class="text-danger">*</span></label>
                                 <input type="number" class="form-control" id="editServiceQty" min="1" value="1">
                             </div>
                         </div>
@@ -695,6 +716,34 @@
                     <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
                     <button type="button" class="btn btn-primary btn-sm" id="editItemSaveBtn">Save Changes</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Admission & Discharge Dates Modal -->
+    <div class="modal fade" id="editAdmissionDatesModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <form id="editAdmissionDatesForm">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Admission & Discharged Dates</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Date of Admission</label>
+                            <input type="date" class="form-control" id="inputAdmissionDate" name="admission_date" value="{{ !empty($admissionDate) ? \Carbon\Carbon::parse($admissionDate)->format('Y-m-d') : '' }}">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Discharged Date</label>
+                            <input type="date" class="form-control" id="inputDischargeDate" name="discharge_date" value="{{ !empty($dischargeDate) ? \Carbon\Carbon::parse($dischargeDate)->format('Y-m-d') : '' }}">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary btn-sm" id="saveAdmissionDatesBtn">Save Dates</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -938,6 +987,11 @@
         modal.show();
     }
 
+    function showEditAdmissionDatesModal() {
+        var modal = new bootstrap.Modal(document.getElementById('editAdmissionDatesModal'));
+        modal.show();
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
         // Safe-guard: only add listener if the button exists
         var confirmBtn = document.getElementById('confirmActionSubmitBtn');
@@ -1014,6 +1068,7 @@
                     if (isNaN(price) || price < 0) { alert('Please enter a valid price.'); return; }
                     payload.price = price;
                     payload.quantity = qty;
+                    payload.frequency = qty;
                 }
 
                 editSaveBtn.disabled = true;
@@ -1173,8 +1228,59 @@
                 body: JSON.stringify({ service_item_id: serviceItemId, frequency: parseInt(frequency) })
             })
             .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.message);
+                    btn.disabled = false;
+                    btn.textContent = 'Add';
+                }
+            })
             .catch(e => { alert('Request failed: ' + e.message); btn.disabled = false; btn.textContent = 'Add'; });
         });
+
+        // Edit Admission Dates form submission
+        var editAdmForm = document.getElementById('editAdmissionDatesForm');
+        if (editAdmForm) {
+            editAdmForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                var btn = document.getElementById('saveAdmissionDatesBtn');
+                btn.disabled = true;
+                btn.textContent = 'Saving...';
+
+                var admDate = document.getElementById('inputAdmissionDate').value;
+                var disDate = document.getElementById('inputDischargeDate').value;
+
+                fetch('{{ route("claims.facility-claim.update-admission-dates", $claim->id) }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        admission_date: admDate,
+                        discharge_date: disDate
+                    })
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert('Error: ' + data.message);
+                        btn.disabled = false;
+                        btn.textContent = 'Save Dates';
+                    }
+                })
+                .catch(err => {
+                    alert('Request failed: ' + err.message);
+                    btn.disabled = false;
+                    btn.textContent = 'Save Dates';
+                });
+            });
+        }
     });
     </script>
 

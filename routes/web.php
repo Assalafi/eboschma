@@ -612,6 +612,7 @@ Route::middleware(['auth:staff,web'])->group(function () {
     Route::post('claims/facility-claim/{claimId}/upload-document', [ClaimController::class, 'uploadFacilityClaimDocument'])->name('claims.facility-claim.upload-document')->middleware('permission:claim.view');
     Route::get('claims/facility-claim/{claimId}/download-pdf', [ClaimController::class, 'downloadFacilityClaimPdf'])->name('claims.facility-claim.download-pdf')->middleware('permission:claim.view');
     Route::post('claims/facility-claim/{claimId}/update-item', [ClaimController::class, 'updateFacilityClaimItem'])->name('claims.facility-claim.update-item')->middleware('permission:claim.edit-items,staff');
+    Route::post('claims/facility-claim/{claimId}/update-admission-dates', [ClaimController::class, 'updateFacilityClaimAdmissionDates'])->name('claims.facility-claim.update-admission-dates')->middleware('permission:claim.edit-items,staff');
     Route::post('claims/facility-claim/{claimId}/delete-item', [ClaimController::class, 'deleteFacilityClaimItem'])->name('claims.facility-claim.delete-item')->middleware('permission:claim.edit-items,staff');
     Route::post('claims/facility-claim/{claimId}/add-medication', [ClaimController::class, 'addMedicationToFacilityClaim'])->name('claims.facility-claim.add-medication')->middleware('permission:claim.edit-items,staff');
     Route::post('claims/facility-claim/{claimId}/add-service', [ClaimController::class, 'addServiceToFacilityClaim'])->name('claims.facility-claim.add-service')->middleware('permission:claim.edit-items,staff');

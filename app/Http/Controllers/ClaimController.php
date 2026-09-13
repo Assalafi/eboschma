@@ -3658,11 +3658,26 @@ class ClaimController extends Controller
             $referral = \App\Models\ServiceReferral::find(1243);
         }
 
+        // Admission & Discharge dates lookup
+        $admission = null;
+        if (!empty($claim->encounter_id)) {
+            $admission = DB::table('admissions')->where('encounter_id', $claim->encounter_id)->first();
+        }
+        if (!$admission && !empty($claim->patient_id)) {
+            $admission = DB::table('admissions')
+                ->where('patient_id', $claim->patient_id)
+                ->where('facility_id', $claim->facility_id)
+                ->latest('admission_date')
+                ->first();
+        }
+        $admissionDate = $claim->admission_date ?: ($admission->admission_date ?? null);
+        $dischargeDate = $claim->discharge_date ?: ($admission->discharge_date ?? null);
+
         // Debug logging
         \Log::info('Claim ID: ' . $claim->id . ', Medications count: ' . count($medications));
         \Log::info('Medications data: ' . json_encode($medications));
 
-        return view('claims.facility-claim-show', compact('claim', 'referral', 'medications', 'services', 'provisionalDiagnoses', 'confirmedDiagnoses', 'consultations', 'vitalSigns', 'actions', 'submittedByName', 'verifierName', 'approverName', 'esName', 'financeName', 'userPermissions', 'supportingDocuments'));
+        return view('claims.facility-claim-show', compact('claim', 'referral', 'medications', 'services', 'provisionalDiagnoses', 'confirmedDiagnoses', 'consultations', 'vitalSigns', 'actions', 'submittedByName', 'verifierName', 'approverName', 'esName', 'financeName', 'userPermissions', 'supportingDocuments', 'admissionDate', 'dischargeDate'));
     }
 
     /**
@@ -3857,20 +3872,36 @@ class ClaimController extends Controller
                     ->update($updateData);
             } else {
                 // Update service in facility_claim_services table
-                $updateData = ['updated_at' => now()];
-                if ($newPrice !== null) {
-                    $updateData['unit_price'] = (float) $newPrice;
-                    $updateData['total_price'] = (float) $newPrice; // Services typically have quantity of 1
+                $svc = DB::table('facility_claim_services')
+                    ->where('id', $itemId)
+                    ->where('facility_claim_id', $claimId)
+                    ->first();
+
+                if (!$svc) {
+                    return response()->json(['success' => false, 'message' => 'Service not found'], 404);
                 }
-                
-                $updated = DB::table('facility_claim_services')
+
+                $frequency = $request->filled('frequency')
+                    ? (int)$request->input('frequency')
+                    : ($request->filled('quantity') ? (int)$request->input('quantity') : (int)($svc->frequency ?: 1));
+                if ($frequency < 1) {
+                    $frequency = 1;
+                }
+
+                $unitPrice = ($newPrice !== null && $newPrice !== '') ? (float)$newPrice : (float)$svc->unit_price;
+                $totalPrice = $unitPrice * $frequency;
+
+                $updateData = [
+                    'frequency'   => $frequency,
+                    'unit_price'  => $unitPrice,
+                    'total_price' => $totalPrice,
+                    'updated_at'  => now(),
+                ];
+
+                DB::table('facility_claim_services')
                     ->where('id', $itemId)
                     ->where('facility_claim_id', $claimId)
                     ->update($updateData);
-                    
-                if (!$updated) {
-                    return response()->json(['success' => false, 'message' => 'Service not found'], 404);
-                }
             }
 
             // Recalculate claim totals from actual database tables
@@ -3892,6 +3923,75 @@ class ClaimController extends Controller
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
         }
+    }
+
+    /**
+     * Update admission and discharge dates for a facility claim.
+     */
+    public function updateFacilityClaimAdmissionDates(Request $request, $claimId)
+    {
+        $user = auth('staff')->user() ?: auth()->user();
+        $isSuperAdmin = $user && ($user->hasRole('Super Admin') || $user->hasRole('admin'));
+
+        if (!$isSuperAdmin && !$user->can('claim.edit-items')) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized – only Verifiers and Super Admins can edit claim details'], 403);
+        }
+
+        $claim = DB::table('facility_claims')->where('id', $claimId)->first();
+        if (!$claim) {
+            return response()->json(['success' => false, 'message' => 'Claim not found'], 404);
+        }
+
+        $admissionDate = $request->input('admission_date') ?: null;
+        $dischargeDate = $request->input('discharge_date') ?: null;
+
+        $lengthOfStay = null;
+        if ($admissionDate && $dischargeDate) {
+            $adm = \Carbon\Carbon::parse($admissionDate);
+            $dis = \Carbon\Carbon::parse($dischargeDate);
+            $lengthOfStay = max(1, (int)ceil($adm->diffInDays($dis)));
+        }
+
+        $updateData = [
+            'admission_date' => $admissionDate,
+            'discharge_date' => $dischargeDate,
+            'length_of_stay' => $lengthOfStay,
+            'updated_at'     => now(),
+        ];
+
+        if ($admissionDate && $claim->claim_type === 'outpatient') {
+            $updateData['claim_type'] = 'inpatient';
+        }
+
+        DB::table('facility_claims')->where('id', $claimId)->update($updateData);
+
+        // If encounter exists, update or create admission record
+        if (!empty($claim->encounter_id)) {
+            $existingAdmission = DB::table('admissions')->where('encounter_id', $claim->encounter_id)->first();
+            if ($existingAdmission) {
+                DB::table('admissions')->where('id', $existingAdmission->id)->update([
+                    'admission_date' => $admissionDate ? \Carbon\Carbon::parse($admissionDate) : $existingAdmission->admission_date,
+                    'discharge_date' => $dischargeDate ? \Carbon\Carbon::parse($dischargeDate) : null,
+                    'is_active'      => empty($dischargeDate),
+                    'updated_at'     => now(),
+                ]);
+            } elseif ($admissionDate) {
+                try {
+                    \App\Models\Admission::create([
+                        'encounter_id'   => $claim->encounter_id,
+                        'patient_id'     => $claim->patient_id,
+                        'facility_id'    => $claim->facility_id,
+                        'admission_date' => \Carbon\Carbon::parse($admissionDate),
+                        'discharge_date' => $dischargeDate ? \Carbon\Carbon::parse($dischargeDate) : null,
+                        'is_active'      => empty($dischargeDate),
+                    ]);
+                } catch (\Exception $e) {
+                    \Log::warning('Could not create admission record: ' . $e->getMessage());
+                }
+            }
+        }
+
+        return response()->json(['success' => true, 'message' => 'Admission and discharge dates updated successfully']);
     }
 
     /**
@@ -4501,8 +4601,22 @@ class ClaimController extends Controller
 
         $logoPath = public_path('images/boschma_logo.png');
 
+        $admission = null;
+        if (!empty($claim->encounter_id)) {
+            $admission = DB::table('admissions')->where('encounter_id', $claim->encounter_id)->first();
+        }
+        if (!$admission && !empty($claim->patient_id)) {
+            $admission = DB::table('admissions')
+                ->where('patient_id', $claim->patient_id)
+                ->where('facility_id', $claim->facility_id)
+                ->latest('admission_date')
+                ->first();
+        }
+        $admissionDate = $claim->admission_date ?: ($admission->admission_date ?? null);
+        $dischargeDate = $claim->discharge_date ?: ($admission->discharge_date ?? null);
+
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('claims.facility-claim-pdf', compact(
-            'claim', 'medications', 'services', 'diagnosisText', 'logoPath'
+            'claim', 'medications', 'services', 'diagnosisText', 'logoPath', 'admissionDate', 'dischargeDate'
         ));
         $pdf->setPaper('a4', 'portrait');
 

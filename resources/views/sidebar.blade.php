@@ -193,6 +193,10 @@
                                 <a class="nav-sub-link text-dark @if(request()->routeIs('reports.pharmacy_stock')) active @endif"
                                     href="{{ route('reports.pharmacy_stock') }}">Pharmacy Stock Report</a>
                             </li>
+                            <li class="nav-sub-item">
+                                <a class="nav-sub-link text-dark @if(request()->routeIs('reports.facility-changes') || request()->routeIs('reports.facility-changes.export')) active @endif"
+                                    href="{{ route('reports.facility-changes') }}">Facility Change Audit</a>
+                            </li>
                         </ul>
                     </li>
                 @endcan

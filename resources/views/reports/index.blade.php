@@ -182,7 +182,7 @@
                                         <line x1="9" y1="9" x2="15" y2="9"></line>
                                         <line x1="9" y1="15" x2="15" y2="15"></line>
                                     </svg>
-                                    5 Active Reports
+                                    6 Active Reports
                                 </span>
                             </div>
                         </div>
@@ -417,6 +417,57 @@
                             <div class="card-footer bg-transparent border-0 pt-0">
                                 <a href="{{ route('reports.crm') }}" class="btn btn-danger w-100">
                                     View CRM Report
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                        stroke="currentColor" stroke-width="2" class="ms-1">
+                                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                                        <polyline points="12,5 19,12 12,19"></polyline>
+                                    </svg>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card border-0 shadow-sm hover-lift h-100">
+                            <div class="card-body">
+                                <div class="d-flex align-items-start mb-3">
+                                    <div class="avatar avatar-lg bg-warning bg-gradient text-white rounded-3 me-3">
+                                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round">
+                                            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                                            <line x1="9" y1="12" x2="9" y2="18"></line>
+                                            <line x1="15" y1="12" x2="15" y2="18"></line>
+                                        </svg>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <h4 class="card-title mb-1">Facility Change Audit</h4>
+                                        <div class="badge bg-warning bg-opacity-10 text-warning mb-2">Audit Trail</div>
+                                    </div>
+                                </div>
+                                <p class="text-muted mb-4">Track beneficiaries whose facility has been changed,
+                                    including the old/new facility, source, and who made the change</p>
+                                <div class="row g-3">
+                                    <div class="col-6">
+                                        <div class="text-center">
+                                            <div class="h4 mb-1 text-warning">
+                                                {{ App\Models\BeneficiaryFacilityChange::count() }}</div>
+                                            <div class="text-muted small">Total Changes</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="text-center">
+                                            <div class="h4 mb-1 text-warning">
+                                                {{ App\Models\BeneficiaryFacilityChange::distinct()->count('beneficiary_id') }}
+                                            </div>
+                                            <div class="text-muted small">Beneficiaries</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-footer bg-transparent border-0 pt-0">
+                                <a href="{{ route('reports.facility-changes') }}" class="btn btn-warning w-100">
+                                    View Facility Change Audit
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
                                         stroke="currentColor" stroke-width="2" class="ms-1">
                                         <line x1="5" y1="12" x2="19" y2="12"></line>

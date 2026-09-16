@@ -382,6 +382,8 @@ Route::middleware(['auth:staff,web'])->group(function () {
         Route::get('/facilities/{id}/enrollments', [ReportsController::class, 'facilityEnrollments'])->name('facilities.show')->middleware('permission:report.view|crm.view,staff');
         Route::get("/beneficiaries", [ReportsController::class, "beneficiaries"])->name("beneficiaries")->middleware("permission:report.view|crm.view,staff");
         Route::get("/beneficiaries/export", [ReportsController::class, "exportBeneficiaries"])->name("beneficiaries.export")->middleware("permission:report.view|crm.view,staff");
+        Route::get('/facility-changes', [ReportsController::class, 'facilityChanges'])->name('facility-changes')->middleware('permission:report.view|crm.view,staff');
+        Route::get('/facility-changes/export', [ReportsController::class, 'exportFacilityChanges'])->name('facility-changes.export')->middleware('permission:report.view|crm.view,staff');
         Route::get('/pharmacy-stock', [ReportsController::class, 'pharmacyStock'])->name('pharmacy_stock')->middleware('permission:report.view|crm.view,staff');
         Route::put('/pharmacy-stock/{id}', [ReportsController::class, 'updateDrugStock'])->name('pharmacy_stock.update')->middleware('permission:report.view|crm.view,staff');
         Route::get('/enrollments', [ReportsController::class, 'enrollments'])->name('enrollments')->middleware('permission:report.view|crm.view,staff');

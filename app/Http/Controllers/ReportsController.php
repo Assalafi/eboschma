@@ -1613,4 +1613,97 @@ class ReportsController extends Controller
         
         return Excel::download(new BeneficiariesReportExport($programId, $lga, $gender, $dateFrom, $dateTo), $filename);
     }
+
+    /**
+     * Facility Change Audit report.
+     */
+    public function facilityChanges(Request $request)
+    {
+        $changes = $this->facilityChangesQuery($request)
+            ->with(['oldFacility', 'newFacility', 'changedBy', 'beneficiary'])
+            ->orderByDesc('created_at')
+            ->paginate(25)
+            ->appends($request->all());
+
+        $auditModel = \App\Models\BeneficiaryFacilityChange::class;
+
+        $stats = [
+            'total' => $auditModel::count(),
+            'beneficiaries' => $auditModel::distinct()->count('beneficiary_id'),
+            'last_30' => $auditModel::where('created_at', '>=', now()->subDays(30))->count(),
+        ];
+
+        $facilities = Facility::orderBy('name')->get(['id', 'name']);
+        $viaOptions = $auditModel::query()->select('changed_via')->distinct()
+            ->pluck('changed_via')->filter()->values();
+
+        return view('reports.facility-changes', compact('changes', 'stats', 'facilities', 'viaOptions'));
+    }
+
+    /**
+     * Export the facility change audit as CSV.
+     */
+    public function exportFacilityChanges(Request $request)
+    {
+        $rows = $this->facilityChangesQuery($request)
+            ->with(['oldFacility', 'newFacility', 'changedBy', 'beneficiary'])
+            ->orderByDesc('created_at')
+            ->get();
+
+        $filename = 'facility_changes_' . date('Y_m_d_H-i-s') . '.csv';
+
+        return response()->streamDownload(function () use ($rows) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, ['Date', 'Beneficiary ID', 'BOSCHMA No', 'Beneficiary Name', 'Old Facility', 'New Facility', 'Changed By', 'Source']);
+            foreach ($rows as $r) {
+                fputcsv($out, [
+                    $r->created_at ? $r->created_at->format('Y-m-d H:i') : '',
+                    $r->beneficiary_id,
+                    $r->boschma_no,
+                    $r->beneficiary->fullname ?? '',
+                    $r->oldFacility->name ?? $r->old_facility_id,
+                    $r->newFacility->name ?? $r->new_facility_id,
+                    $r->changedBy->fullname ?? $r->changedBy->name ?? $r->changed_by ?? '',
+                    $r->changed_via,
+                ]);
+            }
+            fclose($out);
+        }, $filename);
+    }
+
+    /**
+     * Shared filter query for the facility change audit.
+     */
+    private function facilityChangesQuery(Request $request)
+    {
+        $query = \App\Models\BeneficiaryFacilityChange::query();
+
+        if ($request->filled('old_facility_id')) {
+            $query->where('old_facility_id', $request->old_facility_id);
+        }
+        if ($request->filled('new_facility_id')) {
+            $query->where('new_facility_id', $request->new_facility_id);
+        }
+        if ($request->filled('changed_via')) {
+            $query->where('changed_via', $request->changed_via);
+        }
+        if ($request->filled('date_from')) {
+            $query->whereDate('created_at', '>=', $request->date_from);
+        }
+        if ($request->filled('date_to')) {
+            $query->whereDate('created_at', '<=', $request->date_to);
+        }
+        if ($request->filled('search')) {
+            $s = $request->search;
+            $query->where(function ($q) use ($s) {
+                $q->where('boschma_no', 'like', "%{$s}%")
+                  ->orWhere('beneficiary_id', $s)
+                  ->orWhereHas('beneficiary', function ($b) use ($s) {
+                      $b->where('fullname', 'like', "%{$s}%");
+                  });
+            });
+        }
+
+        return $query;
+    }
 }

@@ -125,7 +125,7 @@
             <div class="card">
                 <div class="card-header">
                     <h3 class="card-title">Change Log
-                        <span class="badge bg-blue-lt ms-2">{{ number_format($changes->total()) }}</span>
+                        <span class="badge bg-primary text-white ms-2">{{ number_format($changes->total()) }}</span>
                     </h3>
                 </div>
                 <div class="card-body p-0">
@@ -155,16 +155,16 @@
                                             </div>
                                         </td>
                                         <td>
-                                            <span class="badge bg-danger-lt">{{ $change->oldFacility->name ?? ($change->old_facility_id ?? 'N/A') }}</span>
+                                            <span class="badge bg-danger text-white">{{ $change->oldFacility->name ?? ($change->old_facility_id ?? 'N/A') }}</span>
                                         </td>
                                         <td>
-                                            <span class="badge bg-success-lt">{{ $change->newFacility->name ?? ($change->new_facility_id ?? 'N/A') }}</span>
+                                            <span class="badge bg-success text-white">{{ $change->newFacility->name ?? ($change->new_facility_id ?? 'N/A') }}</span>
                                         </td>
                                         <td>
                                             {{ $change->changedBy->fullname ?? ($change->changedBy->name ?? ($change->changed_by ?? 'System')) }}
                                         </td>
                                         <td>
-                                            <span class="badge bg-secondary-lt">{{ $change->changed_via ?? 'unknown' }}</span>
+                                            <span class="badge bg-secondary text-white">{{ $change->changed_via ?? 'unknown' }}</span>
                                         </td>
                                     </tr>
                                 @empty

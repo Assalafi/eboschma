@@ -29,10 +29,10 @@
 @if($stats['dispensed']>0)<span class="badge status-pill bg-info py-2 px-3 {{ $selectedStatus=='dispensed'?'active':'' }}" data-status="dispensed" style="font-size:.9rem">Dispensed ({{ $stats['dispensed'] }})</span>@endif
 </div>
 <div class="card"><div class="card-header"><h3 class="card-title" id="tableTitle">{{ $selectedStatus?ucfirst($selectedStatus).' Requests':'All Requests' }}</h3>
-@if($isBoschmaAdmin)<div class="card-actions">
-                    <button class="btn btn-success btn-sm" id="bulkApproveBtn" disabled><i class="ti-check me-1"></i>Bulk Approve (<span id="selectedCount">0</span>)</button>
-                    <button class="btn btn-danger btn-sm" id="bulkRejectBtn" disabled><i class="ti-x me-1"></i>Bulk Reject (<span id="selectedCountReject">0</span>)</button>
-                    <button class="btn btn-primary btn-sm" id="bulkDispenseBtn" disabled><i class="ti-package me-1"></i>Bulk Dispense (<span id="selectedCountDispense">0</span>)</button>
+@if($canApprove || $canReject || $canDispense)<div class="card-actions">
+                    @if($canApprove)<button class="btn btn-success btn-sm" id="bulkApproveBtn" disabled><i class="ti-check me-1"></i>Bulk Approve (<span id="selectedCount">0</span>)</button>@endif
+                    @if($canReject)<button class="btn btn-danger btn-sm" id="bulkRejectBtn" disabled><i class="ti-x me-1"></i>Bulk Reject (<span id="selectedCountReject">0</span>)</button>@endif
+                    @if($canDispense)<button class="btn btn-primary btn-sm" id="bulkDispenseBtn" disabled><i class="ti-package me-1"></i>Bulk Dispense (<span id="selectedCountDispense">0</span>)</button>@endif
                 </div>@endif
 </div><div class="card-body"><div class="table-responsive">
 <table id="requestsTable" class="table table-vcenter table-hover"><thead><tr>

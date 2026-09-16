@@ -29,6 +29,7 @@ class DatabaseSeeder extends Seeder
             ClaimPermissionSeeder::class,
             ServiceManagementPermissionsSeeder::class,
             WardManagementPermissionsSeeder::class,
+            DrugStockRequestPermissionSeeder::class,
             AdminUserSeeder::class,
             TicketCategorySeeder::class,
         ]);

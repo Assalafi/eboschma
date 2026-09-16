@@ -95,7 +95,7 @@
             <form method="GET" action="{{ route('drug-stock-requests.index') }}" class="card mb-3">
                 <div class="card-body py-3">
                     <div class="row g-3 align-items-end">
-                        @if($isBoschmaAdmin)
+                        @if($canManage)
                         <div class="col-md-3">
                             <label class="form-label">Facility Level / Type</label>
                             <select name="facility_type" id="filter-facility-type" class="form-select">

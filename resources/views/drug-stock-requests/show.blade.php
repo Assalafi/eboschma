@@ -108,22 +108,22 @@
                         <a href="{{ route('drug-stock-requests.index') }}" class="btn btn-outline-secondary">
                             <i class="ti-arrow-left me-1"></i>Back
                         </a>
-                        @if ($isBoschmaAdmin && $request->canBeApproved() && !$request->drug_id)
+                        @if (($canEdit || $canApprove) && $request->canBeApproved() && !$request->drug_id)
                             <button type="button" class="btn btn-warning" id="editModeBtn" onclick="toggleEditMode()">
                                 <i class="ti-edit me-1"></i>Edit Quantities
                             </button>
                         @endif
-                        @if ($request->canBeApproved() && $isBoschmaAdmin)
+                        @if ($canApprove && $request->canBeApproved())
                             <button type="button" class="btn btn-success" onclick="approveRequest({{ $request->id }})">
                                 <i class="ti-check me-1"></i>Approve
                             </button>
                         @endif
-                        @if ($request->canBeRejected() && $isBoschmaAdmin)
+                        @if ($canReject && $request->canBeRejected())
                             <button type="button" class="btn btn-danger" onclick="rejectRequest({{ $request->id }})">
                                 <i class="ti-x me-1"></i>Reject
                             </button>
                         @endif
-                        @if ($request->canBeDispensed() && $isBoschmaAdmin)
+                        @if ($canDispense && $request->canBeDispensed())
                             <a href="{{ route('drug-stock-requests.dispense-form', $request->id) }}" class="btn btn-primary">
                                 <i class="ti-package me-1"></i>Dispense
                             </a>
@@ -189,7 +189,7 @@
                                     Drug Details
                                 @else
                                     Requested Items
-                                    @if ($isBoschmaAdmin && $request->canBeApproved() && !$request->drug_id)
+                                    @if (($canEdit || $canApprove) && $request->canBeApproved() && !$request->drug_id)
                                         <span class="ms-2" id="editActions" style="display:none">
                                             <button type="button" class="btn btn-sm btn-primary" onclick="saveChanges()" id="saveChangesBtn">
                                                 <i class="ti-save me-1"></i>Save
@@ -259,7 +259,7 @@
                                                 <th class="text-center">Facility Stock</th>
                                                 <th class="text-center">Status</th>
                                                 <th class="text-end">Cost</th>
-                                                @if ($isBoschmaAdmin && $request->canBeApproved() && !$request->drug_id)
+                                                @if (($canEdit || $canApprove) && $request->canBeApproved() && !$request->drug_id)
                                                     <th class="text-center" style="width:50px">
                                                         <span class="edit-col" style="display:none"></span>
                                                     </th>
@@ -282,7 +282,7 @@
                                                     <td class="text-muted">{{ $item->drug->strength }} {{ $item->drug->unit }}</td>
                                                     <td class="text-end">
                                                         <span class="quantity-display fw-bold">{{ number_format($item->quantity_requested) }}</span>
-                                                        @if ($isBoschmaAdmin && $request->canBeApproved() && !$request->drug_id)
+                                                        @if (($canEdit || $canApprove) && $request->canBeApproved() && !$request->drug_id)
                                                             <input type="number" class="form-control form-control-sm quantity-input" style="display:none"
                                                                    value="{{ $item->quantity_requested }}" min="1">
                                                         @endif
@@ -334,7 +334,7 @@
                                                         @endif
                                                     </td>
                                                     <td class="text-end text-nowrap item-cost">{{ $item->formatted_estimated_cost }}</td>
-                                                    @if ($isBoschmaAdmin && $request->canBeApproved() && !$request->drug_id)
+                                                    @if (($canEdit || $canApprove) && $request->canBeApproved() && !$request->drug_id)
                                                         <td class="text-center">
                                                             <button type="button" class="btn-remove-item remove-item-btn" style="display:none"
                                                                     onclick="removeItem({{ $item->id }}, '{{ addslashes($item->drug->name) }}')"
@@ -353,7 +353,7 @@
                                                 <td colspan="2">Total ({{ $request->items->count() }} items)</td>
                                                 <td class="text-end" id="totalQuantity">{{ number_format($request->items->sum('quantity_requested')) }}</td>
                                                 <td class="text-end" id="totalCost">{{ $request->formatted_estimated_cost }}</td>
-                                                @if ($isBoschmaAdmin && $request->canBeApproved() && !$request->drug_id)
+                                                @if (($canEdit || $canApprove) && $request->canBeApproved() && !$request->drug_id)
                                                     <td></td>
                                                 @endif
                                             </tr>
@@ -525,21 +525,21 @@
                     </div>
 
                     <!-- Quick Actions -->
-                    @if ($isBoschmaAdmin && ($request->canBeApproved() || $request->canBeRejected() || $request->canBeDispensed()))
+                    @if (($canApprove && $request->canBeApproved()) || ($canReject && $request->canBeRejected()) || ($canDispense && $request->canBeDispensed()))
                     <div class="card">
                         <div class="card-header"><h3 class="card-title mb-0">Quick Actions</h3></div>
                         <div class="card-body d-grid gap-2">
-                            @if ($request->canBeApproved())
+                            @if ($canApprove && $request->canBeApproved())
                                 <button type="button" class="btn btn-success" onclick="approveRequest({{ $request->id }})">
                                     <i class="ti-check me-1"></i>Approve Request
                                 </button>
                             @endif
-                            @if ($request->canBeRejected())
+                            @if ($canReject && $request->canBeRejected())
                                 <button type="button" class="btn btn-outline-danger" onclick="rejectRequest({{ $request->id }})">
                                     <i class="ti-x me-1"></i>Reject Request
                                 </button>
                             @endif
-                            @if ($request->canBeDispensed())
+                            @if ($canDispense && $request->canBeDispensed())
                                 <a href="{{ route('drug-stock-requests.dispense-form', $request->id) }}" class="btn btn-primary">
                                     <i class="ti-package me-1"></i>Dispense Stock
                                 </a>

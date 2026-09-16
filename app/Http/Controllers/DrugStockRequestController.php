@@ -26,18 +26,23 @@ class DrugStockRequestController extends Controller
     {
         $user = Auth::guard('staff')->user();
         $isBoschmaAdmin = $this->isBoschmaAdmin();
-        
+        // Managers = Boschma admins or delegated users (approve/reject/dispense permissions)
+        $canManage = $this->canManageRequests();
+        $canApprove = $isBoschmaAdmin || $this->userCan('drug-stock-requests.approve');
+        $canReject = $isBoschmaAdmin || $this->userCan('drug-stock-requests.reject');
+        $canDispense = $isBoschmaAdmin || $this->userCan('drug-stock-requests.dispense');
+
         // Handle DataTables AJAX request
         if ($request->ajax()) {
             // Facility-grouped view
             if ($request->get('view') === 'facilities') {
-                return $this->facilityGroupedData($request, $isBoschmaAdmin, $user);
+                return $this->facilityGroupedData($request, $canManage, $user);
             }
 
             $query = DrugStockRequest::with(['facility', 'drug', 'program', 'items.drug', 'requestedBy', 'approvedBy', 'dispensedBy']);
             
-            // Filter based on user role
-            if (!$isBoschmaAdmin) {
+            // Filter based on user role/permission
+            if (!$canManage) {
                 if ($user) {
                     $query->whereIn('status', ['approved', 'dispensed']);
                 } else {
@@ -46,7 +51,7 @@ class DrugStockRequestController extends Controller
             }
             
             return DataTables::of($query)
-                ->filter(function ($query) use ($request, $isBoschmaAdmin) {
+                ->filter(function ($query) use ($request, $canManage) {
                     if ($request->has('search') && !empty($request->search['value'])) {
                         $search = $request->search['value'];
                         $query->where(function($q) use ($search) {
@@ -69,11 +74,11 @@ class DrugStockRequestController extends Controller
                         $query->where('priority', $request->get('priority'));
                     }
                     
-                    if ($request->has('facility_id') && !empty($request->get('facility_id')) && $isBoschmaAdmin) {
+                    if ($request->has('facility_id') && !empty($request->get('facility_id')) && $canManage) {
                         $query->where('facility_id', $request->get('facility_id'));
                     }
                     
-                    if ($request->filled('facility_type') && $isBoschmaAdmin) {
+                    if ($request->filled('facility_type') && $canManage) {
                         $facilityType = $request->get('facility_type');
                         $query->whereHas('facility', function($subQ) use ($facilityType) {
                             if ($facilityType === 'Primary') {
@@ -140,7 +145,7 @@ class DrugStockRequestController extends Controller
                     return '<div>' . $request->requested_at->format('M j, Y') . '</div>' .
                            '<div class="text-muted small">' . $request->requested_at->format('g:i A') . '</div>';
                 })
-                ->addColumn('action', function($request) {
+                ->addColumn('action', function($request) use ($canApprove, $canReject, $canDispense) {
                     $actions = '<div class="d-flex gap-1">
                         <a href="' . route('drug-stock-requests.show', $request->id) . '" 
                            class="btn btn-sm btn-info" title="View">
@@ -154,21 +159,21 @@ class DrugStockRequestController extends Controller
                                     </a>';
                     }
                     
-                    if ($request->canBeApproved()) {
+                    if ($canApprove && $request->canBeApproved()) {
                         $actions .= '<button type="button" class="btn btn-sm btn-success"
                                        onclick="approveRequest(' . $request->id . ')" title="Approve">
                                         ✓
                                     </button>';
                     }
                     
-                    if ($request->canBeRejected()) {
+                    if ($canReject && $request->canBeRejected()) {
                         $actions .= '<button type="button" class="btn btn-sm btn-danger"
                                        onclick="rejectRequest(' . $request->id . ')" title="Reject">
                                         ✕
                                     </button>';
                     }
                     
-                    if ($request->canBeDispensed()) {
+                    if ($canDispense && $request->canBeDispensed()) {
                         $actions .= '<a href="' . route('drug-stock-requests.dispense-form', $request->id) . '" 
                                        class="btn btn-sm btn-primary" title="Dispense">
                                         📦
@@ -190,7 +195,7 @@ class DrugStockRequestController extends Controller
         $priorities = DrugStockRequest::getPriorities();
         
         $facilitiesQuery = Facility::orderBy('name');
-        if ($request->filled('facility_type') && $isBoschmaAdmin) {
+        if ($request->filled('facility_type') && $canManage) {
             $facilityType = $request->get('facility_type');
             if ($facilityType === 'Primary') {
                 $facilitiesQuery->where('type', 'LIKE', 'Primary%');
@@ -205,7 +210,7 @@ class DrugStockRequestController extends Controller
         // Base query for stats to apply filters
         $statsQuery = DrugStockRequest::query();
         
-        if (!$isBoschmaAdmin) {
+        if (!$canManage) {
             if ($user) {
                 $statsQuery->whereIn('status', ['approved', 'dispensed']);
             } else {
@@ -213,10 +218,10 @@ class DrugStockRequestController extends Controller
             }
         }
         
-        if ($request->filled('facility_id') && $isBoschmaAdmin) {
+        if ($request->filled('facility_id') && $canManage) {
             $statsQuery->where('facility_id', $request->get('facility_id'));
         }
-        if ($request->filled('facility_type') && $isBoschmaAdmin) {
+        if ($request->filled('facility_type') && $canManage) {
             $facilityType = $request->get('facility_type');
             $statsQuery->whereHas('facility', function($q) use ($facilityType) {
                 if ($facilityType === 'Primary') {
@@ -243,13 +248,13 @@ class DrugStockRequestController extends Controller
             'dispensed' => (clone $statsQuery)->dispensed()->count(),
         ];
         
-        return view('drug-stock-requests.index', compact('statuses', 'priorities', 'facilities', 'stats', 'isBoschmaAdmin'));
+        return view('drug-stock-requests.index', compact('statuses', 'priorities', 'facilities', 'stats', 'isBoschmaAdmin', 'canManage', 'canApprove', 'canReject', 'canDispense'));
     }
 
     /**
      * Return facility-grouped data for the index DataTable.
      */
-    private function facilityGroupedData(Request $request, bool $isBoschmaAdmin, $user)
+    private function facilityGroupedData(Request $request, bool $canManage, $user)
     {
         $query = DB::table('drug_stock_requests')
             ->join('facilities', 'drug_stock_requests.facility_id', '=', 'facilities.id')
@@ -265,7 +270,7 @@ class DrugStockRequestController extends Controller
                 DB::raw('MAX(drug_stock_requests.requested_at) as latest_request')
             );
 
-        if (!$isBoschmaAdmin) {
+        if (!$canManage) {
             if ($user) {
                 $query->whereIn('drug_stock_requests.status', ['approved', 'dispensed']);
             } else {
@@ -277,10 +282,10 @@ class DrugStockRequestController extends Controller
             $query->where('drug_stock_requests.status', $request->get('status'));
         }
         
-        if ($request->filled('facility_id') && $isBoschmaAdmin) {
+        if ($request->filled('facility_id') && $canManage) {
             $query->where('drug_stock_requests.facility_id', $request->get('facility_id'));
         }
-        if ($request->filled('facility_type') && $isBoschmaAdmin) {
+        if ($request->filled('facility_type') && $canManage) {
             $facilityType = $request->get('facility_type');
             if ($facilityType === 'Primary') {
                 $query->where('facilities.type', 'LIKE', 'Primary%');
@@ -346,6 +351,10 @@ class DrugStockRequestController extends Controller
     {
         $user = Auth::guard('staff')->user();
         $isBoschmaAdmin = $this->isBoschmaAdmin();
+        $canManage = $this->canManageRequests();
+        $canApprove = $isBoschmaAdmin || $this->userCan('drug-stock-requests.approve');
+        $canReject = $isBoschmaAdmin || $this->userCan('drug-stock-requests.reject');
+        $canDispense = $isBoschmaAdmin || $this->userCan('drug-stock-requests.dispense');
         $facility = Facility::findOrFail($facilityId);
         $selectedStatus = $request->get('status', '');
 
@@ -354,7 +363,7 @@ class DrugStockRequestController extends Controller
             $query = DrugStockRequest::with(['drug', 'program', 'items.drug', 'requestedBy', 'approvedBy', 'dispensedBy'])
                 ->where('facility_id', $facilityId);
 
-            if (!$isBoschmaAdmin) {
+            if (!$canManage) {
                 if ($user) {
                     $query->whereIn('status', ['approved', 'dispensed']);
                 } else {
@@ -414,19 +423,19 @@ class DrugStockRequestController extends Controller
                     return '<div>' . $req->requested_at->format('M j, Y') . '</div>' .
                            '<div class="text-muted small">' . $req->requested_at->format('g:i A') . '</div>';
                 })
-                ->addColumn('action', function($req) {
+                ->addColumn('action', function($req) use ($canApprove, $canReject, $canDispense) {
                     $actions = '<div class="d-flex gap-1">
                         <a href="' . route('drug-stock-requests.show', $req->id) . '" class="btn btn-sm btn-info" title="View">👁️</a>';
                     if ($req->canBeEdited()) {
                         $actions .= '<a href="' . route('drug-stock-requests.edit', $req->id) . '" class="btn btn-sm btn-warning" title="Edit">✏️</a>';
                     }
-                    if ($req->canBeApproved()) {
+                    if ($canApprove && $req->canBeApproved()) {
                         $actions .= '<button type="button" class="btn btn-sm btn-success" onclick="approveRequest(' . $req->id . ')" title="Approve">✓</button>';
                     }
-                    if ($req->canBeRejected()) {
+                    if ($canReject && $req->canBeRejected()) {
                         $actions .= '<button type="button" class="btn btn-sm btn-danger" onclick="rejectRequest(' . $req->id . ')" title="Reject">✕</button>';
                     }
-                    if ($req->canBeDispensed()) {
+                    if ($canDispense && $req->canBeDispensed()) {
                         $actions .= '<a href="' . route('drug-stock-requests.dispense-form', $req->id) . '" class="btn btn-sm btn-primary" title="Dispense">📦</a>';
                     }
                     $actions .= '</div>';
@@ -460,7 +469,7 @@ class DrugStockRequestController extends Controller
         ];
 
         return view('drug-stock-requests.facility-requests', compact(
-            'facility', 'selectedStatus', 'statuses', 'priorities', 'stats', 'isBoschmaAdmin'
+            'facility', 'selectedStatus', 'statuses', 'priorities', 'stats', 'isBoschmaAdmin', 'canManage', 'canApprove', 'canReject', 'canDispense'
         ));
     }
     
@@ -556,6 +565,10 @@ class DrugStockRequestController extends Controller
     {
         $user = Auth::guard('staff')->user();
         $isBoschmaAdmin = $this->isBoschmaAdmin();
+        $canApprove = $isBoschmaAdmin || $this->userCan('drug-stock-requests.approve');
+        $canReject = $isBoschmaAdmin || $this->userCan('drug-stock-requests.reject');
+        $canDispense = $isBoschmaAdmin || $this->userCan('drug-stock-requests.dispense');
+        $canEdit = $isBoschmaAdmin || $this->userCan('drug-stock-requests.edit');
         
         $request = DrugStockRequest::with(['facility', 'drug', 'program', 'requestedBy', 'approvedBy', 'dispensedBy', 'drugStocks'])
             ->findOrFail($id);
@@ -565,7 +578,7 @@ class DrugStockRequestController extends Controller
         //     abort(403, 'Access denied.');
         // }
         
-        return view('drug-stock-requests.show', compact('request', 'isBoschmaAdmin'));
+        return view('drug-stock-requests.show', compact('request', 'isBoschmaAdmin', 'canApprove', 'canReject', 'canDispense', 'canEdit'));
     }
     
     /**
@@ -573,9 +586,9 @@ class DrugStockRequestController extends Controller
      */
     public function updateItems(Request $request, string $id): JsonResponse
     {
-        // Check Boschma admin permission
-        if (!$this->isBoschmaAdmin()) {
-            return response()->json(['success' => false, 'message' => 'Access denied. Only Boschma administrators can modify requests.']);
+        // Allow Boschma admins or delegated users with the edit permission
+        if (!$this->isBoschmaAdmin() && !$this->userCan('drug-stock-requests.edit')) {
+            return response()->json(['success' => false, 'message' => 'Access denied. You do not have permission to modify requests.']);
         }
         
         $stockRequest = DrugStockRequest::with('items')->findOrFail($id);
@@ -689,9 +702,9 @@ class DrugStockRequestController extends Controller
      */
     public function approve(Request $request, string $id): RedirectResponse
     {
-        // Check Boschma admin permission
-        if (!$this->isBoschmaAdmin()) {
-            abort(403, 'Access denied. Only Boschma administrators can approve requests.');
+        // Allow Boschma admins or delegated users with the approve permission
+        if (!$this->isBoschmaAdmin() && !$this->userCan('drug-stock-requests.approve')) {
+            abort(403, 'Access denied. You do not have permission to approve requests.');
         }
         
         $stockRequest = DrugStockRequest::findOrFail($id);
@@ -721,9 +734,9 @@ class DrugStockRequestController extends Controller
      */
     public function reject(Request $request, string $id): RedirectResponse
     {
-        // Check Boschma admin permission
-        if (!$this->isBoschmaAdmin()) {
-            abort(403, 'Access denied. Only Boschma administrators can reject requests.');
+        // Allow Boschma admins or delegated users with the reject permission
+        if (!$this->isBoschmaAdmin() && !$this->userCan('drug-stock-requests.reject')) {
+            abort(403, 'Access denied. You do not have permission to reject requests.');
         }
         
         $stockRequest = DrugStockRequest::findOrFail($id);
@@ -1185,6 +1198,29 @@ class DrugStockRequestController extends Controller
     /**
      * Check if current user is Boschma admin.
      */
+    /**
+     * Check whether the current staff user has the given permission.
+     * Falls back to the default guard user if the staff guard is empty.
+     */
+    private function userCan(string $permission): bool
+    {
+        $user = Auth::guard('staff')->user() ?? Auth::user();
+
+        return $user && method_exists($user, 'can') && $user->can($permission);
+    }
+
+    /**
+     * Whether the user can manage (see and act on) all stock requests:
+     * a Boschma admin or anyone granted the relevant approval permissions.
+     */
+    private function canManageRequests(): bool
+    {
+        return $this->isBoschmaAdmin()
+            || $this->userCan('drug-stock-requests.approve')
+            || $this->userCan('drug-stock-requests.reject')
+            || $this->userCan('drug-stock-requests.dispense');
+    }
+
     private function isBoschmaAdmin(): bool
     {
         $user = Auth::guard('staff')->user() ?? Auth::user();

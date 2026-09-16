@@ -4,6 +4,8 @@ namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Pagination\Paginator;
+use App\Models\Beneficiary;
+use App\Observers\BeneficiaryObserver;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -21,5 +23,8 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Paginator::useBootstrapFive();
+
+        // Track changes to a beneficiary's facility for auditing
+        Beneficiary::observe(BeneficiaryObserver::class);
     }
 }

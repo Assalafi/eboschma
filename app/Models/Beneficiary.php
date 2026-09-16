@@ -99,6 +99,14 @@ class Beneficiary extends Model
     }
 
     /**
+     * Audit trail of facility changes for this beneficiary.
+     */
+    public function facilityChanges()
+    {
+        return $this->hasMany(BeneficiaryFacilityChange::class, 'beneficiary_id')->latest();
+    }
+
+    /**
      * Get the contributions for the beneficiary (linked by dp_no).
      */
     public function contributions()

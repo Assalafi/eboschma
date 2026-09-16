@@ -26,7 +26,7 @@ return new class extends Migration
                 $table->text('user_agent')->nullable();
                 $table->timestamps();
 
-                $table->index(['old_facility_id', 'new_facility_id']);
+                $table->index(['old_facility_id', 'new_facility_id'], 'bfc_facilities_idx');
             });
         }
     }

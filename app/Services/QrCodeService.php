@@ -32,7 +32,9 @@ class QrCodeService
         $writer = new Writer($renderer);
         
         // Generate QR code
-        $qrCode = $writer->writeString($qrData);
+        // Use UTF-8 so names with non-ISO-8859-1 characters (Hausa/Arabic, accents, etc.)
+        // don't trigger "Could not encode content to ISO-8859-1".
+        $qrCode = $writer->writeString($qrData, 'UTF-8');
         
         // Convert to base64
         $base64 = base64_encode($qrCode);

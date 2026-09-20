@@ -231,7 +231,7 @@
             {{-- MEDICATIONS --}}
             <table style="margin-top:-1px">
                 <tr class="section-header">
-                    <td colspan="{{ $userPermissions['canEditItems'] ? 11 : 10 }}" style="text-align:center; position: relative;">
+                    <td colspan="{{ $userPermissions['canEditItems'] ? 10 : 9 }}" style="text-align:center; position: relative;">
                         Services Provided<br>Medication(s)
                         @if($userPermissions['canEditItems'])
                             <button type="button" class="btn btn-sm btn-light d-print-none" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); padding: 2px 8px; font-weight: bold; border-radius: 4px; color: var(--g);" onclick="showAddMedicationModal()">
@@ -243,7 +243,6 @@
                 <tr class="items-head">
                     <th style="width:40px">S/N</th>
                     <th>Medication(s)</th>
-                    <th style="width:85px">Dosage</th>
                     <th style="width:80px">Frequency</th>
                     <th style="width:60px">Days</th>
                     <th style="width:65px">Quantity</th>
@@ -259,7 +258,6 @@
                     <tr class="items-body" id="med-row-{{ $i }}">
                         <td>{{ $i + 1 }}</td>
                         <td style="text-align:left; font-weight: 500;">{{ $med['name'] }}</td>
-                        <td>{{ $med['dosage'] }}</td>
                         <td>
                             <span class="badge bg-light text-dark border" style="font-size: 11px; padding: 3px 6px;">
                                 {{ $med['frequency'] }}
@@ -279,10 +277,10 @@
                         @endif
                     </tr>
                 @empty
-                    <tr class="items-body"><td colspan="{{ $userPermissions['canEditItems'] ? 11 : 10 }}" style="text-align:center;color:#999">No medications</td></tr>
+                    <tr class="items-body"><td colspan="{{ $userPermissions['canEditItems'] ? 10 : 9 }}" style="text-align:center;color:#999">No medications</td></tr>
                 @endforelse
                 <tr class="sub-total">
-                    <td colspan="7" style="text-align:center;font-weight:700">SUB TOTAL</td>
+                    <td colspan="6" style="text-align:center;font-weight:700">SUB TOTAL</td>
                     <td style="text-align:center">N {{ number_format(array_sum(array_column($medications, 'cost')), 2) }}</td>
                     <td style="text-align:center">N {{ number_format(array_sum(array_column($medications, 'cost')), 2) }}</td>
                     <td colspan="{{ $userPermissions['canEditItems'] ? 2 : 1 }}"></td>

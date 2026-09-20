@@ -48,7 +48,17 @@ td, th { border: 1px solid #666; padding: 5px 8px; }
     </tr>
     <tr>
         <td><strong>Enrollee's ID No:</strong> &nbsp; {{ $claim->enrollee_number }}</td>
+        <td><strong>Phone Number:</strong> &nbsp; {{ $patientPhone ?? ($claim->phone_number ?: 'N/A') }}</td>
+    </tr>
+    <tr>
         <td><strong>Nature of Visit:</strong> &nbsp; {{ $claim->nature_of_visit ?? ($claim->encounter_nature_of_visit ?? 'N/A') }}</td>
+        <td>
+            @php
+                $hasAdmission = !empty($admissionDate) || DB::table('admissions')->where('patient_id', $claim->patient_id)->exists();
+                $patientType = $hasAdmission ? 'IN' : 'OUT';
+            @endphp
+            <strong>Patient Type:</strong> &nbsp; {{ $patientType }}
+        </td>
     </tr>
     @if(!empty($admissionDate) || !empty($dischargeDate))
     <tr>

@@ -115,6 +115,9 @@
                 </tr>
                 <tr>
                     <td><strong>Enrollee's ID No:</strong> &nbsp; {{ $claim->enrollee_number }}</td>
+                    <td><strong>Phone Number:</strong> &nbsp; {{ $patientPhone ?? ($claim->phone_number ?: 'N/A') }}</td>
+                </tr>
+                <tr>
                     <td>
                         <strong>Patient Type:</strong> &nbsp;
                         @php
@@ -125,7 +128,8 @@
                         <span class="badge bg-{{ $patientType === 'IN' ? 'primary' : 'secondary' }}">
                             {{ $patientType }}
                         </span>
-                        &nbsp;&nbsp;&nbsp;&nbsp;
+                    </td>
+                    <td>
                         <strong>Nature of Visit:</strong> &nbsp;
                         @if(!empty($natureOfVisit))
                             <span class="badge bg-info text-white">{{ ucfirst($natureOfVisit) }}</span>

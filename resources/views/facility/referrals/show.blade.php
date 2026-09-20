@@ -179,9 +179,14 @@
                                                             @else
                                                                 <span class="badge bg-warning ms-1">Pending Approval</span>
                                                             @endif
+                                                            @if (($referral->approval_status === 'rejected' || $referral->status === 'rejected') && $referral->rejection_reason)
+                                                                <div class="mt-2 p-2 bg-light rounded text-danger small border border-danger">
+                                                                    <strong>Rejection Reason:</strong> {{ $referral->rejection_reason }}
+                                                                </div>
+                                                            @endif
                                                         </td>
                                                     </tr>
-                                                    @if ($referral->approval_status === 'rejected')
+                                                    @if ($referral->approval_status === 'rejected' || $referral->status === 'rejected')
                                                         <tr>
                                                             <th>Rejected By:</th>
                                                             <td>

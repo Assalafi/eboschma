@@ -236,19 +236,23 @@ class FacilityReferralController extends Controller
                     return '<span class="text-muted">General Referral</span>';
                 })
                 ->addColumn('status_badge', function($referral) {
-                    if ($referral->approval_status === 'rejected') {
-                        return '<span class="badge bg-danger">Rejected</span>';
-                    }
-
                     $badges = $referral->status_badge;
 
-                    if ($referral->approval_status === 'approved') {
-                        $badges .= ' <span class="badge bg-success mt-1">Approved</span>';
+                    if ($referral->approval_status === 'rejected') {
+                        $html = '<span class="badge bg-danger">Rejected</span>';
+                    } elseif ($referral->approval_status === 'approved') {
+                        $html = $badges . ' <span class="badge bg-success mt-1">Approved</span>';
                     } else {
-                        $badges .= ' <span class="badge bg-warning mt-1">Pending Approval</span>';
+                        $html = $badges . ' <span class="badge bg-warning mt-1">Pending Approval</span>';
                     }
 
-                    return $badges;
+                    if (($referral->approval_status === 'rejected' || $referral->status === 'rejected') && !empty($referral->rejection_reason)) {
+                        $html .= '<div class="mt-1 text-danger small text-wrap" style="white-space: normal; min-width: 140px; max-width: 240px; line-height: 1.25; font-size: 11px;">' .
+                                 '<strong>Reason:</strong> ' . e($referral->rejection_reason) . 
+                                 '</div>';
+                    }
+
+                    return $html;
                 })
                 ->addColumn('date', function($referral) {
                     return $referral->created_at->format('d M Y H:i');

@@ -167,6 +167,12 @@ class ReferralController extends Controller
                         $badges .= ' <span class="badge bg-warning mt-1">Pending Approval</span>';
                     }
                     
+                    if (($referral->approval_status === 'rejected' || $referral->status === 'rejected') && !empty($referral->rejection_reason)) {
+                        $badges .= '<div class="mt-1 text-danger small text-wrap" style="white-space: normal; min-width: 140px; max-width: 240px; line-height: 1.25; font-size: 11px;">' .
+                                   '<strong>Reason:</strong> ' . e($referral->rejection_reason) . 
+                                   '</div>';
+                    }
+                    
                     return $badges;
                 })
                 ->addColumn('approved_by', function($referral) {

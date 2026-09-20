@@ -3673,11 +3673,13 @@ class ClaimController extends Controller
         $admissionDate = $claim->admission_date ?: ($admission->admission_date ?? null);
         $dischargeDate = $claim->discharge_date ?: ($admission->discharge_date ?? null);
 
+        $patientPhone = $this->resolveClaimPatientPhone($claim);
+
         // Debug logging
         \Log::info('Claim ID: ' . $claim->id . ', Medications count: ' . count($medications));
         \Log::info('Medications data: ' . json_encode($medications));
 
-        return view('claims.facility-claim-show', compact('claim', 'referral', 'medications', 'services', 'provisionalDiagnoses', 'confirmedDiagnoses', 'consultations', 'vitalSigns', 'actions', 'submittedByName', 'verifierName', 'approverName', 'esName', 'financeName', 'userPermissions', 'supportingDocuments', 'admissionDate', 'dischargeDate'));
+        return view('claims.facility-claim-show', compact('claim', 'referral', 'medications', 'services', 'provisionalDiagnoses', 'confirmedDiagnoses', 'consultations', 'vitalSigns', 'actions', 'submittedByName', 'verifierName', 'approverName', 'esName', 'financeName', 'userPermissions', 'supportingDocuments', 'admissionDate', 'dischargeDate', 'patientPhone'));
     }
 
     /**
@@ -4614,9 +4616,10 @@ class ClaimController extends Controller
         }
         $admissionDate = $claim->admission_date ?: ($admission->admission_date ?? null);
         $dischargeDate = $claim->discharge_date ?: ($admission->discharge_date ?? null);
+        $patientPhone = $this->resolveClaimPatientPhone($claim);
 
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('claims.facility-claim-pdf', compact(
-            'claim', 'medications', 'services', 'diagnosisText', 'logoPath', 'admissionDate', 'dischargeDate'
+            'claim', 'medications', 'services', 'diagnosisText', 'logoPath', 'admissionDate', 'dischargeDate', 'patientPhone'
         ));
         $pdf->setPaper('a4', 'portrait');
 
@@ -4630,6 +4633,38 @@ class ClaimController extends Controller
     public function downloadFacilityClaim($id)
     {
         return $this->downloadFacilityClaimPdf($id);
+    }
+
+    /**
+     * Resolve patient phone number from claim or beneficiary records.
+     */
+    private function resolveClaimPatientPhone($claim)
+    {
+        $patientPhone = $claim->phone_number ?? null;
+        if (empty($patientPhone) && !empty($claim->enrollee_number)) {
+            $ben = DB::table('beneficiaries')->where('boschma_no', $claim->enrollee_number)->first();
+            if ($ben) {
+                $patientPhone = $ben->phone_no ?? ($ben->phone ?? null);
+            }
+            if (empty($patientPhone)) {
+                $spouse = DB::table('spouses')->where('boschma_no', $claim->enrollee_number)->first();
+                if ($spouse) {
+                    $patientPhone = $spouse->phone_no ?? ($spouse->phone ?? null);
+                    if (empty($patientPhone) && !empty($spouse->beneficiary_id)) {
+                        $pBen = DB::table('beneficiaries')->where('id', $spouse->beneficiary_id)->first();
+                        $patientPhone = $pBen->phone_no ?? ($pBen->phone ?? null);
+                    }
+                }
+            }
+            if (empty($patientPhone)) {
+                $child = DB::table('children')->where('boschma_no', $claim->enrollee_number)->first();
+                if ($child && !empty($child->beneficiary_id)) {
+                    $pBen = DB::table('beneficiaries')->where('id', $child->beneficiary_id)->first();
+                    $patientPhone = $pBen->phone_no ?? ($pBen->phone ?? null);
+                }
+            }
+        }
+        return $patientPhone;
     }
 }
 

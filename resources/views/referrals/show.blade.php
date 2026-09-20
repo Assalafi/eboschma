@@ -207,6 +207,11 @@
                                                             @else
                                                                 <span class="badge bg-warning ms-1">Pending Approval</span>
                                                             @endif
+                                                            @if(($referral->approval_status === 'rejected' || $referral->status === 'rejected') && $referral->rejection_reason)
+                                                                <div class="mt-2 p-2 bg-light rounded text-danger small border border-danger">
+                                                                    <strong>Rejection Reason:</strong> {{ $referral->rejection_reason }}
+                                                                </div>
+                                                            @endif
                                                         </td>
                                                     </tr>
                                                     @if($referral->approval_status === 'approved' && $referral->approved_by_name)
@@ -219,13 +224,17 @@
                                                                 @endif
                                                             </td>
                                                         </tr>
-                                                    @elseif($referral->approval_status === 'rejected' && $referral->rejected_by_name)
+                                                    @elseif($referral->approval_status === 'rejected' || $referral->status === 'rejected')
                                                         <tr>
                                                             <th>Rejected By:</th>
                                                             <td>
-                                                                <strong class="text-danger">{{ $referral->rejected_by_name }}</strong>
-                                                                @if($referral->rejected_at)
-                                                                    <br><small class="text-muted">{{ $referral->rejected_at->format('d M Y H:i') }}</small>
+                                                                @if($referral->rejected_by_name)
+                                                                    <strong class="text-danger">{{ $referral->rejected_by_name }}</strong>
+                                                                    @if($referral->rejected_at)
+                                                                        <br><small class="text-muted">{{ $referral->rejected_at->format('d M Y H:i') }}</small>
+                                                                    @endif
+                                                                @else
+                                                                    <span class="badge bg-danger">Rejected</span>
                                                                 @endif
                                                                 @if($referral->rejection_reason)
                                                                     <br><small class="text-danger">Reason: {{ $referral->rejection_reason }}</small>

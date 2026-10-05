@@ -34,44 +34,102 @@ class EhrReportExport implements WithMultipleSheets
     public function sheets(): array
     {
         $sheets = [];
+        $s = $this->section;
 
-        if ($this->section === 'all' || $this->section === 'overview') {
-            $sheets[] = new EmsKpiSheet($this->controller->exportKpis($this->facilityId, $this->programId, $this->dateFrom, $this->dateTo), $this->dateFrom, $this->dateTo);
-        }
-        if ($this->section === 'all' || $this->section === 'encounters') {
-            $sheets[] = new EmsEncountersByFacilitySheet($this->controller->exportEncountersByFacility($this->programId, $this->dateFrom, $this->dateTo));
-            $sheets[] = new EmsEncountersByStatusSheet($this->controller->exportEncountersByStatus($this->facilityId, $this->programId, $this->dateFrom, $this->dateTo));
-        }
-        if ($this->section === 'all' || $this->section === 'consultations') {
-            $sheets[] = new EmsTopDoctorsSheet($this->controller->exportTopDoctors($this->facilityId, $this->programId, $this->dateFrom, $this->dateTo));
-            $sheets[] = new EmsTopDiagnosesSheet($this->controller->exportTopDiagnoses($this->facilityId, $this->programId, $this->dateFrom, $this->dateTo));
-        }
-        if ($this->section === 'all' || $this->section === 'pharmacy') {
-            $sheets[] = new EmsTopDrugsSheet($this->controller->exportTopDrugs($this->facilityId, $this->programId, $this->dateFrom, $this->dateTo));
-        }
-        if ($this->section === 'all' || $this->section === 'laboratory') {
-            $sheets[] = new EmsTopLabTestsSheet($this->controller->exportTopLabTests($this->facilityId, $this->programId, $this->dateFrom, $this->dateTo));
-        }
-        if ($this->section === 'all' || $this->section === 'staff') {
-            $perf = $this->controller->exportStaffPerformance($this->facilityId, $this->programId, $this->dateFrom, $this->dateTo);
-            $sheets[] = new EmsStaffDoctorsSheet($perf['doctors']);
-            $sheets[] = new EmsStaffNursesSheet($perf['nurses']);
-            $sheets[] = new EmsStaffPharmacistsSheet($perf['pharmacists']);
-            $sheets[] = new EmsStaffLabTechsSheet($perf['lab_techs']);
-            $sheets[] = new EmsStaffReceptionistsSheet($perf['receptionists']);
+        // Add a sheet, skipping if a sheet with the same title already exists
+        $add = function ($sheet) use (&$sheets) {
+            $title = method_exists($sheet, 'title') ? $sheet->title() : null;
+            foreach ($sheets as $existing) {
+                if ($title !== null && method_exists($existing, 'title') && $existing->title() === $title) {
+                    return;
+                }
+            }
+            $sheets[] = $sheet;
+        };
+
+        // 1. Overview KPIs
+        if ($s === 'all' || $s === 'overview') {
+            $add(new EmsKpiSheet($this->controller->exportKpis($this->facilityId, $this->programId, $this->dateFrom, $this->dateTo), $this->dateFrom, $this->dateTo));
         }
 
-        // Individual staff role sections (per-tab export on the Staff Performance card)
-        if (in_array($this->section, ['staff_doctors', 'staff_nurses', 'staff_pharmacists', 'staff_lab_techs', 'staff_receptionists'], true)) {
-            $perf = $this->controller->exportStaffPerformance($this->facilityId, $this->programId, $this->dateFrom, $this->dateTo);
-            if ($this->section === 'staff_doctors')       $sheets[] = new EmsStaffDoctorsSheet($perf['doctors']);
-            if ($this->section === 'staff_nurses')        $sheets[] = new EmsStaffNursesSheet($perf['nurses']);
-            if ($this->section === 'staff_pharmacists')   $sheets[] = new EmsStaffPharmacistsSheet($perf['pharmacists']);
-            if ($this->section === 'staff_lab_techs')     $sheets[] = new EmsStaffLabTechsSheet($perf['lab_techs']);
-            if ($this->section === 'staff_receptionists') $sheets[] = new EmsStaffReceptionistsSheet($perf['receptionists']);
+        // 2. Live Waiting Queue
+        if ($s === 'all' || $s === 'waiting_queue') {
+            $add(new EmsWaitingQueueSheet($this->controller->exportWaitingQueue($this->facilityId, $this->programId)));
         }
-        if ($this->section === 'all' || $this->section === 'facility_comparison') {
-            $sheets[] = new EmsFacilityComparisonSheet($this->controller->exportFacilityComparison($this->programId, $this->dateFrom, $this->dateTo));
+
+        // 3. Encounter analytics
+        if ($s === 'all' || $s === 'encounter_trend') {
+            $add(new EmsEncounterTrendSheet($this->controller->exportEncounterTrend($this->facilityId, $this->programId, $this->dateFrom, $this->dateTo)));
+        }
+        if ($s === 'all' || $s === 'encounters' || $s === 'encounters_by_facility') {
+            $add(new EmsEncountersByFacilitySheet($this->controller->exportEncountersByFacility($this->programId, $this->dateFrom, $this->dateTo)));
+        }
+        if ($s === 'all' || $s === 'encounters' || $s === 'encounters_by_status') {
+            $add(new EmsEncountersByStatusSheet($this->controller->exportEncountersByStatus($this->facilityId, $this->programId, $this->dateFrom, $this->dateTo)));
+        }
+        if ($s === 'all' || $s === 'encounters_by_program') {
+            $add(new EmsEncountersByProgramSheet($this->controller->exportEncountersByProgram($this->facilityId, $this->dateFrom, $this->dateTo)));
+        }
+        if ($s === 'all' || $s === 'visit_nature') {
+            $add(new EmsVisitNatureSheet($this->controller->exportEncountersByNature($this->facilityId, $this->programId, $this->dateFrom, $this->dateTo)));
+        }
+
+        // 4. Consultation metrics
+        if ($s === 'all' || $s === 'consultations' || $s === 'top_doctors') {
+            $add(new EmsTopDoctorsSheet($this->controller->exportTopDoctors($this->facilityId, $this->programId, $this->dateFrom, $this->dateTo)));
+        }
+        if ($s === 'all' || $s === 'consultations' || $s === 'top_diagnoses') {
+            $add(new EmsTopDiagnosesSheet($this->controller->exportTopDiagnoses($this->facilityId, $this->programId, $this->dateFrom, $this->dateTo)));
+        }
+        if ($s === 'all' || $s === 'consultation_summary') {
+            $add(new EmsConsultationSummarySheet($this->controller->exportConsultationStats($this->facilityId, $this->programId, $this->dateFrom, $this->dateTo)));
+        }
+
+        // 5. Pharmacy & medication
+        if ($s === 'all' || $s === 'pharmacy' || $s === 'top_drugs') {
+            $add(new EmsTopDrugsSheet($this->controller->exportTopDrugs($this->facilityId, $this->programId, $this->dateFrom, $this->dateTo)));
+        }
+        if ($s === 'all' || $s === 'pharmacy_summary') {
+            $add(new EmsPharmacySummarySheet($this->controller->exportPharmacyStats($this->facilityId, $this->programId, $this->dateFrom, $this->dateTo)));
+        }
+        if ($s === 'all' || $s === 'dispensation_trend') {
+            $add(new EmsDispensationTrendSheet($this->controller->exportDispensationTrend($this->facilityId, $this->programId, $this->dateFrom, $this->dateTo)));
+        }
+
+        // 6. Laboratory / services
+        if ($s === 'all' || $s === 'laboratory' || $s === 'top_lab_tests') {
+            $add(new EmsTopLabTestsSheet($this->controller->exportTopLabTests($this->facilityId, $this->programId, $this->dateFrom, $this->dateTo)));
+        }
+        if ($s === 'all' || $s === 'lab_summary') {
+            $add(new EmsLabSummarySheet($this->controller->exportLabStats($this->facilityId, $this->programId, $this->dateFrom, $this->dateTo)));
+        }
+
+        // 7. Staff performance
+        if ($s === 'all' || $s === 'staff') {
+            $perf = $this->controller->exportStaffPerformance($this->facilityId, $this->programId, $this->dateFrom, $this->dateTo);
+            $add(new EmsStaffDoctorsSheet($perf['doctors']));
+            $add(new EmsStaffNursesSheet($perf['nurses']));
+            $add(new EmsStaffPharmacistsSheet($perf['pharmacists']));
+            $add(new EmsStaffLabTechsSheet($perf['lab_techs']));
+            $add(new EmsStaffReceptionistsSheet($perf['receptionists']));
+        }
+        if (in_array($s, ['staff_doctors', 'staff_nurses', 'staff_pharmacists', 'staff_lab_techs', 'staff_receptionists'], true)) {
+            $perf = $this->controller->exportStaffPerformance($this->facilityId, $this->programId, $this->dateFrom, $this->dateTo);
+            if ($s === 'staff_doctors')       $add(new EmsStaffDoctorsSheet($perf['doctors']));
+            if ($s === 'staff_nurses')        $add(new EmsStaffNursesSheet($perf['nurses']));
+            if ($s === 'staff_pharmacists')   $add(new EmsStaffPharmacistsSheet($perf['pharmacists']));
+            if ($s === 'staff_lab_techs')     $add(new EmsStaffLabTechsSheet($perf['lab_techs']));
+            if ($s === 'staff_receptionists') $add(new EmsStaffReceptionistsSheet($perf['receptionists']));
+        }
+
+        // 8. Facility comparison
+        if ($s === 'all' || $s === 'facility_comparison') {
+            $add(new EmsFacilityComparisonSheet($this->controller->exportFacilityComparison($this->programId, $this->dateFrom, $this->dateTo)));
+        }
+
+        // Fallback so the workbook is never empty
+        if (empty($sheets)) {
+            $add(new EmsKpiSheet($this->controller->exportKpis($this->facilityId, $this->programId, $this->dateFrom, $this->dateTo), $this->dateFrom, $this->dateTo));
         }
 
         return $sheets;
@@ -272,6 +330,138 @@ class EmsStaffReceptionistsSheet implements FromCollection, WithHeadings, WithTi
     }
     public function headings(): array { return ['Receptionist', 'Facility', 'Encounters Registered', 'Unique Patients', 'Active Days', 'Avg/Day']; }
     public function title(): string { return 'Receptionists Performance'; }
+}
+
+// ── Waiting Queue ─────────────────────────────────────────────────────
+class EmsWaitingQueueSheet implements FromCollection, WithHeadings, WithTitle, ShouldAutoSize, WithStyles
+{
+    use EmsSheetStyle;
+    protected $data;
+    public function __construct($data) { $this->data = $data; }
+    public function collection()
+    {
+        $rows = new Collection();
+        foreach (($this->data['by_facility'] ?? collect()) as $f) {
+            $rows->push([$f->facility_name, $f->registered, $f->triaged, $f->in_consultation, $f->awaiting_lab, $f->awaiting_pharmacy]);
+        }
+        if ($rows->isEmpty()) {
+            $rows->push(['All Facilities', $this->data['registered'] ?? 0, $this->data['triaged'] ?? 0, $this->data['in_consultation'] ?? 0, $this->data['awaiting_lab'] ?? 0, $this->data['awaiting_pharmacy'] ?? 0]);
+        }
+        return $rows;
+    }
+    public function headings(): array { return ['Facility', 'Registered', 'Triaged', 'In Consultation', 'Awaiting Lab', 'Awaiting Pharmacy']; }
+    public function title(): string { return 'Waiting Queue'; }
+}
+
+// ── Encounter Trend ───────────────────────────────────────────────────
+class EmsEncounterTrendSheet implements FromCollection, WithHeadings, WithTitle, ShouldAutoSize, WithStyles
+{
+    use EmsSheetStyle;
+    protected $data;
+    public function __construct($data) { $this->data = $data; }
+    public function collection() { return new Collection($this->data->map(fn($r) => [$r->date, $r->count])); }
+    public function headings(): array { return ['Date', 'Encounters']; }
+    public function title(): string { return 'Encounter Trend'; }
+}
+
+// ── Encounters by Program ─────────────────────────────────────────────
+class EmsEncountersByProgramSheet implements FromCollection, WithHeadings, WithTitle, ShouldAutoSize, WithStyles
+{
+    use EmsSheetStyle;
+    protected $data;
+    public function __construct($data) { $this->data = $data; }
+    public function collection() { return new Collection($this->data->map(fn($r) => [$r->program_name, $r->total, $r->completed])); }
+    public function headings(): array { return ['Program', 'Total Encounters', 'Completed']; }
+    public function title(): string { return 'Encounters by Program'; }
+}
+
+// ── Visit Nature ──────────────────────────────────────────────────────
+class EmsVisitNatureSheet implements FromCollection, WithHeadings, WithTitle, ShouldAutoSize, WithStyles
+{
+    use EmsSheetStyle;
+    protected $data;
+    public function __construct($data) { $this->data = $data; }
+    public function collection() { return new Collection($this->data->map(fn($r) => [$r->nature_of_visit ?: 'Not specified', $r->count])); }
+    public function headings(): array { return ['Visit Nature', 'Count']; }
+    public function title(): string { return 'Visit Nature'; }
+}
+
+// ── Consultation Summary ──────────────────────────────────────────────
+class EmsConsultationSummarySheet implements FromCollection, WithHeadings, WithTitle, ShouldAutoSize, WithStyles
+{
+    use EmsSheetStyle;
+    protected $data;
+    public function __construct($data) { $this->data = $data; }
+    public function collection()
+    {
+        $d = $this->data;
+        return new Collection([
+            ['Total Consultations', $d['total'] ?? 0],
+            ['Completed', $d['completed'] ?? 0],
+            ['With Diagnosis', $d['with_diagnosis'] ?? 0],
+            ['With Prescription', $d['with_prescription'] ?? 0],
+            ['Total Diagnoses', $d['total_diagnoses'] ?? 0],
+            ['Avg Diagnoses/Consult', $d['avg_diagnoses'] ?? 0],
+        ]);
+    }
+    public function headings(): array { return ['Metric', 'Value']; }
+    public function title(): string { return 'Consultation Summary'; }
+}
+
+// ── Pharmacy Summary ──────────────────────────────────────────────────
+class EmsPharmacySummarySheet implements FromCollection, WithHeadings, WithTitle, ShouldAutoSize, WithStyles
+{
+    use EmsSheetStyle;
+    protected $data;
+    public function __construct($data) { $this->data = $data; }
+    public function collection()
+    {
+        $d = $this->data;
+        return new Collection([
+            ['Total Prescriptions', $d['total_prescriptions'] ?? 0],
+            ['Dispensed', $d['dispensed'] ?? 0],
+            ['Partially Dispensed', $d['partial'] ?? 0],
+            ['Pending', $d['pending'] ?? 0],
+            ['Total Rx Items', $d['total_items'] ?? 0],
+            ['Dispensed Items', $d['dispensed_items'] ?? 0],
+            ['Fulfillment Rate', ($d['fulfillment_rate'] ?? 0) . '%'],
+        ]);
+    }
+    public function headings(): array { return ['Metric', 'Value']; }
+    public function title(): string { return 'Pharmacy Summary'; }
+}
+
+// ── Dispensation Trend ────────────────────────────────────────────────
+class EmsDispensationTrendSheet implements FromCollection, WithHeadings, WithTitle, ShouldAutoSize, WithStyles
+{
+    use EmsSheetStyle;
+    protected $data;
+    public function __construct($data) { $this->data = $data; }
+    public function collection() { return new Collection($this->data->map(fn($r) => [$r->date, $r->qty, '₦' . number_format($r->cost, 2)])); }
+    public function headings(): array { return ['Date', 'Quantity Dispensed', 'Cost']; }
+    public function title(): string { return 'Dispensation Trend'; }
+}
+
+// ── Lab Summary ───────────────────────────────────────────────────────
+class EmsLabSummarySheet implements FromCollection, WithHeadings, WithTitle, ShouldAutoSize, WithStyles
+{
+    use EmsSheetStyle;
+    protected $data;
+    public function __construct($data) { $this->data = $data; }
+    public function collection()
+    {
+        $d = $this->data;
+        return new Collection([
+            ['Total Orders', $d['total'] ?? 0],
+            ['Completed', $d['completed'] ?? 0],
+            ['In Progress', $d['in_progress'] ?? 0],
+            ['Pending', $d['pending'] ?? 0],
+            ['Results Reported', $d['results_reported'] ?? 0],
+            ['Completion Rate', ($d['completion_rate'] ?? 0) . '%'],
+        ]);
+    }
+    public function headings(): array { return ['Metric', 'Value']; }
+    public function title(): string { return 'Lab Summary'; }
 }
 
 // ── Facility Comparison ───────────────────────────────────────────────

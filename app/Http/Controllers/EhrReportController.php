@@ -1334,4 +1334,9 @@ class EhrReportController extends Controller
     public function exportPharmacyStats($facilityId, $programId, $dateFrom, $dateTo) { return $this->getPharmacyStats($facilityId, $programId, $dateFrom, $dateTo); }
     public function exportLabStats($facilityId, $programId, $dateFrom, $dateTo) { return $this->getLabStats($facilityId, $programId, $dateFrom, $dateTo); }
     public function exportWaitingQueue($facilityId, $programId) { return $this->getWaitingQueue($facilityId, $programId); }
+    public function exportEncounterTrend($facilityId, $programId, $dateFrom, $dateTo) { return $this->getEncounterTrend($facilityId, $programId, $dateFrom, $dateTo); }
+    public function exportEncountersByProgram($facilityId, $dateFrom, $dateTo) { return $this->getEncountersByProgram($facilityId, $dateFrom, $dateTo); }
+    public function exportEncountersByNature($facilityId, $programId, $dateFrom, $dateTo) { return $this->getEncountersByNature($facilityId, $programId, $dateFrom, $dateTo); }
+    public function exportConsultationStats($facilityId, $programId, $dateFrom, $dateTo) { return $this->getConsultationStats($facilityId, $programId, $dateFrom, $dateTo); }
+    public function exportDispensationTrend($facilityId, $programId, $dateFrom, $dateTo) { return $this->getDispensationTrend($facilityId, $programId, $dateFrom, $dateTo); }
 }

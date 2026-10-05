@@ -64,6 +64,10 @@
             </div>
 
             {{-- ── 1. Overview KPIs ─────────────────────────────────── --}}
+            <div id="sec-kpis" class="d-flex align-items-center justify-content-between mb-2">
+                <h3 class="card-title mb-0"><i class="fas fa-gauge-high text-primary me-2"></i>Overview KPIs</h3>
+                <a href="{{ route('reports.ehr.export', array_merge(request()->query(), ['section' => 'overview'])) }}" class="btn btn-sm btn-outline-primary"><i class="fas fa-download me-1"></i>Export</a>
+            </div>
             <div class="row row-deck row-cards mb-4">
                 @php
                     $kpiCards = [
@@ -98,10 +102,13 @@
             </div>
 
             {{-- ── 2. Live Waiting Queue Monitor ────────────────────── --}}
-            <div class="card mb-4 border-0 shadow-sm">
+            <div id="sec-waiting" class="card mb-4 border-0 shadow-sm">
                 <div class="card-header d-flex align-items-center justify-content-between">
                     <h3 class="card-title mb-0"><i class="fas fa-clock text-warning me-2"></i>Live Waiting Queue Monitor</h3>
-                    <span class="badge bg-{{ $waitingQueue['total_waiting'] > 0 ? 'warning' : 'success' }}">{{ $waitingQueue['total_waiting'] }} patients in queue</span>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-{{ $waitingQueue['total_waiting'] > 0 ? 'warning' : 'success' }}">{{ $waitingQueue['total_waiting'] }} patients in queue</span>
+                        <a href="{{ route('reports.ehr.export', array_merge(request()->query(), ['section' => 'waiting_queue'])) }}" class="btn btn-sm btn-outline-warning"><i class="fas fa-download me-1"></i>Export</a>
+                    </div>
                 </div>
                 <div class="card-body">
                     <div class="row g-3 mb-4">
@@ -152,10 +159,10 @@
             <div class="row g-4 mb-4">
                 {{-- Encounter Trend Chart --}}
                 <div class="col-lg-8">
-                    <div class="card border-0 shadow-sm h-100">
+                    <div id="sec-encounter-trend" class="card border-0 shadow-sm h-100">
                         <div class="card-header d-flex align-items-center justify-content-between">
                             <h3 class="card-title mb-0"><i class="fas fa-chart-line text-primary me-2"></i>Encounter Trend</h3>
-                            <a href="{{ route('reports.ehr.export', array_merge(request()->query(), ['section' => 'encounters'])) }}" class="btn btn-sm btn-outline-primary"><i class="fas fa-download me-1"></i>Export</a>
+                            <a href="{{ route('reports.ehr.export', array_merge(request()->query(), ['section' => 'encounter_trend'])) }}" class="btn btn-sm btn-outline-primary"><i class="fas fa-download me-1"></i>Export</a>
                         </div>
                         <div class="card-body">
                             <canvas id="encounterTrendChart" height="250"></canvas>
@@ -167,8 +174,11 @@
             <div class="row g-4 mb-4">
                 {{-- By Facility --}}
                 <div class="col-lg-6">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-header"><h3 class="card-title mb-0"><i class="fas fa-hospital text-success me-2"></i>Encounters by Facility</h3></div>
+                    <div id="sec-encounters-facility" class="card border-0 shadow-sm h-100">
+                        <div class="card-header d-flex align-items-center justify-content-between">
+                            <h3 class="card-title mb-0"><i class="fas fa-hospital text-success me-2"></i>Encounters by Facility</h3>
+                            <a href="{{ route('reports.ehr.export', array_merge(request()->query(), ['section' => 'encounters_by_facility'])) }}" class="btn btn-sm btn-outline-success"><i class="fas fa-download me-1"></i>Export</a>
+                        </div>
                         <div class="card-body p-0">
                             <div class="table-responsive">
                                 <table class="table table-sm table-hover mb-0">
@@ -197,8 +207,11 @@
                 </div>
                 {{-- By Program + Nature --}}
                 <div class="col-lg-3">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-header"><h3 class="card-title mb-0"><i class="fas fa-project-diagram text-purple me-2"></i>By Program</h3></div>
+                    <div id="sec-encounters-program" class="card border-0 shadow-sm h-100">
+                        <div class="card-header d-flex align-items-center justify-content-between">
+                            <h3 class="card-title mb-0"><i class="fas fa-project-diagram text-purple me-2"></i>By Program</h3>
+                            <a href="{{ route('reports.ehr.export', array_merge(request()->query(), ['section' => 'encounters_by_program'])) }}" class="btn btn-sm btn-outline-purple"><i class="fas fa-download"></i></a>
+                        </div>
                         <div class="card-body">
                             @foreach($encountersByProgram as $ep)
                             <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
@@ -214,8 +227,11 @@
                     </div>
                 </div>
                 <div class="col-lg-3">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-header"><h3 class="card-title mb-0"><i class="fas fa-tag text-cyan me-2"></i>Visit Nature</h3></div>
+                    <div id="sec-visit-nature" class="card border-0 shadow-sm h-100">
+                        <div class="card-header d-flex align-items-center justify-content-between">
+                            <h3 class="card-title mb-0"><i class="fas fa-tag text-cyan me-2"></i>Visit Nature</h3>
+                            <a href="{{ route('reports.ehr.export', array_merge(request()->query(), ['section' => 'visit_nature'])) }}" class="btn btn-sm btn-outline-cyan"><i class="fas fa-download"></i></a>
+                        </div>
                         <div class="card-body">
                             @foreach($encountersByNature as $en)
                             <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
@@ -232,10 +248,10 @@
             {{-- ── 4. Consultation Metrics ──────────────────────────── --}}
             <div class="row g-4 mb-4">
                 <div class="col-lg-4">
-                    <div class="card border-0 shadow-sm h-100">
+                    <div id="sec-consultation-summary" class="card border-0 shadow-sm h-100">
                         <div class="card-header d-flex align-items-center justify-content-between">
                             <h3 class="card-title mb-0"><i class="fas fa-stethoscope text-success me-2"></i>Consultation Summary</h3>
-                            <a href="{{ route('reports.ehr.export', array_merge(request()->query(), ['section' => 'consultations'])) }}" class="btn btn-sm btn-outline-success"><i class="fas fa-download me-1"></i>Export</a>
+                            <a href="{{ route('reports.ehr.export', array_merge(request()->query(), ['section' => 'consultation_summary'])) }}" class="btn btn-sm btn-outline-success"><i class="fas fa-download me-1"></i>Export</a>
                         </div>
                         <div class="card-body">
                             @php
@@ -263,8 +279,11 @@
                 </div>
                 {{-- Top Diagnoses --}}
                 <div class="col-lg-8">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-header"><h3 class="card-title mb-0"><i class="fas fa-disease text-danger me-2"></i>Top 20 Diagnoses</h3></div>
+                    <div id="sec-top-diagnoses" class="card border-0 shadow-sm h-100">
+                        <div class="card-header d-flex align-items-center justify-content-between">
+                            <h3 class="card-title mb-0"><i class="fas fa-disease text-danger me-2"></i>Top 20 Diagnoses</h3>
+                            <a href="{{ route('reports.ehr.export', array_merge(request()->query(), ['section' => 'top_diagnoses'])) }}" class="btn btn-sm btn-outline-danger"><i class="fas fa-download me-1"></i>Export</a>
+                        </div>
                         <div class="card-body p-0">
                             <div class="table-responsive" style="max-height:380px;overflow-y:auto">
                                 <table class="table table-sm table-hover mb-0">
@@ -289,10 +308,10 @@
             </div>
 
             {{-- ── Doctor Performance ───────────────────────────────── --}}
-            <div class="card mb-4 border-0 shadow-sm">
+            <div id="sec-doctor-performance" class="card mb-4 border-0 shadow-sm">
                 <div class="card-header d-flex align-items-center justify-content-between">
                     <h3 class="card-title mb-0"><i class="fas fa-user-md text-primary me-2"></i>Doctor Performance</h3>
-                    <a href="{{ route('reports.ehr.export', array_merge(request()->query(), ['section' => 'staff'])) }}" class="btn btn-sm btn-outline-primary"><i class="fas fa-download me-1"></i>Export Staff</a>
+                    <a href="{{ route('reports.ehr.export', array_merge(request()->query(), ['section' => 'top_doctors'])) }}" class="btn btn-sm btn-outline-primary"><i class="fas fa-download me-1"></i>Export</a>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
@@ -330,10 +349,10 @@
             {{-- ── 5. Pharmacy & Medication ─────────────────────────── --}}
             <div class="row g-4 mb-4">
                 <div class="col-lg-4">
-                    <div class="card border-0 shadow-sm h-100">
+                    <div id="sec-pharmacy-summary" class="card border-0 shadow-sm h-100">
                         <div class="card-header d-flex align-items-center justify-content-between">
                             <h3 class="card-title mb-0"><i class="fas fa-pills text-purple me-2"></i>Pharmacy Summary</h3>
-                            <a href="{{ route('reports.ehr.export', array_merge(request()->query(), ['section' => 'pharmacy'])) }}" class="btn btn-sm btn-outline-purple"><i class="fas fa-download me-1"></i>Export</a>
+                            <a href="{{ route('reports.ehr.export', array_merge(request()->query(), ['section' => 'pharmacy_summary'])) }}" class="btn btn-sm btn-outline-purple"><i class="fas fa-download me-1"></i>Export</a>
                         </div>
                         <div class="card-body">
                             <div class="mb-3">
@@ -361,8 +380,11 @@
                 </div>
                 {{-- Dispensation Trend --}}
                 <div class="col-lg-8">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-header"><h3 class="card-title mb-0"><i class="fas fa-chart-area text-warning me-2"></i>Dispensation Trend</h3></div>
+                    <div id="sec-dispensation-trend" class="card border-0 shadow-sm h-100">
+                        <div class="card-header d-flex align-items-center justify-content-between">
+                            <h3 class="card-title mb-0"><i class="fas fa-chart-area text-warning me-2"></i>Dispensation Trend</h3>
+                            <a href="{{ route('reports.ehr.export', array_merge(request()->query(), ['section' => 'dispensation_trend'])) }}" class="btn btn-sm btn-outline-warning"><i class="fas fa-download me-1"></i>Export</a>
+                        </div>
                         <div class="card-body">
                             <canvas id="dispensationTrendChart" height="220"></canvas>
                         </div>
@@ -371,8 +393,11 @@
             </div>
 
             {{-- Top Drugs --}}
-            <div class="card mb-4 border-0 shadow-sm">
-                <div class="card-header"><h3 class="card-title mb-0"><i class="fas fa-capsules text-teal me-2"></i>Top 20 Most Prescribed Drugs</h3></div>
+            <div id="sec-top-drugs" class="card mb-4 border-0 shadow-sm">
+                <div class="card-header d-flex align-items-center justify-content-between">
+                    <h3 class="card-title mb-0"><i class="fas fa-capsules text-teal me-2"></i>Top 20 Most Prescribed Drugs</h3>
+                    <a href="{{ route('reports.ehr.export', array_merge(request()->query(), ['section' => 'top_drugs'])) }}" class="btn btn-sm btn-outline-teal"><i class="fas fa-download me-1"></i>Export</a>
+                </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
                         <table class="table table-sm table-hover mb-0">
@@ -398,10 +423,10 @@
             {{-- ── 6. Laboratory / Services ─────────────────────────── --}}
             <div class="row g-4 mb-4">
                 <div class="col-lg-4">
-                    <div class="card border-0 shadow-sm h-100">
+                    <div id="sec-lab-summary" class="card border-0 shadow-sm h-100">
                         <div class="card-header d-flex align-items-center justify-content-between">
                             <h3 class="card-title mb-0"><i class="fas fa-flask text-cyan me-2"></i>Lab Summary</h3>
-                            <a href="{{ route('reports.ehr.export', array_merge(request()->query(), ['section' => 'laboratory'])) }}" class="btn btn-sm btn-outline-cyan"><i class="fas fa-download me-1"></i>Export</a>
+                            <a href="{{ route('reports.ehr.export', array_merge(request()->query(), ['section' => 'lab_summary'])) }}" class="btn btn-sm btn-outline-cyan"><i class="fas fa-download me-1"></i>Export</a>
                         </div>
                         <div class="card-body">
                             <div class="mb-3">
@@ -428,8 +453,11 @@
                 </div>
                 {{-- Top Lab Tests --}}
                 <div class="col-lg-8">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-header"><h3 class="card-title mb-0"><i class="fas fa-vials text-purple me-2"></i>Most Ordered Tests</h3></div>
+                    <div id="sec-top-lab-tests" class="card border-0 shadow-sm h-100">
+                        <div class="card-header d-flex align-items-center justify-content-between">
+                            <h3 class="card-title mb-0"><i class="fas fa-vials text-purple me-2"></i>Most Ordered Tests</h3>
+                            <a href="{{ route('reports.ehr.export', array_merge(request()->query(), ['section' => 'top_lab_tests'])) }}" class="btn btn-sm btn-outline-purple"><i class="fas fa-download me-1"></i>Export</a>
+                        </div>
                         <div class="card-body p-0">
                             <div class="table-responsive" style="max-height:380px;overflow-y:auto">
                                 <table class="table table-sm table-hover mb-0">
@@ -458,7 +486,7 @@
             </div>
 
             {{-- ── 7. Staff Performance ─────────────────────────────── --}}
-            <div class="card mb-4 border-0 shadow-sm">
+            <div id="sec-staff" class="card mb-4 border-0 shadow-sm">
                 <div class="card-header d-flex align-items-center justify-content-between">
                     <h3 class="card-title mb-0"><i class="fas fa-users-cog text-indigo me-2"></i>Staff Performance Overview</h3>
                     <a href="{{ route('reports.ehr.export', array_merge(request()->query(), ['section' => 'staff'])) }}" class="btn btn-sm btn-outline-indigo"><i class="fas fa-download me-1"></i>Export All Staff</a>
@@ -609,7 +637,7 @@
             </div>
 
             {{-- ── 8. Facility Comparison ───────────────────────────── --}}
-            <div class="card mb-4 border-0 shadow-sm">
+            <div id="sec-facility-comparison" class="card mb-4 border-0 shadow-sm">
                 <div class="card-header d-flex align-items-center justify-content-between">
                     <h3 class="card-title mb-0"><i class="fas fa-balance-scale text-teal me-2"></i>Facility Comparison</h3>
                     <a href="{{ route('reports.ehr.export', array_merge(request()->query(), ['section' => 'facility_comparison'])) }}" class="btn btn-sm btn-outline-teal"><i class="fas fa-download me-1"></i>Export</a>
@@ -680,6 +708,34 @@
         </div>
     </div>
 </div>
+{{-- ── Section Navigation Side Panel ─────────────────────── --}}
+<button type="button" class="ehr-panel-toggle" onclick="toggleEhrPanel()" title="Section navigation">
+    <i class="fas fa-list-ul"></i>
+</button>
+<nav class="ehr-side-panel" id="ehrSidePanel" aria-label="Section navigation">
+    <div class="ehr-side-panel-header">
+        <span><i class="fas fa-list-ul me-1"></i> Sections</span>
+        <button type="button" class="btn-close btn-close-white" onclick="toggleEhrPanel()" aria-label="Close"></button>
+    </div>
+    <ul class="ehr-side-panel-list">
+        <li><a href="#sec-kpis" data-target="sec-kpis"><i class="fas fa-gauge-high"></i> Overview KPIs</a></li>
+        <li><a href="#sec-waiting" data-target="sec-waiting"><i class="fas fa-clock"></i> Live Waiting Queue</a></li>
+        <li><a href="#sec-encounter-trend" data-target="sec-encounter-trend"><i class="fas fa-chart-line"></i> Encounter Trend</a></li>
+        <li><a href="#sec-encounters-facility" data-target="sec-encounters-facility"><i class="fas fa-hospital"></i> Encounters by Facility</a></li>
+        <li><a href="#sec-encounters-program" data-target="sec-encounters-program"><i class="fas fa-project-diagram"></i> By Program</a></li>
+        <li><a href="#sec-visit-nature" data-target="sec-visit-nature"><i class="fas fa-tag"></i> Visit Nature</a></li>
+        <li><a href="#sec-consultation-summary" data-target="sec-consultation-summary"><i class="fas fa-stethoscope"></i> Consultation Summary</a></li>
+        <li><a href="#sec-top-diagnoses" data-target="sec-top-diagnoses"><i class="fas fa-disease"></i> Top 20 Diagnoses</a></li>
+        <li><a href="#sec-doctor-performance" data-target="sec-doctor-performance"><i class="fas fa-user-md"></i> Doctor Performance</a></li>
+        <li><a href="#sec-pharmacy-summary" data-target="sec-pharmacy-summary"><i class="fas fa-pills"></i> Pharmacy Summary</a></li>
+        <li><a href="#sec-dispensation-trend" data-target="sec-dispensation-trend"><i class="fas fa-chart-area"></i> Dispensation Trend</a></li>
+        <li><a href="#sec-top-drugs" data-target="sec-top-drugs"><i class="fas fa-capsules"></i> Top 20 Drugs</a></li>
+        <li><a href="#sec-lab-summary" data-target="sec-lab-summary"><i class="fas fa-flask"></i> Lab Summary</a></li>
+        <li><a href="#sec-top-lab-tests" data-target="sec-top-lab-tests"><i class="fas fa-vials"></i> Most Ordered Tests</a></li>
+        <li><a href="#sec-staff" data-target="sec-staff"><i class="fas fa-users-cog"></i> Staff Performance</a></li>
+        <li><a href="#sec-facility-comparison" data-target="sec-facility-comparison"><i class="fas fa-balance-scale"></i> Facility Comparison</a></li>
+    </ul>
+</nav>
 @endsection
 
 @push('scripts')
@@ -938,6 +994,43 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 </script>
+<script>
+function toggleEhrPanel() {
+    var p = document.getElementById('ehrSidePanel');
+    if (p) p.classList.toggle('open');
+}
+document.addEventListener('DOMContentLoaded', function () {
+    var panel = document.getElementById('ehrSidePanel');
+    if (!panel) return;
+    var links = Array.prototype.slice.call(panel.querySelectorAll('a[data-target]'));
+
+    links.forEach(function (link) {
+        link.addEventListener('click', function (e) {
+            e.preventDefault();
+            var el = document.getElementById(link.dataset.target);
+            if (el) {
+                var y = el.getBoundingClientRect().top + window.pageYOffset - 70;
+                window.scrollTo({ top: y, behavior: 'smooth' });
+            }
+            panel.classList.remove('open');
+            history.replaceState(null, '', '#' + link.dataset.target);
+        });
+    });
+
+    // Highlight the section currently in view
+    var sections = links.map(function (l) { return document.getElementById(l.dataset.target); }).filter(Boolean);
+    if ('IntersectionObserver' in window && sections.length) {
+        var observer = new IntersectionObserver(function (entries) {
+            entries.forEach(function (entry) {
+                if (entry.isIntersecting) {
+                    links.forEach(function (l) { l.classList.toggle('active', l.dataset.target === entry.target.id); });
+                }
+            });
+        }, { rootMargin: '-80px 0px -72% 0px', threshold: 0 });
+        sections.forEach(function (s) { observer.observe(s); });
+    }
+});
+</script>
 @endpush
 
 @push('styles')
@@ -984,5 +1077,17 @@ document.addEventListener('DOMContentLoaded', function() {
 .drill-link:hover { opacity: .75; }
 a.badge.drill-link { border-bottom: none; }
 a.badge.drill-link:hover { filter: brightness(0.85); opacity: 1; }
+/* Section navigation side panel */
+.ehr-side-panel { position: fixed; top: 0; right: 0; height: 100vh; width: 260px; max-width: 85vw; background: #fff; border-left: 1px solid #e5e7eb; box-shadow: -4px 0 16px rgba(0,0,0,.08); z-index: 1055; transform: translateX(100%); transition: transform .25s ease; overflow-y: auto; }
+.ehr-side-panel.open { transform: translateX(0); }
+.ehr-side-panel-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #016634; color: #fff; font-weight: 600; font-size: 13px; position: sticky; top: 0; z-index: 1; }
+.ehr-side-panel-list { list-style: none; margin: 0; padding: 6px 0; }
+.ehr-side-panel-list a { display: flex; align-items: center; gap: 8px; padding: 8px 16px; font-size: 13px; color: #334155; text-decoration: none; border-left: 3px solid transparent; }
+.ehr-side-panel-list a:hover { background: #f1f5f9; }
+.ehr-side-panel-list a.active { color: #016634; font-weight: 600; border-left-color: #016634; background: #e6f7f0; }
+.ehr-side-panel-list a i { width: 16px; text-align: center; color: #94a3b8; }
+.ehr-side-panel-list a.active i { color: #016634; }
+.ehr-panel-toggle { position: fixed; right: 22px; bottom: 26px; z-index: 1054; width: 50px; height: 50px; border-radius: 50%; border: none; background: #016634; color: #fff; box-shadow: 0 6px 16px rgba(0,0,0,.22); font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.ehr-panel-toggle:hover { background: #014d27; }
 </style>
 @endpush

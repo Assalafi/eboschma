@@ -58,6 +58,17 @@ class EhrReportExport implements WithMultipleSheets
             $sheets[] = new EmsStaffNursesSheet($perf['nurses']);
             $sheets[] = new EmsStaffPharmacistsSheet($perf['pharmacists']);
             $sheets[] = new EmsStaffLabTechsSheet($perf['lab_techs']);
+            $sheets[] = new EmsStaffReceptionistsSheet($perf['receptionists']);
+        }
+
+        // Individual staff role sections (per-tab export on the Staff Performance card)
+        if (in_array($this->section, ['staff_doctors', 'staff_nurses', 'staff_pharmacists', 'staff_lab_techs', 'staff_receptionists'], true)) {
+            $perf = $this->controller->exportStaffPerformance($this->facilityId, $this->programId, $this->dateFrom, $this->dateTo);
+            if ($this->section === 'staff_doctors')       $sheets[] = new EmsStaffDoctorsSheet($perf['doctors']);
+            if ($this->section === 'staff_nurses')        $sheets[] = new EmsStaffNursesSheet($perf['nurses']);
+            if ($this->section === 'staff_pharmacists')   $sheets[] = new EmsStaffPharmacistsSheet($perf['pharmacists']);
+            if ($this->section === 'staff_lab_techs')     $sheets[] = new EmsStaffLabTechsSheet($perf['lab_techs']);
+            if ($this->section === 'staff_receptionists') $sheets[] = new EmsStaffReceptionistsSheet($perf['receptionists']);
         }
         if ($this->section === 'all' || $this->section === 'facility_comparison') {
             $sheets[] = new EmsFacilityComparisonSheet($this->controller->exportFacilityComparison($this->programId, $this->dateFrom, $this->dateTo));
@@ -248,6 +259,19 @@ class EmsStaffLabTechsSheet implements FromCollection, WithHeadings, WithTitle, 
     }
     public function headings(): array { return ['Lab Technician', 'Facility', 'Results Reported', 'Active Days', 'Avg/Day']; }
     public function title(): string { return 'Lab Technicians Performance'; }
+}
+
+class EmsStaffReceptionistsSheet implements FromCollection, WithHeadings, WithTitle, ShouldAutoSize, WithStyles
+{
+    use EmsSheetStyle;
+    protected $data;
+    public function __construct($data) { $this->data = $data; }
+    public function collection()
+    {
+        return new Collection($this->data->map(fn($r) => [$r->name, $r->facility_name ?? 'N/A', $r->total_encounters, $r->unique_patients, $r->active_days, $r->avg_per_day]));
+    }
+    public function headings(): array { return ['Receptionist', 'Facility', 'Encounters Registered', 'Unique Patients', 'Active Days', 'Avg/Day']; }
+    public function title(): string { return 'Receptionists Performance'; }
 }
 
 // ── Facility Comparison ───────────────────────────────────────────────

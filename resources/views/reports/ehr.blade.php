@@ -459,8 +459,9 @@
 
             {{-- ── 7. Staff Performance ─────────────────────────────── --}}
             <div class="card mb-4 border-0 shadow-sm">
-                <div class="card-header">
+                <div class="card-header d-flex align-items-center justify-content-between">
                     <h3 class="card-title mb-0"><i class="fas fa-users-cog text-indigo me-2"></i>Staff Performance Overview</h3>
+                    <a href="{{ route('reports.ehr.export', array_merge(request()->query(), ['section' => 'staff'])) }}" class="btn btn-sm btn-outline-indigo"><i class="fas fa-download me-1"></i>Export All Staff</a>
                 </div>
                 <div class="card-body">
                     <ul class="nav nav-tabs mb-3" id="staffTabs" role="tablist">
@@ -473,6 +474,9 @@
                     <div class="tab-content">
                         {{-- Doctors Tab --}}
                         <div class="tab-pane fade show active" id="staffDoctors">
+                            <div class="d-flex justify-content-end mb-2">
+                                <a href="{{ route('reports.ehr.export', array_merge(request()->query(), ['section' => 'staff_doctors'])) }}" class="btn btn-sm btn-outline-primary"><i class="fas fa-download me-1"></i>Export Doctors</a>
+                            </div>
                             <div class="table-responsive">
                                 <table class="table table-sm table-hover mb-0">
                                     <thead><tr class="text-muted small"><th>#</th><th>Name</th><th>Facility</th><th class="text-center">Consultations</th><th class="text-center">Completed</th><th class="text-center">Patients</th><th class="text-center">Days Active</th><th class="text-center">Avg/Day</th><th class="text-center">Rate</th></tr></thead>
@@ -502,6 +506,9 @@
                         </div>
                         {{-- Nurses Tab --}}
                         <div class="tab-pane fade" id="staffNurses">
+                            <div class="d-flex justify-content-end mb-2">
+                                <a href="{{ route('reports.ehr.export', array_merge(request()->query(), ['section' => 'staff_nurses'])) }}" class="btn btn-sm btn-outline-success"><i class="fas fa-download me-1"></i>Export Nurses</a>
+                            </div>
                             <div class="table-responsive">
                                 <table class="table table-sm table-hover mb-0">
                                     <thead><tr class="text-muted small"><th>#</th><th>Name</th><th>Facility</th><th class="text-center">Vitals Taken</th><th class="text-center">Patients</th><th class="text-center">Days Active</th><th class="text-center">Avg/Day</th></tr></thead>
@@ -524,6 +531,9 @@
                         </div>
                         {{-- Pharmacists Tab --}}
                         <div class="tab-pane fade" id="staffPharmacists">
+                            <div class="d-flex justify-content-end mb-2">
+                                <a href="{{ route('reports.ehr.export', array_merge(request()->query(), ['section' => 'staff_pharmacists'])) }}" class="btn btn-sm btn-outline-purple"><i class="fas fa-download me-1"></i>Export Pharmacists</a>
+                            </div>
                             <div class="table-responsive">
                                 <table class="table table-sm table-hover mb-0">
                                     <thead><tr class="text-muted small"><th>#</th><th>Name</th><th>Facility</th><th class="text-center">Dispensations</th><th class="text-center">Qty</th><th class="text-center">Total Cost</th><th class="text-center">Days Active</th><th class="text-center">Avg/Day</th></tr></thead>
@@ -547,6 +557,9 @@
                         </div>
                         {{-- Lab Techs Tab --}}
                         <div class="tab-pane fade" id="staffLabTechs">
+                            <div class="d-flex justify-content-end mb-2">
+                                <a href="{{ route('reports.ehr.export', array_merge(request()->query(), ['section' => 'staff_lab_techs'])) }}" class="btn btn-sm btn-outline-cyan"><i class="fas fa-download me-1"></i>Export Lab Techs</a>
+                            </div>
                             <div class="table-responsive">
                                 <table class="table table-sm table-hover mb-0">
                                     <thead><tr class="text-muted small"><th>#</th><th>Name</th><th>Facility</th><th class="text-center">Results Reported</th><th class="text-center">Days Active</th><th class="text-center">Avg/Day</th></tr></thead>
@@ -568,6 +581,9 @@
                         </div>
                         {{-- Receptionists Tab --}}
                         <div class="tab-pane fade" id="staffReceptionists">
+                            <div class="d-flex justify-content-end mb-2">
+                                <a href="{{ route('reports.ehr.export', array_merge(request()->query(), ['section' => 'staff_receptionists'])) }}" class="btn btn-sm btn-outline-orange"><i class="fas fa-download me-1"></i>Export Receptionists</a>
+                            </div>
                             <div class="table-responsive">
                                 <table class="table table-sm table-hover mb-0">
                                     <thead><tr class="text-muted small"><th>#</th><th>Name</th><th>Facility</th><th class="text-center">Encounters Registered</th><th class="text-center">Patients</th><th class="text-center">Days Active</th><th class="text-center">Avg/Day</th></tr></thead>

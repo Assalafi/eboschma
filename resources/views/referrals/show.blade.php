@@ -47,19 +47,6 @@
                 </div>
             </div>
             <div class="ref-hero-actions">
-                @if ($referral->approval_status === 'pending')
-                    @if ($canApproveReferral)
-                        <form id="approveReferralForm" action="{{ route('referrals.approve', $referral->id) }}" method="POST" class="d-inline">
-                            @csrf
-                            <button type="submit" class="btn btn-light"><i class="fas fa-check"></i> Approve</button>
-                        </form>
-                    @endif
-                    @if ($canRejectReferral)
-                        <button type="button" class="btn btn-outline-light" data-bs-toggle="modal" data-bs-target="#rejectReferralModal">
-                            <i class="fas fa-times"></i> Reject
-                        </button>
-                    @endif
-                @endif
                 <a href="{{ route('referrals.pdf', $referral->id) }}" target="_blank" class="btn btn-light">
                     <i class="fas fa-file-pdf"></i> PDF
                 </a>
@@ -335,6 +322,22 @@
                         @endforeach
                     @else
                         <div class="ref-empty mb-4">No consultations recorded for this encounter.</div>
+                    @endif
+
+                    @if ($referral->approval_status === 'pending' && ($canApproveReferral || $canRejectReferral))
+                        <div class="ref-approval-actions">
+                            @if ($canRejectReferral)
+                                <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#rejectReferralModal">
+                                    <i class="fas fa-times"></i> Reject
+                                </button>
+                            @endif
+                            @if ($canApproveReferral)
+                                <form id="approveReferralForm" action="{{ route('referrals.approve', $referral->id) }}" method="POST" class="d-inline">
+                                    @csrf
+                                    <button type="submit" class="btn btn-success"><i class="fas fa-check"></i> Approve</button>
+                                </form>
+                            @endif
+                        </div>
                     @endif
 
                     {{-- Encounter Actions --}}
@@ -621,6 +624,29 @@
         .ref-section-title { font-size: 14px; font-weight: 700; color: var(--ref-ink); margin: 4px 0 12px; display: flex; align-items: center; gap: 8px; }
         .ref-section-title i { color: var(--ref-primary); }
         .ref-section-title:not(:first-child) { margin-top: 26px; }
+
+        /* Approval actions */
+        .ref-approval-actions {
+            display: flex; justify-content: flex-end; align-items: center; gap: 10px;
+            margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--ref-border);
+        }
+        .ref-approval-actions .btn {
+            border-radius: 10px; font-weight: 600;
+            display: inline-flex; align-items: center; gap: 6px;
+        }
+        .ref-approval-actions .btn-success {
+            background: var(--ref-primary); border-color: var(--ref-primary);
+        }
+        .ref-approval-actions .btn-success:hover,
+        .ref-approval-actions .btn-success:focus {
+            background: var(--ref-primary-dark); border-color: var(--ref-primary-dark);
+        }
+        .ref-approval-actions .btn-outline-danger {
+            color: var(--ref-danger); border-color: rgba(239,68,68,.45);
+        }
+        .ref-approval-actions .btn-outline-danger:hover {
+            background: var(--ref-danger); border-color: var(--ref-danger); color: #fff;
+        }
 
         /* Empty states */
         .ref-empty { text-align: center; padding: 26px; color: var(--ref-muted); background: #f8fafc; border: 1px dashed var(--ref-border); border-radius: 12px; font-size: 13px; }

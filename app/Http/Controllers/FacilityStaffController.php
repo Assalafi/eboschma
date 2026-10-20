@@ -35,8 +35,15 @@ class FacilityStaffController extends Controller
                 $query->where('staff_position_id', $request->staff_position_id);
             }
 
-            // DataTables sends search as array with 'value' key
+            if ($request->filled('is_active')) {
+                $query->where('is_active', $request->is_active == '1');
+            }
+
+            // Support both DataTables' nested search[value] and a flat search string
             $searchValue = $request->input('search.value');
+            if (empty($searchValue) && is_string($request->input('search'))) {
+                $searchValue = $request->input('search');
+            }
             if (!empty($searchValue)) {
                 $query->where(function($q) use ($searchValue) {
                     $q->where('name', 'LIKE', "%{$searchValue}%")
@@ -69,25 +76,39 @@ class FacilityStaffController extends Controller
                     }
                     return '<span class="text-muted">No photo</span>';
                 })
+                ->addColumn('status_badge', function ($user) {
+                    return $user->is_active
+                        ? '<span class="st-badge is-active"><span class="st-dot"></span>Active</span>'
+                        : '<span class="st-badge is-inactive"><span class="st-dot"></span>Inactive</span>';
+                })
                 ->addColumn('action', function ($user) {
-                    $actions = '<a href="' . route('facility-staff.edit', $user->id) . '" class="btn btn-sm btn-primary me-1" title="Edit">
-                                    <i class="fe fe-edit"></i>
-                                </a>';
-                    
-                    $actions .= '<form action="' . route('facility-staff.destroy', $user->id) . '" method="POST" style="display: inline;">
-                                    ' . csrf_field() . '
-                                    ' . method_field('DELETE') . '
-                                    <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm(\'Are you sure?\')" title="Delete">
-                                        <i class="fe fe-trash"></i>
-                                    </button>
-                                </form>';
-                    
+                    $staffUser = auth('staff')->user();
+                    $canEdit = $staffUser && $staffUser->can('facility-staff.edit');
+                    $canDelete = $staffUser && $staffUser->can('facility-staff.delete');
+
+                    $actions = '<div class="st-actions">';
+
+                    if ($canEdit) {
+                        $actions .= $user->is_active
+                            ? '<button type="button" class="btn btn-sm btn-outline-warning js-toggle-status" data-url="' . route('facility-staff.toggle-status', $user->id) . '" data-active="1" title="Deactivate"><i class="fe fe-user-x"></i></button>'
+                            : '<button type="button" class="btn btn-sm btn-outline-success js-toggle-status" data-url="' . route('facility-staff.toggle-status', $user->id) . '" data-active="0" title="Activate"><i class="fe fe-user-check"></i></button>';
+                        $actions .= '<a href="' . route('facility-staff.edit', $user->id) . '" class="btn btn-sm btn-outline-primary" title="Edit"><i class="fe fe-edit"></i></a>';
+                    }
+
+                    if ($canDelete) {
+                        $actions .= '<form action="' . route('facility-staff.destroy', $user->id) . '" method="POST" class="d-inline" onsubmit="return confirm(\'Delete this staff member?\')">'
+                            . csrf_field() . method_field('DELETE')
+                            . '<button type="submit" class="btn btn-sm btn-outline-danger" title="Delete"><i class="fe fe-trash"></i></button></form>';
+                    }
+
+                    $actions .= '</div>';
+
                     return $actions;
                 })
                 ->addColumn('created_at_formatted', function ($user) {
                     return $user->created_at->format('M d, Y');
                 })
-                ->rawColumns(['passport', 'action'])
+                ->rawColumns(['passport', 'status_badge', 'action'])
                 ->make(true);
         }
 
@@ -96,6 +117,8 @@ class FacilityStaffController extends Controller
         $roles = DB::table('roles')->where(['guard_name' => 'web'])->get();
         $stats = [
             'total' => User::count(),
+            'active' => User::where('is_active', true)->count(),
+            'inactive' => User::where('is_active', false)->count(),
             'with_photo' => User::whereNotNull('passport')->count(),
         ];
 
@@ -269,6 +292,36 @@ class FacilityStaffController extends Controller
             return back()->with('error', 'Failed to update facility staff. Please try again.')
                 ->withInput();
         }
+    }
+
+    /**
+     * Activate or deactivate the specified staff member.
+     */
+    public function toggleStatus(Request $request, string $id)
+    {
+        $user = User::findOrFail($id);
+        $user->is_active = !$user->is_active;
+        $user->save();
+
+        $message = $user->is_active
+            ? 'Staff member activated successfully.'
+            : 'Staff member deactivated successfully.';
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'is_active' => (bool) $user->is_active,
+                'message' => $message,
+                'stats' => [
+                    'total' => User::count(),
+                    'active' => User::where('is_active', true)->count(),
+                    'inactive' => User::where('is_active', false)->count(),
+                    'with_photo' => User::whereNotNull('passport')->count(),
+                ],
+            ]);
+        }
+
+        return back()->with('success', $message);
     }
 
     /**

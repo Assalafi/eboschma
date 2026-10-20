@@ -224,6 +224,7 @@ Route::middleware(['auth:staff,web'])->group(function () {
         Route::post('/', [\App\Http\Controllers\FacilityStaffController::class, 'store'])->name('store')->middleware('permission:facility-staff.create,staff');
         Route::get('/{staff}/edit', [\App\Http\Controllers\FacilityStaffController::class, 'edit'])->name('edit')->middleware('permission:facility-staff.edit,staff');
         Route::put('/{staff}', [\App\Http\Controllers\FacilityStaffController::class, 'update'])->name('update')->middleware('permission:facility-staff.edit,staff');
+        Route::patch('/{staff}/toggle-status', [\App\Http\Controllers\FacilityStaffController::class, 'toggleStatus'])->name('toggle-status')->middleware('permission:facility-staff.edit,staff');
         Route::delete('/{staff}', [\App\Http\Controllers\FacilityStaffController::class, 'destroy'])->name('destroy')->middleware('permission:facility-staff.delete,staff');
     });
 
@@ -454,6 +455,7 @@ Route::middleware(['auth:staff,web'])->group(function () {
     Route::middleware(['permission:staff.edit,staff'])->group(function () {
         Route::get('staff/{staff}/edit', [App\Http\Controllers\Admin\StaffController::class, 'edit'])->name('staff.edit');
         Route::put('staff/{staff}', [App\Http\Controllers\Admin\StaffController::class, 'update'])->name('staff.update');
+        Route::patch('staff/{staff}/toggle-status', [App\Http\Controllers\Admin\StaffController::class, 'toggleStatus'])->name('staff.toggle-status');
     });
     
     Route::middleware(['permission:staff.delete,staff'])->group(function () {

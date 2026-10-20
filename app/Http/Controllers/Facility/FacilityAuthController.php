@@ -40,6 +40,22 @@ class FacilityAuthController extends Controller
 
         $credentials = $request->only('email', 'password');
 
+        $candidate = \App\Models\User::where('email', $request->email)->first();
+        if ($candidate && !$candidate->is_active) {
+            Log::warning('Deactivated facility staff login attempt', [
+                'email' => $request->email,
+                'ip_address' => $request->ip(),
+            ]);
+
+            return back()
+                ->withInput($request->only('email', 'remember'))
+                ->withErrors([
+                    'email' => 'Your account has been deactivated. Please contact an administrator.',
+                ]);
+        }
+
+        $credentials['is_active'] = 1;
+
         if (Auth::guard('web')->attempt($credentials, $request->filled('remember'))) {
             $request->session()->regenerate();
             

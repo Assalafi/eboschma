@@ -16,6 +16,7 @@ class StaffController extends Controller
     public function index(Request $request)
     {
         $search = trim($request->get('search', ''));
+        $status = $request->get('status', '');
 
         $staff = Staff::with('roles')
             ->when($search, function ($query) use ($search) {
@@ -25,10 +26,23 @@ class StaffController extends Controller
                       ->orWhere('phone',    'like', '%' . $search . '%');
                 });
             })
+            ->when($status === 'active', function ($query) {
+                $query->where('is_active', true);
+            })
+            ->when($status === 'inactive', function ($query) {
+                $query->where('is_active', false);
+            })
             ->paginate(15)
             ->withQueryString();
 
-        return view('admin.staff.index', compact('staff', 'search'));
+        $stats = [
+            'total' => Staff::count(),
+            'active' => Staff::where('is_active', true)->count(),
+            'inactive' => Staff::where('is_active', false)->count(),
+            'with_roles' => Staff::has('roles')->count(),
+        ];
+
+        return view('admin.staff.index', compact('staff', 'search', 'status', 'stats'));
     }
 
     /**
@@ -135,6 +149,43 @@ class StaffController extends Controller
 
         return redirect()->route('staff.index')
             ->with('success', 'Staff member updated successfully!');
+    }
+
+    /**
+     * Activate or deactivate the specified staff member.
+     */
+    public function toggleStatus(Request $request, Staff $staff)
+    {
+        if (auth('staff')->id() === $staff->id) {
+            $msg = 'You cannot activate or deactivate your own account.';
+
+            return ($request->expectsJson() || $request->ajax())
+                ? response()->json(['success' => false, 'message' => $msg], 422)
+                : back()->with('error', $msg);
+        }
+
+        $staff->is_active = !$staff->is_active;
+        $staff->save();
+
+        $message = $staff->is_active
+            ? 'Staff member activated successfully.'
+            : 'Staff member deactivated successfully.';
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'is_active' => (bool) $staff->is_active,
+                'message' => $message,
+                'stats' => [
+                    'total' => Staff::count(),
+                    'active' => Staff::where('is_active', true)->count(),
+                    'inactive' => Staff::where('is_active', false)->count(),
+                    'with_roles' => Staff::has('roles')->count(),
+                ],
+            ]);
+        }
+
+        return back()->with('success', $message);
     }
 
     /**

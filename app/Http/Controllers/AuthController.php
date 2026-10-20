@@ -42,7 +42,15 @@ class AuthController extends Controller
         
         if ($staff && Hash::check($request->password, $staff->password)) {
             \Log::info('Staff password check passed');
-            
+
+            if (!$staff->is_active) {
+                \Log::warning('Deactivated staff login attempt', ['email' => $staff->email]);
+
+                return back()->withErrors([
+                    'email' => 'Your account has been deactivated. Please contact an administrator.',
+                ])->withInput($request->only('email'));
+            }
+
             try {
                 Auth::guard('staff')->login($staff);
                 \Log::info('Staff login successful');
@@ -89,7 +97,9 @@ class AuthController extends Controller
 
         // If staff login fails, try regular user login
         \Log::info('Trying regular user login');
-        
+
+        $credentials['is_active'] = 1;
+
         try {
             if (Auth::attempt($credentials)) {
                 \Log::info('Regular user login successful');

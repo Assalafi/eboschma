@@ -36,6 +36,7 @@ class User extends Authenticatable
         'facility_id',
         'passport',
         'email_verified_at',
+        'is_active',
     ];
 
     /**
@@ -61,6 +62,7 @@ class User extends Authenticatable
             'role_id' => 'string',
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_active' => 'boolean',
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
         ];

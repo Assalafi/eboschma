@@ -25,12 +25,21 @@ class Staff extends Authenticatable
         'fullname',
         'phone',
         'password',
+        'is_active',
     ];
 
     protected $hidden = [
         'password',
         'remember_token',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'is_active' => 'boolean',
+            'email_verified_at' => 'datetime',
+        ];
+    }
 
     /**
      * Get the beneficiaries enrolled by this staff member (enumerator).

@@ -16,20 +16,26 @@
             </div>
             <div class="page-rightheader">
                 <div class="btn-list">
+                    @php
+                        $canApproveReferral = (auth('staff')->user()?->can('referral.approve'))
+                            || (auth()->user()?->can('referral.approve'));
+                        $canRejectReferral = (auth('staff')->user()?->can('referral.reject'))
+                            || (auth()->user()?->can('referral.reject'));
+                    @endphp
                     @if($referral->approval_status === 'pending')
-                        @can('referral.approve')
+                        @if($canApproveReferral)
                             <form action="{{ route('referrals.approve', $referral->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to approve this referral?');">
                                 @csrf
                                 <button type="submit" class="btn btn-success">
                                     <i class="ti-check mr-1"></i> Approve
                                 </button>
                             </form>
-                        @endcan
-                        @can('referral.reject')
+                        @endif
+                        @if($canRejectReferral)
                             <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#rejectModal">
                                 <i class="ti-close mr-1"></i> Reject
                             </button>
-                        @endcan
+                        @endif
                     @endif
                     
                     <a href="{{ route('referrals.pdf', $referral->id) }}" class="btn btn-primary" target="_blank">

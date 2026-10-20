@@ -55,31 +55,10 @@
                             request()->routeIs('referrals.create') ||
                             request()->routeIs('referrals.analytics') ||
                             request()->routeIs('referrals.settings')) active @endif">
-                        <a class="nav-link with-sub" href="javascript:void(0)">
+                        <a class="nav-link" href="{{ route('referrals.index') }}">
                             <i class="ti-share sidemenu-icon menu-icon text-dark"></i>
                             <span class="sidemenu-label text-dark">Referral System</span>
-                            <i class="angle fe fe-chevron-right text-dark"></i>
                         </a>
-                        <ul class="nav-sub">
-                            <li class="nav-sub-item">
-                                <a class="nav-sub-link text-dark @if (request()->routeIs('referrals.index')) active @endif"
-                                    href="{{ route('referrals.index') }}">All Referrals</a>
-                            </li>
-                            {{-- <li class="nav-sub-item">
-                                <a class="nav-sub-link text-dark @if (request()->routeIs('referrals.create')) active @endif"
-                                    href="{{ route('referrals.create') }}">Create Referral</a>
-                            </li> --}}
-                            {{-- <li class="nav-sub-item">
-                                <a class="nav-sub-link text-dark @if (request()->routeIs('referrals.analytics')) active @endif"
-                                    href="{{ route('referrals.analytics') }}">Analytics</a>
-                            </li>
-                            @can('referral.settings')
-                                <li class="nav-sub-item">
-                                    <a class="nav-sub-link text-dark @if (request()->routeIs('referrals.settings')) active @endif"
-                                        href="{{ route('referrals.settings') }}">Settings</a>
-                                </li>
-                            @endcan --}}
-                        </ul>
                     </li>
                 @endcan
                 @can('claim.view')
@@ -89,21 +68,10 @@
                             request()->routeIs('claims.edit') ||
                             request()->routeIs('claims.create') ||
                             request()->routeIs('claims.facility.list')) active @endif">
-                        <a class="nav-link with-sub" href="javascript:void(0)">
+                        <a class="nav-link" href="{{ route('claims.index') }}">
                             <i class="ti-receipt sidemenu-icon menu-icon text-dark"></i>
                             <span class="sidemenu-label text-dark">Claims</span>
-                            <i class="angle fe fe-chevron-right text-dark"></i>
                         </a>
-                        <ul class="nav-sub">
-                            <li class="nav-sub-item">
-                                <a class="nav-sub-link text-dark @if (request()->routeIs('claims.index')) active @endif"
-                                    href="{{ route('claims.index') }}">All Claims</a>
-                            </li>
-                            {{-- <li class="nav-sub-item">
-                                <a class="nav-sub-link text-dark @if (request()->routeIs('claims.create')) active @endif"
-                                    href="{{ route('claims.create') }}">New Claim</a>
-                            </li> --}}
-                        </ul>
                     </li>
                 @endcan
                 @can('id-card.view')

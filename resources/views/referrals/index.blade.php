@@ -3,175 +3,166 @@
 @section('title', 'Referrals Management')
 
 @section('content')
-    <div class="main-content app-content mt-0">
-        <div class="side-app">
-            <div class="main-container container-fluid">
-                <div class="page-header">
-                    <h1 class="page-title">Referrals Management</h1>
-                    <div>
-                        <ol class="breadcrumb">
-                            <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">Dashboard</a></li>
-                            <li class="breadcrumb-item active" aria-current="page">Referrals</li>
-                        </ol>
+    <div class="container-fluid ref-wrap">
+
+        {{-- PAGE HEAD --}}
+        <div class="ref-pagehead">
+            <div>
+                <div class="ref-eyebrow">
+                    <a href="{{ route('dashboard') }}">Dashboard</a><span>/</span><span>Referrals</span>
+                </div>
+                <h1 class="ref-title">Referrals Management</h1>
+                <p class="ref-subtitle">Review, approve and track patient &amp; service referrals across facilities</p>
+            </div>
+        </div>
+
+        {{-- STATS --}}
+        <div class="ref-stats">
+            <div class="ref-stat-card">
+                <div class="ref-stat-icon is-primary"><i class="fas fa-share-square"></i></div>
+                <div>
+                    <div class="ref-stat-label">Total Referrals</div>
+                    <div class="ref-stat-number" id="stat-total">{{ number_format($stats['total'] ?? 0) }}</div>
+                    <div class="ref-stat-note">All system referrals</div>
+                </div>
+            </div>
+            <div class="ref-stat-card">
+                <div class="ref-stat-icon is-success"><i class="fas fa-check-circle"></i></div>
+                <div>
+                    <div class="ref-stat-label">Accepted</div>
+                    <div class="ref-stat-number" id="stat-accepted">{{ number_format($stats['accepted'] ?? 0) }}</div>
+                    <div class="ref-stat-note">Approved referrals</div>
+                </div>
+            </div>
+            <div class="ref-stat-card">
+                <div class="ref-stat-icon is-info"><i class="fas fa-flag-checkered"></i></div>
+                <div>
+                    <div class="ref-stat-label">Completed</div>
+                    <div class="ref-stat-number" id="stat-completed">{{ number_format($stats['completed'] ?? 0) }}</div>
+                    <div class="ref-stat-note">Successfully completed</div>
+                </div>
+            </div>
+            <div class="ref-stat-card">
+                <div class="ref-stat-icon is-warning"><i class="fas fa-hourglass-half"></i></div>
+                <div>
+                    <div class="ref-stat-label">Pending</div>
+                    <div class="ref-stat-number" id="stat-pending">{{ number_format($stats['pending'] ?? 0) }}</div>
+                    <div class="ref-stat-note">Awaiting action</div>
+                </div>
+            </div>
+        </div>
+
+        {{-- FILTERS --}}
+        <div class="ref-panel">
+            <div class="ref-panel-head">
+                <h3><i class="fas fa-filter"></i> Filters</h3>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleRefFilters()">
+                    <i class="fas fa-sliders-h"></i> <span id="refFilterToggleText">Hide</span>
+                </button>
+            </div>
+            <div class="ref-panel-body" id="refFiltersBody">
+                <div class="row g-3">
+                    <div class="col-md-4 col-lg-3">
+                        <label class="form-label ref-field-label">Search</label>
+                        <div class="ref-input-icon">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="filter_search" class="form-control"
+                                placeholder="Auth code, patient, enrollee...">
+                        </div>
+                    </div>
+                    <div class="col-md-4 col-lg-2">
+                        <label class="form-label ref-field-label">Status</label>
+                        <select id="filter_status" class="form-select">
+                            <option value="">All Statuses</option>
+                            <option value="pending">Pending</option>
+                            <option value="approved">Approved</option>
+                            <option value="rejected">Rejected</option>
+                            <option value="completed">Completed</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 col-lg-2">
+                        <label class="form-label ref-field-label">Type</label>
+                        <select id="filter_type" class="form-select">
+                            <option value="">All Types</option>
+                            <option value="service">Service</option>
+                            <option value="patient">Patient</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 col-lg-3">
+                        <label class="form-label ref-field-label">Program</label>
+                        <select id="filter_program" class="form-select">
+                            <option value="">All Programs</option>
+                            @if (isset($programs))
+                                @foreach ($programs as $program)
+                                    <option value="{{ $program->id }}">{{ $program->name }}</option>
+                                @endforeach
+                            @endif
+                        </select>
+                    </div>
+                    <div class="col-md-4 col-lg-2">
+                        <label class="form-label ref-field-label">From Facility</label>
+                        <select id="filter_from_facility" class="form-select">
+                            <option value="">All Facilities</option>
+                            @if (isset($facilities))
+                                @foreach ($facilities as $facility)
+                                    <option value="{{ $facility->id }}">{{ $facility->name }}</option>
+                                @endforeach
+                            @endif
+                        </select>
+                    </div>
+                    <div class="col-md-4 col-lg-2">
+                        <label class="form-label ref-field-label">To Facility</label>
+                        <select id="filter_to_facility" class="form-select">
+                            <option value="">All Facilities</option>
+                            @if (isset($facilities))
+                                @foreach ($facilities as $facility)
+                                    <option value="{{ $facility->id }}">{{ $facility->name }}</option>
+                                @endforeach
+                            @endif
+                        </select>
+                    </div>
+                    <div class="col-md-4 col-lg-2">
+                        <label class="form-label ref-field-label">Start Date</label>
+                        <input type="date" id="filter_start_date" class="form-control">
+                    </div>
+                    <div class="col-md-4 col-lg-2">
+                        <label class="form-label ref-field-label">End Date</label>
+                        <input type="date" id="filter_end_date" class="form-control">
+                    </div>
+                    <div class="col-md-4 col-lg-2 d-flex align-items-end gap-2">
+                        <button type="button" id="btn_filter" class="btn btn-primary flex-fill">
+                            <i class="fas fa-filter"></i> Apply
+                        </button>
+                        <button type="button" id="btn_reset" class="btn btn-outline-secondary" title="Reset filters">
+                            <i class="fas fa-rotate-left"></i>
+                        </button>
                     </div>
                 </div>
+            </div>
+        </div>
 
-                <!-- Statistics Cards -->
-                <div class="row">
-                    <div class="col-sm-6 col-lg-3">
-                        <div class="card border-0 shadow-sm hover-lift" style="border-radius: 12px;">
-                            <div class="card-body">
-                                <div class="d-flex align-items-center">
-                                    <div class="subheader">Total Referrals</div>
-                                </div>
-                                <div class="h1 mb-3" id="stat-total">{{ $stats['total'] ?? 0 }}</div>
-                                <div class="d-flex mb-2">
-                                    <div>All system referrals</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-sm-6 col-lg-3">
-                        <div class="card border-0 shadow-sm hover-lift" style="border-radius: 12px;">
-                            <div class="card-body">
-                                <div class="d-flex align-items-center">
-                                    <div class="subheader">Accepted</div>
-                                </div>
-                                <div class="h1 mb-3" id="stat-accepted">{{ $stats['accepted'] ?? 0 }}</div>
-                                <div class="d-flex mb-2">
-                                    <div>✅ Referrals accepted</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-sm-6 col-lg-3">
-                        <div class="card border-0 shadow-sm hover-lift" style="border-radius: 12px;">
-                            <div class="card-body">
-                                <div class="d-flex align-items-center">
-                                    <div class="subheader">Completed</div>
-                                </div>
-                                <div class="h1 mb-3" id="stat-completed">{{ $stats['completed'] ?? 0 }}</div>
-                                <div class="d-flex mb-2">
-                                    <div>🎉 Successfully completed</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-sm-6 col-lg-3">
-                        <div class="card border-0 shadow-sm hover-lift" style="border-radius: 12px;">
-                            <div class="card-body">
-                                <div class="d-flex align-items-center">
-                                    <div class="subheader">Pending</div>
-                                </div>
-                                <div class="h1 mb-3" id="stat-pending">{{ $stats['pending'] ?? 0 }}</div>
-                                <div class="d-flex mb-2">
-                                    <div>Awaiting action</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Referrals Table -->
-                <div class="row mt-4">
-                    <div class="col-12">
-                        <div class="card shadow-sm">
-                            <div class="card-header">
-                                <h3 class="card-title">All Referrals</h3>
-                            </div>
-                            <div class="card-body">
-                                <!-- Filter Section -->
-                                <div class="row mb-4">
-                                    <div class="col-md-3 mb-3">
-                                        <label class="form-label small text-muted mb-1">Search</label>
-                                        <input type="text" id="filter_search" class="form-control"
-                                            placeholder="Auth code, patient, enrollee...">
-                                    </div>
-                                    <div class="col-md-2 mb-3">
-                                        <label class="form-label small text-muted mb-1">Status</label>
-                                        <select id="filter_status" class="form-select">
-                                            <option value="">All Statuses</option>
-                                            <option value="pending">Pending</option>
-                                            <option value="approved">Approved</option>
-                                            <option value="rejected">Rejected</option>
-                                            <option value="completed">Completed</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-2 mb-3">
-                                        <label class="form-label small text-muted mb-1">Type</label>
-                                        <select id="filter_type" class="form-select">
-                                            <option value="">All Types</option>
-                                            <option value="service">Service</option>
-                                            <option value="patient">Patient</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-2 mb-3">
-                                        <label class="form-label small text-muted mb-1">Program</label>
-                                        <select id="filter_program" class="form-select">
-                                            <option value="">All Programs</option>
-                                            @if(isset($programs))
-                                                @foreach($programs as $program)
-                                                    <option value="{{ $program->id }}">{{ $program->name }}</option>
-                                                @endforeach
-                                            @endif
-                                        </select>
-                                    </div>
-                                    <div class="col-md-3 mb-3">
-                                        <label class="form-label small text-muted mb-1">From Facility</label>
-                                        <select id="filter_from_facility" class="form-select">
-                                            <option value="">All Facilities</option>
-                                            @if(isset($facilities))
-                                                @foreach($facilities as $facility)
-                                                    <option value="{{ $facility->id }}">{{ $facility->name }}</option>
-                                                @endforeach
-                                            @endif
-                                        </select>
-                                    </div>
-                                    <div class="col-md-3 mb-3">
-                                        <label class="form-label small text-muted mb-1">To Facility</label>
-                                        <select id="filter_to_facility" class="form-select">
-                                            <option value="">All Facilities</option>
-                                            @if(isset($facilities))
-                                                @foreach($facilities as $facility)
-                                                    <option value="{{ $facility->id }}">{{ $facility->name }}</option>
-                                                @endforeach
-                                            @endif
-                                        </select>
-                                    </div>
-                                    <div class="col-md-3 mb-3">
-                                        <label class="form-label small text-muted mb-1">Start Date</label>
-                                        <input type="date" id="filter_start_date" class="form-control">
-                                    </div>
-                                    <div class="col-md-3 mb-3">
-                                        <label class="form-label small text-muted mb-1">End Date</label>
-                                        <input type="date" id="filter_end_date" class="form-control">
-                                    </div>
-                                    <div class="col-md-3 mb-3 d-flex align-items-end gap-2">
-                                        <button type="button" id="btn_filter" class="btn btn-primary"><i class="ti-filter"></i> Filter</button>
-                                        <button type="button" id="btn_reset" class="btn btn-light"><i class="ti-reload"></i> Reset</button>
-                                    </div>
-                                </div>
-
-                                <div class="table-responsive">
-                                    <table id="referralsTable" class="table table-bordered table-hover text-nowrap w-100">
-                                        <thead>
-                                            <tr>
-                                                <th>Auth code</th>
-                                                <th>Patient</th>
-                                                <th>Facility</th>
-                                                <th>Service</th>
-                                                <th>Status</th>
-                                                <th>Approved By</th>
-                                                <th>Date</th>
-                                                <th>Action</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody></tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+        {{-- TABLE --}}
+        <div class="ref-panel ref-table-panel">
+            <div class="ref-panel-head">
+                <h3><i class="fas fa-list-ul"></i> All Referrals</h3>
+                <span class="ref-count">Live</span>
+            </div>
+            <div class="ref-panel-body p-0">
+                <div class="table-responsive">
+                    <table id="referralsTable" class="table ref-dt mb-0 w-100">
+                        <thead>
+                            <tr>
+                                <th>Auth Code</th>
+                                <th>Patient</th>
+                                <th>Facility</th>
+                                <th>Status</th>
+                                <th>Approved By</th>
+                                <th>Date</th>
+                                <th class="text-end">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -183,13 +174,22 @@
         <script src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
 
         <script>
+            function toggleRefFilters() {
+                var body = document.getElementById('refFiltersBody');
+                if (!body) return;
+                var hidden = body.style.display === 'none';
+                body.style.display = hidden ? '' : 'none';
+                var t = document.getElementById('refFilterToggleText');
+                if (t) t.textContent = hidden ? 'Hide' : 'Show';
+            }
+
             $(document).ready(function() {
-                $('#referralsTable').on('xhr.dt', function (e, settings, json, xhr) {
+                var table = $('#referralsTable').on('xhr.dt', function(e, settings, json) {
                     if (json && json.stats) {
-                        $('#stat-total').text(json.stats.total);
-                        $('#stat-accepted').text(json.stats.accepted);
-                        $('#stat-completed').text(json.stats.completed);
-                        $('#stat-pending').text(json.stats.pending);
+                        $('#stat-total').text(Number(json.stats.total || 0).toLocaleString());
+                        $('#stat-accepted').text(Number(json.stats.accepted || 0).toLocaleString());
+                        $('#stat-completed').text(Number(json.stats.completed || 0).toLocaleString());
+                        $('#stat-pending').text(Number(json.stats.pending || 0).toLocaleString());
                     }
                 }).DataTable({
                     processing: true,
@@ -199,7 +199,7 @@
                     ajax: {
                         url: '{{ route('referrals.index') }}',
                         type: 'GET',
-                        data: function (d) {
+                        data: function(d) {
                             d.search = $('#filter_search').val();
                             d.program_id = $('#filter_program').val();
                             d.status = $('#filter_status').val();
@@ -210,75 +210,44 @@
                             d.end_date = $('#filter_end_date').val();
                         }
                     },
-                    columns: [{
-                            data: 'referral_info',
-                            name: 'id'
-                        },
-                        {
-                            data: 'patient_info',
-                            name: 'encounter.patient.firstname',
-                            orderable: false
-                        },
-                        {
-                            data: 'facility_info',
-                            name: 'from_facility_id',
-                            orderable: false
-                        },
-                        {
-                            data: 'reason',
-                            name: 'reason'
-                        },
-                        {
-                            data: 'status_badge',
-                            name: 'status'
-                        },
-                        {
-                            data: 'approved_by',
-                            name: 'approved_by',
-                            orderable: false,
-                            searchable: false
-                        },
-                        {
-                            data: 'date',
-                            name: 'created_at'
-                        },
-                        {
-                            data: 'action',
-                            name: 'action',
-                            orderable: false,
-                            searchable: false
-                        }
+                    columns: [
+                        { data: 'referral_info', name: 'id' },
+                        { data: 'patient_info', name: 'encounter.patient.firstname', orderable: false },
+                        { data: 'facility_info', name: 'from_facility_id', orderable: false },
+                        { data: 'status_badge', name: 'status' },
+                        { data: 'approved_by', name: 'approved_by', orderable: false, searchable: false },
+                        { data: 'date', name: 'created_at' },
+                        { data: 'action', name: 'action', orderable: false, searchable: false, className: 'text-end' }
                     ],
-                    order: [
-                        [6, 'desc']
-                    ],
+                    order: [[5, 'desc']],
                     pageLength: 25,
                     language: {
-                        processing: '<i class="fa fa-spinner fa-spin fa-3x fa-fw"></i><span class="sr-only">Loading...</span>'
+                        processing: '<span class="ref-dt-loading"><span class="spinner-border spinner-border-sm text-success"></span> Loading…</span>',
+                        emptyTable: 'No referrals found',
+                        zeroRecords: 'No matching referrals'
                     }
                 });
 
                 $('#btn_filter').click(function() {
-                    $('#referralsTable').DataTable().ajax.reload();
+                    table.ajax.reload();
                 });
 
-                // Auto-filter when changing dropdowns or dates
                 $('#filter_program, #filter_status, #filter_type, #filter_from_facility, #filter_to_facility, #filter_start_date, #filter_end_date').change(function() {
-                    $('#referralsTable').DataTable().ajax.reload();
+                    table.ajax.reload();
                 });
 
-                // Debounced search
                 var searchTimer;
                 $('#filter_search').on('keyup', function() {
                     clearTimeout(searchTimer);
                     searchTimer = setTimeout(function() {
-                        $('#referralsTable').DataTable().ajax.reload();
+                        table.ajax.reload();
                     }, 400);
                 });
 
                 $('#btn_reset').click(function() {
                     $('#filter_search, #filter_program, #filter_status, #filter_type, #filter_from_facility, #filter_to_facility, #filter_start_date, #filter_end_date').val('');
-                    $('#referralsTable').DataTable().ajax.reload();
+                    try { table.state.clear(); } catch (e) {}
+                    table.ajax.reload();
                 });
             });
 
@@ -295,7 +264,7 @@
                 form.appendChild(token);
 
                 if (data) {
-                    Object.keys(data).forEach(function (key) {
+                    Object.keys(data).forEach(function(key) {
                         var input = document.createElement('input');
                         input.type = 'hidden';
                         input.name = key;
@@ -314,11 +283,11 @@
                     text: 'Are you sure you want to approve this referral?',
                     type: 'success',
                     showCancelButton: true,
-                    confirmButtonColor: '#2fb344',
+                    confirmButtonColor: '#016634',
                     confirmButtonText: 'Yes, approve',
                     cancelButtonText: 'Cancel',
                     closeOnConfirm: true
-                }, function (confirmed) {
+                }, function(confirmed) {
                     if (confirmed) {
                         submitReferralAction('/referrals/' + id + '/approve');
                     }
@@ -334,10 +303,10 @@
                 modal.show();
             }
         </script>
-        
+
         <!-- Reject Modal -->
         <div class="modal fade" id="rejectModal" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog">
+            <div class="modal-dialog modal-dialog-centered">
                 <form id="rejectForm" method="POST">
                     @csrf
                     <div class="modal-content">
@@ -346,7 +315,7 @@
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
                         <div class="modal-body">
-                            <label for="rejectReasonInput" class="form-label">Rejection Reason <span class="text-danger">*</span></label>
+                            <label for="rejectReasonInput" class="form-label fw-semibold">Rejection Reason <span class="text-danger">*</span></label>
                             <textarea name="rejection_reason" id="rejectReasonInput" class="form-control" rows="3"
                                 placeholder="Explain why this referral is being rejected..." required></textarea>
                         </div>
@@ -358,5 +327,109 @@
                 </form>
             </div>
         </div>
+    @endpush
+
+    @push('styles')
+        <style>
+            :root {
+                --ref-primary: #016634;
+                --ref-primary-dark: #014525;
+                --ref-success: #10b981;
+                --ref-warning: #f59e0b;
+                --ref-info: #3b82f6;
+                --ref-danger: #ef4444;
+                --ref-border: #e2e8f0;
+                --ref-muted: #64748b;
+                --ref-ink: #0f172a;
+            }
+
+            .ref-wrap { padding-top: .25rem; }
+
+            /* Page head */
+            .ref-pagehead { margin-bottom: 18px; }
+            .ref-eyebrow { font-size: 12px; letter-spacing: .05em; text-transform: uppercase; color: var(--ref-muted); font-weight: 600; margin-bottom: 6px; }
+            .ref-eyebrow a { color: var(--ref-primary); text-decoration: none; }
+            .ref-eyebrow span { margin: 0 6px; opacity: .6; }
+            .ref-title { font-size: 24px; font-weight: 700; color: var(--ref-ink); margin: 0 0 4px; }
+            .ref-subtitle { color: var(--ref-muted); font-size: 13.5px; margin: 0; }
+
+            /* Stats */
+            .ref-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; margin-bottom: 18px; }
+            .ref-stat-card {
+                background: #fff; border: 1px solid var(--ref-border); border-radius: 14px;
+                padding: 16px 18px; display: flex; align-items: center; gap: 14px;
+                box-shadow: 0 1px 3px rgba(15,23,42,.04); transition: transform .15s ease, box-shadow .15s ease;
+            }
+            .ref-stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(15,23,42,.08); }
+            .ref-stat-icon {
+                width: 48px; height: 48px; border-radius: 12px; flex-shrink: 0;
+                display: flex; align-items: center; justify-content: center; font-size: 18px;
+            }
+            .ref-stat-icon.is-primary { background: rgba(1,102,52,.10); color: var(--ref-primary); }
+            .ref-stat-icon.is-success { background: rgba(16,185,129,.12); color: #059669; }
+            .ref-stat-icon.is-info { background: rgba(59,130,246,.12); color: #2563eb; }
+            .ref-stat-icon.is-warning { background: rgba(245,158,11,.14); color: #b45309; }
+            .ref-stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--ref-muted); font-weight: 700; }
+            .ref-stat-number { font-size: 24px; font-weight: 700; color: var(--ref-ink); line-height: 1.15; }
+            .ref-stat-note { font-size: 12px; color: var(--ref-muted); }
+
+            /* Panels */
+            .ref-panel { background: #fff; border: 1px solid var(--ref-border); border-radius: 16px; box-shadow: 0 1px 3px rgba(15,23,42,.04); margin-bottom: 18px; overflow: hidden; }
+            .ref-panel-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--ref-border); background: #f8fafc; }
+            .ref-panel-head h3 { margin: 0; font-size: 14px; font-weight: 700; color: var(--ref-ink); display: flex; align-items: center; gap: 8px; }
+            .ref-panel-head h3 i { color: var(--ref-primary); }
+            .ref-panel-body { padding: 18px; }
+            .ref-count { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #059669; background: rgba(16,185,129,.12); padding: 3px 10px; border-radius: 999px; }
+
+            .ref-field-label { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--ref-muted); font-weight: 700; margin-bottom: 6px; }
+            .ref-input-icon { position: relative; }
+            .ref-input-icon i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 13px; pointer-events: none; }
+            .ref-input-icon .form-control { padding-left: 32px; }
+
+            /* DataTable */
+            .ref-table-panel .dataTables_wrapper { padding: 0 0 4px; }
+            .ref-dt { border-collapse: collapse !important; font-size: 13px; }
+            .ref-dt thead th {
+                background: #f8fafc !important; color: var(--ref-muted) !important;
+                text-transform: uppercase; letter-spacing: .04em; font-size: 11px; font-weight: 700;
+                padding: 12px 16px !important; border-bottom: 1px solid var(--ref-border) !important;
+                border-top: none !important; white-space: nowrap;
+            }
+            .ref-dt tbody td { padding: 13px 16px !important; border-bottom: 1px solid #f1f5f9 !important; vertical-align: middle; }
+            .ref-dt tbody tr:hover td { background: #f8fafc !important; }
+            .ref-dt tbody tr:last-child td { border-bottom: none !important; }
+            .ref-dt-loading { display: inline-flex; align-items: center; gap: 8px; color: var(--ref-muted); font-size: 13px; }
+
+            .dataTables_wrapper .dataTables_length,
+            .dataTables_wrapper .dataTables_filter,
+            .dataTables_wrapper .dataTables_info,
+            .dataTables_wrapper .dataTables_paginate { padding: 12px 16px; font-size: 13px; color: var(--ref-muted); }
+            .dataTables_wrapper .dataTables_length select,
+            .dataTables_wrapper .dataTables_filter input { border: 1px solid var(--ref-border); border-radius: 8px; }
+            .dataTables_wrapper .dataTables_paginate .paginate_button.current,
+            .dataTables_wrapper .dataTables_paginate .paginate_button.current:hover {
+                background: var(--ref-primary) !important;
+                border-color: var(--ref-primary) !important;
+                color: #fff !important;
+                border-radius: 8px;
+            }
+            .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+                background: rgba(1,102,52,.08) !important;
+                border-color: transparent !important;
+                color: var(--ref-primary) !important;
+                border-radius: 8px;
+            }
+            table.dataTable thead .sorting:before,
+            table.dataTable thead .sorting_asc:before,
+            table.dataTable thead .sorting_desc:before { opacity: .35; }
+
+            .btn-primary { background-color: var(--ref-primary); border-color: var(--ref-primary); }
+            .btn-primary:hover, .btn-primary:focus { background-color: var(--ref-primary-dark); border-color: var(--ref-primary-dark); }
+
+            @media (max-width: 640px) {
+                .ref-panel-body { padding: 14px; }
+                .ref-dt thead th, .ref-dt tbody td { padding: 10px 12px !important; }
+            }
+        </style>
     @endpush
 @endsection

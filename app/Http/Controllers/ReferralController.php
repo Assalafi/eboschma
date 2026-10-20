@@ -148,14 +148,6 @@ class ReferralController extends Controller
                            "<div class='small text-muted'>To:</div>" .
                            "<strong>{$toName}</strong>";
                 })
-                ->addColumn('reason', function($referral) {
-                    if ($referral->serviceItem) {
-                        $serviceType = $referral->serviceItem->type ?? 'Service';
-                        return "<div><strong>{$referral->serviceItem->name}</strong></div>" .
-                               "<small class='text-muted'>{$serviceType}</small>";
-                    }
-                    return '<span class="text-muted">General Referral</span>';
-                })
                 ->addColumn('status_badge', function($referral) {
                     $badges = $referral->status_badge;
                     
@@ -218,7 +210,7 @@ class ReferralController extends Controller
                     $actions .= '</div>';
                     return $actions;
                 })
-                ->rawColumns(['referral_info', 'patient_info', 'facility_info', 'reason', 'status_badge', 'approved_by', 'action'])
+                ->rawColumns(['referral_info', 'patient_info', 'facility_info', 'status_badge', 'approved_by', 'action'])
                 ->make(true);
         }
 

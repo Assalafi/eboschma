@@ -255,9 +255,11 @@ class ReferralController extends Controller
         ])->findOrFail($id);
 
         // Determine if this is an outgoing referral (from current user's facility if they have one)
-        $isOutgoing = Auth::user()->facility_id ? 
-            $referral->from_facility_id == Auth::user()->facility_id : 
-            true; // Admin sees all as outgoing by default
+        $authUser = Auth::guard('staff')->user() ?? Auth::user();
+        $facilityId = $authUser->facility_id ?? null;
+        $isOutgoing = $facilityId
+            ? $referral->from_facility_id == $facilityId
+            : true; // Admin sees all as outgoing by default
 
         // Process encounter data for tabs
         $vitalSigns = $referral->encounter ? $referral->encounter->vitalSigns : collect([]);

@@ -32,12 +32,9 @@
                             </form>
                         @endif
                         @if($canRejectReferral)
-                            <form id="rejectReferralForm" action="{{ route('referrals.reject', $referral->id) }}" method="POST" class="d-inline">
-                                @csrf
-                                <button type="button" class="btn btn-danger" onclick="rejectReferralShow()">
-                                    <i class="ti-close mr-1"></i> Reject
-                                </button>
-                            </form>
+                            <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#rejectReferralModal">
+                                <i class="ti-close mr-1"></i> Reject
+                            </button>
                         @endif
                     @endif
                     
@@ -637,6 +634,30 @@
         </div>
     </div>
 
+    <!-- Reject Referral Modal -->
+    <div class="modal fade" id="rejectReferralModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <form action="{{ route('referrals.reject', $referral->id) }}" method="POST">
+                @csrf
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Reject Referral</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <label for="rejection_reason" class="form-label">Rejection Reason <span class="text-danger">*</span></label>
+                        <textarea name="rejection_reason" id="rejection_reason" class="form-control" rows="3"
+                            placeholder="Explain why this referral is being rejected..." required></textarea>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-danger">Confirm Rejection</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
     @push('styles')
         <style>
             .nav-tabs .nav-link {
@@ -679,34 +700,6 @@
                 });
             }
         })();
-
-        function rejectReferralShow() {
-            swal({
-                title: 'Reject Referral',
-                text: 'Please provide a rejection reason:',
-                type: 'input',
-                showCancelButton: true,
-                closeOnConfirm: false,
-                inputPlaceholder: 'Rejection reason...',
-                confirmButtonColor: '#d63939',
-                confirmButtonText: 'Reject',
-                cancelButtonText: 'Cancel'
-            }, function (reason) {
-                if (reason === false) return false;
-                if (!reason || !reason.trim()) {
-                    swal.showInputError('A rejection reason is required.');
-                    return false;
-                }
-                var form = document.getElementById('rejectReferralForm');
-                if (!form) return false;
-                var input = document.createElement('input');
-                input.type = 'hidden';
-                input.name = 'rejection_reason';
-                input.value = reason;
-                form.appendChild(input);
-                form.submit();
-            });
-        }
     </script>
     @endpush
 @endsection

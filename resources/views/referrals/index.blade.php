@@ -326,26 +326,37 @@
             }
 
             function showRejectModal(id) {
-                swal({
-                    title: 'Reject Referral',
-                    text: 'Please provide a rejection reason:',
-                    type: 'input',
-                    showCancelButton: true,
-                    closeOnConfirm: false,
-                    inputPlaceholder: 'Rejection reason...',
-                    confirmButtonColor: '#d63939',
-                    confirmButtonText: 'Reject',
-                    cancelButtonText: 'Cancel'
-                }, function (reason) {
-                    if (reason === false) return false;
-                    if (!reason || !reason.trim()) {
-                        swal.showInputError('A rejection reason is required.');
-                        return false;
-                    }
-                    submitReferralAction('/referrals/' + id + '/reject', { rejection_reason: reason });
-                });
+                var form = document.getElementById('rejectForm');
+                if (form) form.action = '/referrals/' + id + '/reject';
+                var ta = document.getElementById('rejectReasonInput');
+                if (ta) ta.value = '';
+                var modal = new bootstrap.Modal(document.getElementById('rejectModal'));
+                modal.show();
             }
         </script>
         
+        <!-- Reject Modal -->
+        <div class="modal fade" id="rejectModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <form id="rejectForm" method="POST">
+                    @csrf
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Reject Referral</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <label for="rejectReasonInput" class="form-label">Rejection Reason <span class="text-danger">*</span></label>
+                            <textarea name="rejection_reason" id="rejectReasonInput" class="form-control" rows="3"
+                                placeholder="Explain why this referral is being rejected..." required></textarea>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-danger">Confirm Rejection</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
     @endpush
 @endsection

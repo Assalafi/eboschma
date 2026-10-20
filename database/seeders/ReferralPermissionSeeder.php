@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -14,62 +13,67 @@ class ReferralPermissionSeeder extends Seeder
      */
     public function run(): void
     {
-        // Create Referral permissions
+        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+
+        // Granular referral permissions — one per action.
         $permissions = [
-            'referral.view' => 'View referrals and referral analytics',
-            'referral.create' => 'Create new referrals', 
-            'referral.edit' => 'Edit and update referrals',
-            'referral.delete' => 'Delete referrals',
-            'referral.settings' => 'Manage referral system settings',
+            'referral.view'            => 'View referrals',
+            'referral.create'          => 'Create new referrals',
+            'referral.edit'            => 'Edit / update referrals',
+            'referral.delete'          => 'Delete referrals',
+            'referral.approve'         => 'Approve referrals (single & bulk)',
+            'referral.reject'          => 'Reject referrals (single & bulk)',
+            'referral.complete'        => 'Mark referrals as completed',
+            'referral.pay-commission'  => 'Pay referral commissions',
+            'referral.send-reminder'   => 'Send referral reminders',
+            'referral.assign'          => 'Assign / unassign referrals to staff',
+            'referral.note'            => 'Add notes to referrals',
+            'referral.export'          => 'Export referrals',
+            'referral.analytics'       => 'View referral analytics',
+            'referral.settings'        => 'Manage referral system settings',
         ];
 
         // Create permissions for both 'web' and 'staff' guards
-        $guards = ['web', 'staff'];
-        foreach ($guards as $guard) {
-            foreach ($permissions as $name => $description) {
+        foreach (['web', 'staff'] as $guard) {
+            foreach (array_keys($permissions) as $name) {
                 Permission::firstOrCreate([
                     'name' => $name,
-                    'guard_name' => $guard
+                    'guard_name' => $guard,
                 ]);
             }
         }
 
-        // Assign all referral permissions to admin role (web guard)
-        $adminRole = Role::where('name', 'admin')->where('guard_name', 'web')->first();
-        if ($adminRole) {
-            $adminRole->givePermissionTo(array_keys($permissions));
+        $all = array_keys($permissions);
+
+        // Grant everything to existing administrator-style roles (both guards)
+        $adminNames = [
+            'super-admin', 'Super Admin', 'Super Administrator',
+            'Boschma Administrator', 'System Administrator',
+            'Administrator', 'Admin', 'admin',
+        ];
+        foreach (['web', 'staff'] as $guard) {
+            Role::whereIn('name', $adminNames)->where('guard_name', $guard)->get()
+                ->each(fn($role) => $role->givePermissionTo($all));
         }
 
-        // Assign referral permissions to staff role (web guard)
-        $staffRole = Role::where('name', 'staff')->where('guard_name', 'web')->first();
-        if ($staffRole) {
-            $staffRole->givePermissionTo(['referral.view', 'referral.create', 'referral.edit']);
-        }
+        // Sensible defaults for legacy roles, if they exist
+        Role::where('name', 'manager')->get()->each(function ($role) use ($all) {
+            $role->givePermissionTo($all);
+        });
 
-        // Assign view-only permissions to viewer role if it exists (web guard)
-        $viewerRole = Role::where('name', 'viewer')->where('guard_name', 'web')->first();
-        if ($viewerRole) {
-            $viewerRole->givePermissionTo(['referral.view']);
-        }
+        Role::where('name', 'staff')->get()->each(function ($role) {
+            $role->givePermissionTo([
+                'referral.view', 'referral.create', 'referral.edit',
+                'referral.approve', 'referral.reject', 'referral.note',
+                'referral.export', 'referral.analytics',
+            ]);
+        });
 
-        // Assign full permissions to manager role if it exists (web guard)
-        $managerRole = Role::where('name', 'manager')->where('guard_name', 'web')->first();
-        if ($managerRole) {
-            $managerRole->givePermissionTo(['referral.view', 'referral.create', 'referral.edit', 'referral.delete']);
-        }
+        Role::where('name', 'viewer')->get()->each(function ($role) {
+            $role->givePermissionTo(['referral.view', 'referral.analytics']);
+        });
 
-        // Create and assign to staff guard roles specifically
-        $adminStaffRole = Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'staff']);
-        $adminStaffRole->givePermissionTo(array_keys($permissions));
-
-        $staffStaffRole = Role::firstOrCreate(['name' => 'staff', 'guard_name' => 'staff']);
-        $staffStaffRole->givePermissionTo(['referral.view', 'referral.create', 'referral.edit']);
-
-        $viewerStaffRole = Role::firstOrCreate(['name' => 'viewer', 'guard_name' => 'staff']);
-        $viewerStaffRole->givePermissionTo(['referral.view']);
-
-        $managerStaffRole = Role::firstOrCreate(['name' => 'manager', 'guard_name' => 'staff']);
-        $managerStaffRole->givePermissionTo(['referral.view', 'referral.create', 'referral.edit', 'referral.delete']);
+        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
         $this->command->info('✅ Referral permissions created and assigned to roles successfully!');
     }

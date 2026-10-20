@@ -202,10 +202,16 @@ class ReferralController extends Controller
                     $actions = '<div class="btn-group">';
                     $actions .= '<a href="' . route('referrals.show', $referral->id) . '" class="btn btn-sm btn-info" title="View Details"><i class="ti-eye"></i></a>';
                     $actions .= '<a href="' . route('referrals.pdf', $referral->id) . '" class="btn btn-sm btn-primary" title="Download PDF" target="_blank"><i class="ti-download"></i></a>';
-                    
-                    if (Auth::user()->hasRole('Admin') || Auth::user()->hasRole('Super Admin')) {
-                        if ($referral->approval_status === 'pending') {
+
+                    $actor = Auth::guard('staff')->user() ?? Auth::user();
+                    $canApprove = $actor && $actor->can('referral.approve');
+                    $canReject  = $actor && $actor->can('referral.reject');
+
+                    if ($referral->approval_status === 'pending') {
+                        if ($canApprove) {
                             $actions .= '<button type="button" class="btn btn-sm btn-success" title="Approve" onclick="showApproveModal('.$referral->id.')"><i class="ti-check"></i></button>';
+                        }
+                        if ($canReject) {
                             $actions .= '<button type="button" class="btn btn-sm btn-danger" title="Reject" onclick="showRejectModal('.$referral->id.')"><i class="ti-close"></i></button>';
                         }
                     }

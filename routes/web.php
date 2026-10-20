@@ -530,52 +530,100 @@ Route::middleware(['auth:staff,web'])->group(function () {
     });
     
     // Referral System Routes
-    Route::get('referrals/{referral}/pdf', [ReferralController::class, 'downloadPdf'])->name('referrals.pdf')->middleware('permission:referral.view|claim.view,staff');
+    // NOTE: static GET paths MUST be declared before the dynamic {referral} route.
 
+    // View (static GET)
     Route::middleware(['permission:referral.view,staff'])->group(function () {
         Route::get('referrals', [ReferralController::class, 'index'])->name('referrals.index');
-        Route::get('referrals/{referral}', [ReferralController::class, 'show'])->name('referrals.show');
-        Route::get('referrals/analytics', [ReferralController::class, 'analytics'])->name('referrals.analytics');
-        Route::get('referrals/settings', [ReferralController::class, 'settings'])->name('referrals.settings');
-        Route::get('referrals/export', [ReferralController::class, 'export'])->name('referrals.export');
-        Route::get('referrals/analytics/export', [ReferralController::class, 'exportAnalytics'])->name('referrals.analytics.export');
         Route::get('referrals/search', [ReferralController::class, 'search'])->name('referrals.search');
         Route::get('referrals/validate-referrer/{email}', [ReferralController::class, 'validateReferrer'])->name('referrals.validate.referrer');
         Route::get('referrals/validate-referred/{email}', [ReferralController::class, 'validateReferred'])->name('referrals.validate.referred');
         Route::get('referrals/download-document/{referral}/{document}', [ReferralController::class, 'downloadDocument'])->name('referrals.download.document');
     });
-    
+
+    // Analytics
+    Route::middleware(['permission:referral.analytics,staff'])->group(function () {
+        Route::get('referrals/analytics', [ReferralController::class, 'analytics'])->name('referrals.analytics');
+        Route::get('referrals/analytics/export', [ReferralController::class, 'exportAnalytics'])->name('referrals.analytics.export');
+    });
+
+    // Export
+    Route::middleware(['permission:referral.export,staff'])->group(function () {
+        Route::get('referrals/export', [ReferralController::class, 'export'])->name('referrals.export');
+    });
+
+    // Settings
+    Route::middleware(['permission:referral.settings,staff'])->group(function () {
+        Route::get('referrals/settings', [ReferralController::class, 'settings'])->name('referrals.settings');
+        Route::put('referrals/settings', [ReferralController::class, 'updateSettings'])->name('referrals.settings.update');
+        Route::post('referrals/settings/reset', [ReferralController::class, 'resetSettings'])->name('referrals.settings.reset');
+        Route::post('referrals/settings/test-email', [ReferralController::class, 'testEmail'])->name('referrals.settings.test-email');
+    });
+
+    // Create
     Route::middleware(['permission:referral.create,staff'])->group(function () {
         Route::get('referrals/create', [ReferralController::class, 'create'])->name('referrals.create');
         Route::post('referrals', [ReferralController::class, 'store'])->name('referrals.store');
-        Route::post('referrals/{referral}/approve', [ReferralController::class, 'approve'])->name('referrals.approve');
-        Route::post('referrals/{referral}/reject', [ReferralController::class, 'reject'])->name('referrals.reject');
-        Route::post('referrals/{referral}/complete', [ReferralController::class, 'complete'])->name('referrals.complete');
-        Route::post('referrals/{referral}/pay-commission', [ReferralController::class, 'payCommission'])->name('referrals.pay-commission');
-        Route::post('referrals/{referral}/send-reminder', [ReferralController::class, 'sendReminder'])->name('referrals.send-reminder');
-        Route::post('referrals/bulk-approve', [ReferralController::class, 'bulkApprove'])->name('referrals.bulk-approve');
-        Route::post('referrals/bulk-reject', [ReferralController::class, 'bulkReject'])->name('referrals.bulk-reject');
-        Route::post('referrals/bulk-delete', [ReferralController::class, 'bulkDelete'])->name('referrals.bulk-delete');
     });
-    
+
+    // Approve (single & bulk)
+    Route::middleware(['permission:referral.approve,staff'])->group(function () {
+        Route::post('referrals/bulk-approve', [ReferralController::class, 'bulkApprove'])->name('referrals.bulk-approve');
+        Route::post('referrals/{referral}/approve', [ReferralController::class, 'approve'])->name('referrals.approve');
+    });
+
+    // Reject (single & bulk)
+    Route::middleware(['permission:referral.reject,staff'])->group(function () {
+        Route::post('referrals/bulk-reject', [ReferralController::class, 'bulkReject'])->name('referrals.bulk-reject');
+        Route::post('referrals/{referral}/reject', [ReferralController::class, 'reject'])->name('referrals.reject');
+    });
+
+    // Complete
+    Route::middleware(['permission:referral.complete,staff'])->group(function () {
+        Route::post('referrals/{referral}/complete', [ReferralController::class, 'complete'])->name('referrals.complete');
+    });
+
+    // Pay commission
+    Route::middleware(['permission:referral.pay-commission,staff'])->group(function () {
+        Route::post('referrals/{referral}/pay-commission', [ReferralController::class, 'payCommission'])->name('referrals.pay-commission');
+    });
+
+    // Send reminder
+    Route::middleware(['permission:referral.send-reminder,staff'])->group(function () {
+        Route::post('referrals/{referral}/send-reminder', [ReferralController::class, 'sendReminder'])->name('referrals.send-reminder');
+    });
+
+    // Assign / unassign
+    Route::middleware(['permission:referral.assign,staff'])->group(function () {
+        Route::post('referrals/{referral}/assign', [ReferralController::class, 'assign'])->name('referrals.assign');
+        Route::post('referrals/{referral}/unassign', [ReferralController::class, 'unassign'])->name('referrals.unassign');
+    });
+
+    // Notes
+    Route::middleware(['permission:referral.note,staff'])->group(function () {
+        Route::post('referrals/{referral}/add-note', [ReferralController::class, 'addNote'])->name('referrals.add-note');
+    });
+
+    // Edit / update
     Route::middleware(['permission:referral.edit,staff'])->group(function () {
         Route::get('referrals/{referral}/edit', [ReferralController::class, 'edit'])->name('referrals.edit');
         Route::put('referrals/{referral}', [ReferralController::class, 'update'])->name('referrals.update');
         Route::patch('referrals/{referral}/status', [ReferralController::class, 'updateStatus'])->name('referrals.update.status');
         Route::patch('referrals/{referral}/commission-status', [ReferralController::class, 'updateCommissionStatus'])->name('referrals.update.commission-status');
-        Route::post('referrals/{referral}/assign', [ReferralController::class, 'assign'])->name('referrals.assign');
-        Route::post('referrals/{referral}/unassign', [ReferralController::class, 'unassign'])->name('referrals.unassign');
-        Route::post('referrals/{referral}/add-note', [ReferralController::class, 'addNote'])->name('referrals.add-note');
     });
-    
+
+    // Delete
     Route::middleware(['permission:referral.delete,staff'])->group(function () {
+        Route::post('referrals/bulk-delete', [ReferralController::class, 'bulkDelete'])->name('referrals.bulk-delete');
         Route::delete('referrals/{referral}', [ReferralController::class, 'destroy'])->name('referrals.destroy');
     });
-    
-    Route::middleware(['permission:referral.settings,staff'])->group(function () {
-        Route::put('referrals/settings', [ReferralController::class, 'updateSettings'])->name('referrals.settings.update');
-        Route::post('referrals/settings/reset', [ReferralController::class, 'resetSettings'])->name('referrals.settings.reset');
-        Route::post('referrals/settings/test-email', [ReferralController::class, 'testEmail'])->name('referrals.settings.test-email');
+
+    // PDF
+    Route::get('referrals/{referral}/pdf', [ReferralController::class, 'downloadPdf'])->name('referrals.pdf')->middleware('permission:referral.view|claim.view,staff');
+
+    // Show (dynamic GET — last so static GET routes above win)
+    Route::middleware(['permission:referral.view,staff'])->group(function () {
+        Route::get('referrals/{referral}', [ReferralController::class, 'show'])->name('referrals.show');
     });
 
     // Claims Routes - IMPORTANT: Specific routes MUST come before dynamic {id} routes

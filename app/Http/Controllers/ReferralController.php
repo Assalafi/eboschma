@@ -131,7 +131,7 @@ class ReferralController extends Controller
                     if ($referral->encounter && $referral->encounter->patient) {
                         $patient = $referral->encounter->patient;
                         $enrolleeDetails = $patient->enrolleeDetails; // This is an accessor
-                        $fullname = $enrolleeDetails ? $enrolleeDetails->fullname : 'N/A';
+                        $fullname = $enrolleeDetails ? ($enrolleeDetails->fullname ?? $enrolleeDetails->name ?? 'N/A') : 'N/A';
                         $fileNumber = $patient->file_number ?? 'N/A';
                         
                         return "<div><strong>{$fullname}</strong></div>" .
@@ -350,7 +350,7 @@ class ReferralController extends Controller
         $referral->approved_at = now();
         $referral->save();
 
-        return redirect()->back()->with('success', 'Referral approved successfully.');
+        return redirect()->route('referrals.index')->with('success', 'Referral approved successfully.');
     }
 
     public function reject(Request $request, $id)
@@ -366,7 +366,7 @@ class ReferralController extends Controller
         $referral->rejection_reason = $request->rejection_reason;
         $referral->save();
 
-        return redirect()->back()->with('success', 'Referral rejected successfully.');
+        return redirect()->route('referrals.index')->with('success', 'Referral rejected successfully.');
     }
 
     public function downloadPdf($id)

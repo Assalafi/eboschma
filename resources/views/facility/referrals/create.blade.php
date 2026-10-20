@@ -56,7 +56,7 @@
                                 </tr>
                                 <tr>
                                     <th>Name:</th>
-                                    <td>{{ $enrolleeDetails->fullname ?? 'N/A' }}</td>
+                                    <td>{{ $enrolleeDetails->fullname ?? $enrolleeDetails->name ?? 'N/A' }}</td>
                                 </tr>
                                 <tr>
                                     <th>Gender:</th>

@@ -109,7 +109,7 @@
                                                     <table class="table table-bordered">
                                                         <tr>
                                                             <th width="40%">Name:</th>
-                                                            <td>{{ $enrolleeDetails->fullname ?? 'N/A' }}</td>
+                                                            <td>{{ $enrolleeDetails->fullname ?? $enrolleeDetails->name ?? 'N/A' }}</td>
                                                         </tr>
                                                         <tr>
                                                             <th>Enrollee Number:</th>

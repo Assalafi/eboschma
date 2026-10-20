@@ -239,7 +239,7 @@
         
         <tr>
             <td class="label">Beneficiary Name:</td>
-            <td class="value">{{ $enrolleeDetails->fullname ?? 'N/A' }}</td>
+            <td class="value">{{ $enrolleeDetails->fullname ?? $enrolleeDetails->name ?? 'N/A' }}</td>
         </tr>
         <tr>
             <td class="label">Phone Number:</td>

@@ -210,7 +210,7 @@ class FacilityReferralController extends Controller
                     if ($referral->encounter && $referral->encounter->patient) {
                         $patient = $referral->encounter->patient;
                         $enrolleeDetails = $patient->enrolleeDetails;
-                        $fullname = $enrolleeDetails ? $enrolleeDetails->fullname : 'N/A';
+                        $fullname = $enrolleeDetails ? ($enrolleeDetails->fullname ?? $enrolleeDetails->name ?? 'N/A') : 'N/A';
                         $fileNumber = $patient->file_number ?? 'N/A';
                         
                         return "<div><strong>{$fullname}</strong></div>" .

@@ -45,6 +45,10 @@ class ReferralPermissionSeeder extends Seeder
 
         $all = array_keys($permissions);
 
+        // Refresh Spatie's permission cache so the newly created permissions
+        // can be resolved when assigning them to roles below.
+        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+
         // Grant everything to existing administrator-style roles (both guards)
         $adminNames = [
             'super-admin', 'Super Admin', 'Super Administrator',

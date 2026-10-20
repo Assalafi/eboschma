@@ -16,19 +16,6 @@
                     </div>
                 </div>
 
-                @if (session('success'))
-                    <div class="alert alert-success alert-dismissible fade show" role="alert">
-                        <i class="ti-check me-1"></i>{{ session('success') }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
-                @endif
-                @if (session('error'))
-                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                        <i class="ti-alert-triangle me-1"></i>{{ session('error') }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
-                @endif
-
                 <!-- Statistics Cards -->
                 <div class="row">
                     <div class="col-sm-6 col-lg-3">
@@ -207,6 +194,8 @@
                 }).DataTable({
                     processing: true,
                     serverSide: true,
+                    // Preserve current page / filters across reloads (e.g. after approve/reject redirect)
+                    stateSave: true,
                     ajax: {
                         url: '{{ route('referrals.index') }}',
                         type: 'GET',
@@ -293,66 +282,70 @@
                 });
             });
 
-            function showRejectModal(id) {
-                var form = document.getElementById('rejectForm');
-                form.action = '/referrals/' + id + '/reject';
-                var modal = new bootstrap.Modal(document.getElementById('rejectModal'));
-                modal.show();
+            // Submit a referral action via a dynamically created form
+            function submitReferralAction(url, data) {
+                var form = document.createElement('form');
+                form.method = 'POST';
+                form.action = url;
+
+                var token = document.createElement('input');
+                token.type = 'hidden';
+                token.name = '_token';
+                token.value = '{{ csrf_token() }}';
+                form.appendChild(token);
+
+                if (data) {
+                    Object.keys(data).forEach(function (key) {
+                        var input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = key;
+                        input.value = data[key];
+                        form.appendChild(input);
+                    });
+                }
+
+                document.body.appendChild(form);
+                form.submit();
             }
 
             function showApproveModal(id) {
-                var form = document.getElementById('approveForm');
-                form.action = '/referrals/' + id + '/approve';
-                var modal = new bootstrap.Modal(document.getElementById('approveModal'));
-                modal.show();
+                swal({
+                    title: 'Approve Referral?',
+                    text: 'Are you sure you want to approve this referral?',
+                    type: 'success',
+                    showCancelButton: true,
+                    confirmButtonColor: '#2fb344',
+                    confirmButtonText: 'Yes, approve',
+                    cancelButtonText: 'Cancel',
+                    closeOnConfirm: true
+                }, function (confirmed) {
+                    if (confirmed) {
+                        submitReferralAction('/referrals/' + id + '/approve');
+                    }
+                });
+            }
+
+            function showRejectModal(id) {
+                swal({
+                    title: 'Reject Referral',
+                    text: 'Please provide a rejection reason:',
+                    type: 'input',
+                    showCancelButton: true,
+                    closeOnConfirm: false,
+                    inputPlaceholder: 'Rejection reason...',
+                    confirmButtonColor: '#d63939',
+                    confirmButtonText: 'Reject',
+                    cancelButtonText: 'Cancel'
+                }, function (reason) {
+                    if (reason === false) return false;
+                    if (!reason || !reason.trim()) {
+                        swal.showInputError('A rejection reason is required.');
+                        return false;
+                    }
+                    submitReferralAction('/referrals/' + id + '/reject', { rejection_reason: reason });
+                });
             }
         </script>
         
-        <!-- Reject Modal -->
-        <div class="modal fade" id="rejectModal" tabindex="-1" aria-labelledby="rejectModalLabel" aria-hidden="true">
-            <div class="modal-dialog">
-                <form id="rejectForm" method="POST">
-                    @csrf
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title" id="rejectModalLabel">Reject Referral</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div class="modal-body">
-                            <div class="form-group">
-                                <label for="rejection_reason">Rejection Reason <span class="text-danger">*</span></label>
-                                <textarea name="rejection_reason" class="form-control" rows="3" required></textarea>
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                            <button type="submit" class="btn btn-danger">Confirm Rejection</button>
-                        </div>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        <!-- Approve Modal -->
-        <div class="modal fade" id="approveModal" tabindex="-1" aria-labelledby="approveModalLabel" aria-hidden="true">
-            <div class="modal-dialog">
-                <form id="approveForm" method="POST">
-                    @csrf
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title" id="approveModalLabel">Approve Referral</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div class="modal-body">
-                            <p class="mb-0">Are you sure you want to approve this referral?</p>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                            <button type="submit" class="btn btn-success">Confirm Approval</button>
-                        </div>
-                    </div>
-                </form>
-            </div>
-        </div>
     @endpush
 @endsection

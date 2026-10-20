@@ -32,6 +32,9 @@
 <!-- Style css-->
 <link href="{{ url('assets/css/style.css') }}" rel="stylesheet">
 
+<!-- SweetAlert css -->
+<link href="{{ url('assets/plugins/sweet-alert/sweetalert.css') }}" rel="stylesheet">
+
 <!-- Select2 css -->
 <link href="{{ url('assets/plugins/select2/css/select2.min.css') }}" rel="stylesheet">
 

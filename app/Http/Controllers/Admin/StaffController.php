@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Staff;
+use App\Support\UserActivity;
 use Illuminate\Http\Request;
 use Spatie\Permission\Models\Role;
 use Illuminate\Support\Facades\Hash;
@@ -196,6 +197,10 @@ class StaffController extends Controller
         // Prevent deleting yourself
         if (auth('staff')->id() === $staff->id) {
             return back()->with('error', 'You cannot delete your own account!');
+        }
+
+        if (UserActivity::staffHasActivity($staff->id)) {
+            return back()->with('error', 'This staff member has activity in the system and cannot be deleted. Deactivate the account instead.');
         }
 
         $staff->delete();

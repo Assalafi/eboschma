@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Models\Facility;
 use App\Models\StaffPosition;
+use App\Support\UserActivity;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
@@ -331,7 +332,11 @@ class FacilityStaffController extends Controller
     {
         try {
             $staff = User::findOrFail($id);
-            
+
+            if (UserActivity::userHasActivity($staff->id)) {
+                return back()->with('error', 'This staff member has activity in the system and cannot be deleted. Deactivate the account instead.');
+            }
+
             // Delete passport if exists
             if ($staff->passport) {
                 Storage::disk('public')->delete($staff->passport);

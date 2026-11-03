@@ -117,6 +117,7 @@
                                 <div class="subheader text-danger">Rejected</div>
                             </div>
                             <div class="h1 mb-1">{{ number_format($overallStats['rejected']) }}</div>
+                            <div class="text-muted small">₦{{ number_format($overallStats['rejected_amount'] ?? 0, 2) }}</div>
                         </div>
                     </div>
                 </div>
@@ -163,7 +164,7 @@
                                                     </a>
                                                 </div>
                                                 <div class="d-print-none">
-                                                    <a href="{{ route('claims.analytics.facility-report') }}?facility_id={{ $row->facility_id }}&program_id={{ $programId ?? '' }}&date_from={{ $dateFrom }}&date_to={{ $dateTo }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                                    <a href="{{ route('claims.analytics.facility-report') }}?facility_id={{ $row->facility_id }}&program_id={{ $programId ?? '' }}&status={{ $statusFilter ?? '' }}&date_from={{ $dateFrom }}&date_to={{ $dateTo }}" target="_blank" class="btn btn-sm btn-outline-primary">
                                                         <i class="ti-printer me-1"></i> Report
                                                     </a>
                                                 </div>

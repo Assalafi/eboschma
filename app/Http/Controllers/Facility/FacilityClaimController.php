@@ -484,21 +484,39 @@ class FacilityClaimController extends Controller
             $patient = $encounter->patient;
             $enrolleeDetails = $patient->enrolleeDetails; // This is an accessor, not a relationship
 
-            // Calculate totals — split laboratory from other services
+            // Calculate totals — split admin charges and laboratory from other services
             $pharmacyAmount = collect($request->medications ?? [])->sum('amount');
+            $consultationAmount = 0;
             $laboratoryAmount = 0;
             $servicesAmount = 0;
             foreach ($request->services ?? [] as $svc) {
                 $amount = floatval($svc['amount'] ?? 0);
-                $isLabType = stripos($svc['service_type'] ?? '', 'lab') !== false;
-                $isLabCat = stripos($svc['service_category'] ?? '', 'lab') !== false;
-                if ($isLabType || $isLabCat) {
+                $stName = strtolower(trim($svc['service_type'] ?? ''));
+                $scName = strtolower(trim($svc['service_category'] ?? ''));
+                $sName  = strtolower(trim($svc['service_name'] ?? ''));
+
+                $isAdmin = in_array($stName, ['consultation', 'specialist_review', 'nursing_care', 'bed_occupancy', 'admin', 'consultation fee', 'bed fee', 'nursing care', 'review'])
+                    || in_array($scName, ['admin charges', 'consultation services'])
+                    || in_array($sName, ['specialist initial consultation', 'specialist review (per visit)', 'nursing care (per day)', 'hospital bed occupancy']);
+
+                $isLab = !$isAdmin && (
+                    str_contains($stName, 'lab') || str_contains($scName, 'lab')
+                    || str_contains($stName, 'haematology') || str_contains($scName, 'haematology')
+                    || str_contains($stName, 'heamatology') || str_contains($scName, 'heamatology')
+                    || str_contains($stName, 'serolog') || str_contains($scName, 'serolog')
+                    || str_contains($stName, 'chemistry') || str_contains($stName, 'microbiology')
+                    || str_contains($stName, 'parasitology') || str_contains($stName, 'immunology')
+                );
+
+                if ($isAdmin) {
+                    $consultationAmount += $amount;
+                } elseif ($isLab) {
                     $laboratoryAmount += $amount;
                 } else {
                     $servicesAmount += $amount;
                 }
             }
-            $totalAmount = $pharmacyAmount + $laboratoryAmount + $servicesAmount;
+            $totalAmount = $consultationAmount + $pharmacyAmount + $laboratoryAmount + $servicesAmount;
 
             // Create claim
             $claim = FacilityClaim::create([
@@ -516,6 +534,7 @@ class FacilityClaimController extends Controller
                 'date_of_birth' => $enrolleeDetails->date_of_birth ?? null,
                 'claim_type' => $request->claim_type,
                 'service_date' => $encounter->visit_date,
+                'consultation_amount' => $consultationAmount,
                 'pharmacy_amount' => $pharmacyAmount,
                 'laboratory_amount' => $laboratoryAmount,
                 'services_amount' => $servicesAmount,
@@ -717,25 +736,44 @@ class FacilityClaimController extends Controller
         try {
             DB::beginTransaction();
 
-            // Calculate new totals — split laboratory from other services
+            // Calculate new totals — split admin charges and laboratory from other services
             $pharmacyAmount = collect($request->medications ?? [])->sum('amount');
+            $consultationAmount = 0;
             $laboratoryAmount = 0;
             $servicesAmount = 0;
             foreach ($request->services ?? [] as $svc) {
                 $amount = floatval($svc['amount'] ?? 0);
-                $isLabType = stripos($svc['service_type'] ?? '', 'lab') !== false;
-                $isLabCat = stripos($svc['service_category'] ?? '', 'lab') !== false;
-                if ($isLabType || $isLabCat) {
+                $stName = strtolower(trim($svc['service_type'] ?? ''));
+                $scName = strtolower(trim($svc['service_category'] ?? ''));
+                $sName  = strtolower(trim($svc['service_name'] ?? ''));
+
+                $isAdmin = in_array($stName, ['consultation', 'specialist_review', 'nursing_care', 'bed_occupancy', 'admin', 'consultation fee', 'bed fee', 'nursing care', 'review'])
+                    || in_array($scName, ['admin charges', 'consultation services'])
+                    || in_array($sName, ['specialist initial consultation', 'specialist review (per visit)', 'nursing care (per day)', 'hospital bed occupancy']);
+
+                $isLab = !$isAdmin && (
+                    str_contains($stName, 'lab') || str_contains($scName, 'lab')
+                    || str_contains($stName, 'haematology') || str_contains($scName, 'haematology')
+                    || str_contains($stName, 'heamatology') || str_contains($scName, 'heamatology')
+                    || str_contains($stName, 'serolog') || str_contains($scName, 'serolog')
+                    || str_contains($stName, 'chemistry') || str_contains($stName, 'microbiology')
+                    || str_contains($stName, 'parasitology') || str_contains($stName, 'immunology')
+                );
+
+                if ($isAdmin) {
+                    $consultationAmount += $amount;
+                } elseif ($isLab) {
                     $laboratoryAmount += $amount;
                 } else {
                     $servicesAmount += $amount;
                 }
             }
-            $totalAmount = $pharmacyAmount + $laboratoryAmount + $servicesAmount;
+            $totalAmount = $consultationAmount + $pharmacyAmount + $laboratoryAmount + $servicesAmount;
 
             // Update main claim
             $claim->update([
                 'claim_type' => $request->claim_type,
+                'consultation_amount' => $consultationAmount,
                 'pharmacy_amount' => $pharmacyAmount,
                 'laboratory_amount' => $laboratoryAmount,
                 'services_amount' => $servicesAmount,
@@ -1649,14 +1687,31 @@ class FacilityClaimController extends Controller
                     }
                 }
                 
-                // Process service items for this patient — split laboratory from other services
+                // Process service items for this patient — split admin charges and laboratory from other services
                 $laboratoryAmount = 0;
                 foreach ($patientItems['services'] as $serviceOrderItemId => $data) {
                     $cost = floatval($data['cost'] ?? 0);
                     if ($cost > 0) {
-                        $isLabType = stripos($data['service_type_name'] ?? '', 'lab') !== false;
-                        $isLabCat = stripos($data['service_category_name'] ?? '', 'lab') !== false;
-                        if ($isLabType || $isLabCat) {
+                        $stName = strtolower(trim($data['service_type_name'] ?? ''));
+                        $scName = strtolower(trim($data['service_category_name'] ?? ''));
+                        $sName  = strtolower(trim($data['service_name'] ?? ''));
+
+                        $isAdmin = in_array($stName, ['consultation', 'specialist_review', 'nursing_care', 'bed_occupancy', 'admin', 'consultation fee', 'bed fee', 'nursing care', 'review'])
+                            || in_array($scName, ['admin charges', 'consultation services'])
+                            || in_array($sName, ['specialist initial consultation', 'specialist review (per visit)', 'nursing care (per day)', 'hospital bed occupancy']);
+
+                        $isLab = !$isAdmin && (
+                            str_contains($stName, 'lab') || str_contains($scName, 'lab')
+                            || str_contains($stName, 'haematology') || str_contains($scName, 'haematology')
+                            || str_contains($stName, 'heamatology') || str_contains($scName, 'heamatology')
+                            || str_contains($stName, 'serolog') || str_contains($scName, 'serolog')
+                            || str_contains($stName, 'chemistry') || str_contains($stName, 'microbiology')
+                            || str_contains($stName, 'parasitology') || str_contains($stName, 'immunology')
+                        );
+
+                        if ($isAdmin) {
+                            $consultationAmount += $cost;
+                        } elseif ($isLab) {
                             $laboratoryAmount += $cost;
                         } else {
                             $servicesAmount += $cost;

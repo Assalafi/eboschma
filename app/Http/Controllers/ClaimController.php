@@ -44,20 +44,7 @@ class ClaimController extends Controller
         // Helper filter function for base facility_claims queries
         $applyFilters = function ($query, $tablePrefix = 'fc.') use ($request, $selectedProgram) {
             if ($selectedProgram) {
-                $pId = $selectedProgram->id;
-                $format = $selectedProgram->format;
-                $query->where(function($q) use ($pId, $format, $tablePrefix) {
-                    $q->whereIn($tablePrefix . 'boschma_no', function($sub) use ($pId) {
-                        $sub->select('boschma_no')->from('beneficiaries')->where('program_id', $pId);
-                    });
-                    if (!empty($format)) {
-                        $q->orWhere($tablePrefix . 'boschma_no', 'like', $format . '%');
-                    }
-                    if ($pId == 1) { // Formal Program
-                        $q->orWhere($tablePrefix . 'boschma_no', 'like', 'BFS/%')
-                          ->orWhere($tablePrefix . 'boschma_no', 'like', 'FS/%');
-                    }
-                });
+                $this->applyFacilityClaimProgramFilter($query, $selectedProgram->id, $tablePrefix);
             }
 
             if ($request->filled('facility_id')) {
@@ -75,18 +62,7 @@ class ClaimController extends Controller
             }
 
             if ($request->filled('status')) {
-                $status = $request->get('status');
-                if ($status === 'ro_pending') {
-                    $query->where(function($q) use ($tablePrefix) {
-                        $q->where($tablePrefix . 'status', 'submitted')->orWhere($tablePrefix . 'verifier_status', 'pending');
-                    })->whereNotIn($tablePrefix . 'status', ['approved', 'es_approved', 'paid', 'rejected']);
-                } elseif ($status === 'e5_pending') {
-                    $query->where(function($q) use ($tablePrefix) {
-                        $q->where($tablePrefix . 'status', 'verified')->orWhere($tablePrefix . 'verifier_status', 'approved');
-                    })->whereNotIn($tablePrefix . 'status', ['approved', 'es_approved', 'paid', 'rejected']);
-                } else {
-                    $query->where($tablePrefix . 'status', $status);
-                }
+                $this->applyFacilityClaimStatusFilter($query, $request->get('status'), $tablePrefix);
             }
 
             if ($request->filled('date_from')) {
@@ -104,22 +80,24 @@ class ClaimController extends Controller
 
         $applyFilters($facilitiesQuery, 'fc.');
 
+        $rejectedSql = '(fc.status = "rejected" OR fc.verifier_status = "rejected" OR fc.approver_status = "rejected" OR fc.es_status = "rejected" OR fc.finance_status = "rejected")';
+
         $facilities = $facilitiesQuery
             ->select([
                 'f.name as facility_name',
                 'f.id as facility_id',
                 DB::raw('COUNT(DISTINCT fc.id) as total_claims'),
-                DB::raw('SUM(CASE WHEN fc.status = "submitted" THEN 1 ELSE 0 END) as pending_claims'),
-                DB::raw('SUM(CASE WHEN fc.status = "approved" OR fc.status = "es_approved" THEN 1 ELSE 0 END) as approved_claims'),
-                DB::raw('SUM(CASE WHEN fc.status = "rejected" THEN 1 ELSE 0 END) as rejected_claims'),
+                DB::raw("SUM(CASE WHEN fc.status IN ('draft', 'submitted') AND NOT {$rejectedSql} THEN 1 ELSE 0 END) as pending_claims"),
+                DB::raw("SUM(CASE WHEN fc.status IN ('approved', 'es_approved') AND NOT {$rejectedSql} THEN 1 ELSE 0 END) as approved_claims"),
+                DB::raw("SUM(CASE WHEN {$rejectedSql} THEN 1 ELSE 0 END) as rejected_claims"),
                 DB::raw('SUM(CASE WHEN fc.status = "paid" THEN 1 ELSE 0 END) as paid_claims'),
                 DB::raw('COALESCE(SUM(fc.total_amount), 0) as total_value'),
                 DB::raw('COALESCE(SUM(CASE WHEN fc.status = "approved" OR fc.status = "es_approved" OR fc.status = "paid" THEN fc.total_amount ELSE 0 END), 0) as approved_value'),
                 DB::raw('MAX(fc.service_date) as latest_service_date'),
                 DB::raw('MAX(fc.created_at) as latest_claim_date'),
-                DB::raw('SUM(CASE WHEN fc.status = "submitted" OR fc.verifier_status = "pending" THEN 1 ELSE 0 END) as ro_pending'),
+                DB::raw("SUM(CASE WHEN (fc.status = 'submitted' OR fc.verifier_status = 'pending') AND fc.status NOT IN ('approved', 'es_approved', 'paid', 'rejected') AND NOT {$rejectedSql} THEN 1 ELSE 0 END) as ro_pending"),
                 DB::raw('SUM(CASE WHEN fc.status = "verified" OR fc.verifier_status = "approved" THEN 1 ELSE 0 END) as ro_approved'),
-                DB::raw('SUM(CASE WHEN fc.status = "verified" THEN 1 ELSE 0 END) as e5_pending'),
+                DB::raw("SUM(CASE WHEN fc.status = 'verified' AND NOT {$rejectedSql} THEN 1 ELSE 0 END) as e5_pending"),
                 DB::raw('SUM(CASE WHEN fc.status = "approved" OR fc.status = "es_approved" OR fc.status = "paid" THEN 1 ELSE 0 END) as e5_approved'),
             ])
             ->groupBy('f.id', 'f.name')
@@ -129,6 +107,7 @@ class ClaimController extends Controller
                 $facility->latest_claim_date = $facility->latest_claim_date ? Carbon::parse($facility->latest_claim_date) : now()->subMonths(6);
                 $facility->latest_service_date = $facility->latest_service_date ? Carbon::parse($facility->latest_service_date) : null;
                 $facility->number_of_patients = DB::table('facility_claims')
+                    ->whereNull('deleted_at')
                     ->where('facility_id', $facility->facility_id)
                     ->distinct('patient_id')
                     ->count('patient_id');
@@ -137,25 +116,19 @@ class ClaimController extends Controller
 
         // Get overall statistics dynamically computed for filtered set
         $statsBaseQuery = function() use ($applyFilters) {
-            $q = DB::table('facility_claims as fc')->whereNull('fc.deleted_at');
+            $q = DB::table('facility_claims as fc')
+                ->join('facilities as f', 'fc.facility_id', '=', 'f.id')
+                ->whereNull('fc.deleted_at');
             $applyFilters($q, 'fc.');
             return $q;
         };
 
         $stats = [
             'total_claims' => $statsBaseQuery()->count(),
-            'ro_pending' => $statsBaseQuery()->where(function($q) {
-                                    $q->where('fc.status', 'submitted')->orWhere('fc.verifier_status', 'pending');
-                                })
-                                ->whereNotIn('fc.status', ['approved', 'es_approved', 'paid', 'rejected'])
-                                ->count(),
-            'e5_pending' => $statsBaseQuery()->where(function($q) {
-                                    $q->where('fc.status', 'verified')->orWhere('fc.verifier_status', 'approved');
-                                })
-                                ->whereNotIn('fc.status', ['approved', 'es_approved', 'paid', 'rejected'])
-                                ->count(),
-            'approved' => $statsBaseQuery()->whereIn('fc.status', ['approved', 'es_approved'])->count(),
-            'paid' => $statsBaseQuery()->where('fc.status', 'paid')->count(),
+            'ro_pending' => $this->applyFacilityClaimStatusFilter($statsBaseQuery(), 'ro_pending', 'fc.')->count(),
+            'e5_pending' => $this->applyFacilityClaimStatusFilter($statsBaseQuery(), 'e5_pending', 'fc.')->count(),
+            'approved' => $this->applyFacilityClaimStatusFilter($statsBaseQuery(), 'approved_all', 'fc.')->count(),
+            'paid' => $this->applyFacilityClaimStatusFilter($statsBaseQuery(), 'paid', 'fc.')->count(),
             'total_value' => $statsBaseQuery()->sum('fc.total_amount'),
             'approved_value' => $statsBaseQuery()->whereIn('fc.status', ['approved', 'es_approved', 'paid'])->sum('fc.total_amount'),
             'this_month_claims' => $statsBaseQuery()->whereMonth('fc.created_at', now()->month)
@@ -1364,69 +1337,192 @@ class ClaimController extends Controller
     }
 
     /**
+     * Apply program filter consistently to a facility_claims query.
+     */
+    private function applyFacilityClaimProgramFilter($query, $programId, $tablePrefix = 'facility_claims.')
+    {
+        if (!$programId) {
+            return $query;
+        }
+
+        $program = DB::table('programs')->where('id', $programId)->first();
+        $pId = $program ? $program->id : $programId;
+        $format = $program->format ?? '';
+
+        $query->where(function ($subQ) use ($pId, $format, $tablePrefix) {
+            $subQ->whereExists(function ($encSub) use ($pId, $tablePrefix) {
+                $encSub->select(DB::raw(1))
+                    ->from('encounters')
+                    ->whereColumn('encounters.id', $tablePrefix . 'encounter_id')
+                    ->where('encounters.program_id', $pId);
+            })
+            ->orWhereIn($tablePrefix . 'boschma_no', function ($sub) use ($pId) {
+                $sub->select('boschma_no')->from('beneficiaries')->where('program_id', $pId);
+            });
+
+            if (!empty($format)) {
+                $subQ->orWhere($tablePrefix . 'boschma_no', 'like', $format . '%');
+            }
+            if ($pId == 1) { // Formal Program
+                $subQ->orWhere($tablePrefix . 'boschma_no', 'like', 'BFS/%')
+                     ->orWhere($tablePrefix . 'boschma_no', 'like', 'FS/%');
+            }
+
+            $subQ->orWhere(function ($subEnrollee) use ($pId, $tablePrefix) {
+                $subEnrollee->where($tablePrefix . 'enrollee_type', 'beneficiary')
+                    ->whereExists(function ($sub) use ($pId, $tablePrefix) {
+                        $sub->select(DB::raw(1))
+                            ->from('beneficiaries')
+                            ->whereColumn('beneficiaries.boschma_no', $tablePrefix . 'enrollee_number')
+                            ->where('beneficiaries.program_id', $pId);
+                    });
+            })
+            ->orWhere(function ($subEnrollee) use ($pId, $tablePrefix) {
+                $subEnrollee->where($tablePrefix . 'enrollee_type', 'spouse')
+                    ->whereExists(function ($sub) use ($pId, $tablePrefix) {
+                        $sub->select(DB::raw(1))
+                            ->from('spouses')
+                            ->join('beneficiaries', 'spouses.beneficiary_id', '=', 'beneficiaries.id')
+                            ->whereColumn('spouses.boschma_no', $tablePrefix . 'enrollee_number')
+                            ->where('beneficiaries.program_id', $pId);
+                    });
+            })
+            ->orWhere(function ($subEnrollee) use ($pId, $tablePrefix) {
+                $subEnrollee->where($tablePrefix . 'enrollee_type', 'child')
+                    ->whereExists(function ($sub) use ($pId, $tablePrefix) {
+                        $sub->select(DB::raw(1))
+                            ->from('children')
+                            ->join('beneficiaries', 'children.beneficiary_id', '=', 'beneficiaries.id')
+                            ->whereColumn('children.boschma_no', $tablePrefix . 'enrollee_number')
+                            ->where('beneficiaries.program_id', $pId);
+                    });
+            });
+        });
+
+        return $query;
+    }
+
+    /**
+     * Apply status filter consistently to a facility_claims query, accounting for stage rejections.
+     */
+    private function applyFacilityClaimStatusFilter($query, $status, $tablePrefix = 'facility_claims.')
+    {
+        if (!$status) {
+            return $query;
+        }
+
+        $notRejected = function ($q) use ($tablePrefix) {
+            $q->where($tablePrefix . 'status', '!=', 'rejected')
+              ->where(function ($sub) use ($tablePrefix) {
+                  $sub->whereNull($tablePrefix . 'verifier_status')->orWhere($tablePrefix . 'verifier_status', '!=', 'rejected');
+              })
+              ->where(function ($sub) use ($tablePrefix) {
+                  $sub->whereNull($tablePrefix . 'approver_status')->orWhere($tablePrefix . 'approver_status', '!=', 'rejected');
+              })
+              ->where(function ($sub) use ($tablePrefix) {
+                  $sub->whereNull($tablePrefix . 'es_status')->orWhere($tablePrefix . 'es_status', '!=', 'rejected');
+              })
+              ->where(function ($sub) use ($tablePrefix) {
+                  $sub->whereNull($tablePrefix . 'finance_status')->orWhere($tablePrefix . 'finance_status', '!=', 'rejected');
+              });
+        };
+
+        if ($status === 'rejected') {
+            $query->where(function ($q) use ($tablePrefix) {
+                $q->where($tablePrefix . 'status', 'rejected')
+                  ->orWhere($tablePrefix . 'verifier_status', 'rejected')
+                  ->orWhere($tablePrefix . 'approver_status', 'rejected')
+                  ->orWhere($tablePrefix . 'es_status', 'rejected')
+                  ->orWhere($tablePrefix . 'finance_status', 'rejected');
+            });
+        } elseif ($status === 'ro_pending') {
+            $query->where(function ($q) use ($tablePrefix) {
+                $q->where($tablePrefix . 'status', 'submitted')->orWhere($tablePrefix . 'verifier_status', 'pending');
+            })->whereNotIn($tablePrefix . 'status', ['approved', 'es_approved', 'paid', 'rejected']);
+            $notRejected($query);
+        } elseif ($status === 'e5_pending') {
+            $query->where(function ($q) use ($tablePrefix) {
+                $q->where($tablePrefix . 'status', 'verified')->orWhere($tablePrefix . 'verifier_status', 'approved');
+            })->whereNotIn($tablePrefix . 'status', ['approved', 'es_approved', 'paid', 'rejected']);
+            $notRejected($query);
+        } elseif ($status === 'pending') {
+            $query->whereIn($tablePrefix . 'status', ['draft', 'submitted']);
+            $notRejected($query);
+        } elseif ($status === 'approved_all') {
+            $query->whereIn($tablePrefix . 'status', ['approved', 'es_approved']);
+            $notRejected($query);
+        } elseif ($status === 'paid') {
+            $query->where($tablePrefix . 'status', 'paid');
+        } else {
+            $query->where($tablePrefix . 'status', $status);
+            $notRejected($query);
+        }
+
+        return $query;
+    }
+
+    /**
      * Display claims analytics dashboard.
      */
     public function analytics(Request $request)
     {
         $dateFrom = $request->input('date_from');
         $dateTo = $request->input('date_to');
-        // default to last 3 months when no dates are provided
-        if (!$dateFrom && !$dateTo) {
-            $dateTo = now()->format('Y-m-d');
-            $dateFrom = now()->subMonths(3)->format('Y-m-d');
-        }
         $statusFilter = $request->input('status', null);
         $programId = $request->input('program_id');
 
         // programs list for filter
         $programs = \App\Models\Program::orderBy('name')->get();
 
-        // Base query for facility_claims
-        $baseQuery = DB::table('facility_claims')->whereNull('deleted_at');
+        // Base query for facility_claims (joined with facilities for consistent counts across cards, tables, and charts)
+        $baseQuery = DB::table('facility_claims')
+            ->join('facilities as f', 'facility_claims.facility_id', '=', 'f.id')
+            ->whereNull('facility_claims.deleted_at');
         
         if ($dateFrom) {
-            $baseQuery->whereDate('service_date', '>=', $dateFrom);
+            $baseQuery->whereDate('facility_claims.service_date', '>=', $dateFrom);
         }
         if ($dateTo) {
-            $baseQuery->whereDate('service_date', '<=', $dateTo);
+            $baseQuery->whereDate('facility_claims.service_date', '<=', $dateTo);
         }
         if ($statusFilter) {
-            $baseQuery->where('facility_claims.status', $statusFilter);
+            $this->applyFacilityClaimStatusFilter($baseQuery, $statusFilter, 'facility_claims.');
         }
         if ($programId) {
-            $baseQuery->join('encounters as e', 'facility_claims.encounter_id', '=', 'e.id')
-                ->where('e.program_id', $programId);
+            $this->applyFacilityClaimProgramFilter($baseQuery, $programId, 'facility_claims.');
         }
 
-        // Overall statistics (all statuses, respecting program filter)
-        $allClaimsQuery = DB::table('facility_claims')->whereNull('deleted_at');
-        if ($dateFrom) $allClaimsQuery->whereDate('service_date', '>=', $dateFrom);
-        if ($dateTo) $allClaimsQuery->whereDate('service_date', '<=', $dateTo);
-        if ($programId) $allClaimsQuery->join('encounters as e', 'facility_claims.encounter_id', '=', 'e.id')->where('e.program_id', $programId);
+        // Overall statistics (respecting date and program filters)
+        $allClaimsQuery = DB::table('facility_claims')
+            ->join('facilities as f', 'facility_claims.facility_id', '=', 'f.id')
+            ->whereNull('facility_claims.deleted_at');
+        if ($dateFrom) $allClaimsQuery->whereDate('facility_claims.service_date', '>=', $dateFrom);
+        if ($dateTo) $allClaimsQuery->whereDate('facility_claims.service_date', '<=', $dateTo);
+        if ($programId) $this->applyFacilityClaimProgramFilter($allClaimsQuery, $programId, 'facility_claims.');
 
         $overallStats = [
             'total_claims' => (clone $allClaimsQuery)->count(),
-            'pending' => (clone $allClaimsQuery)->whereIn('facility_claims.status', ['draft', 'submitted'])->count(),
-            'verified' => (clone $allClaimsQuery)->where('facility_claims.status', 'verified')->count(),
-            'approved' => (clone $allClaimsQuery)->whereIn('facility_claims.status', ['approved', 'es_approved'])->count(),
-            'paid' => (clone $allClaimsQuery)->where('facility_claims.status', 'paid')->count(),
-            'rejected' => (clone $allClaimsQuery)->where('facility_claims.status', 'rejected')->count(),
+            'pending' => $this->applyFacilityClaimStatusFilter(clone $allClaimsQuery, 'pending', 'facility_claims.')->count(),
+            'verified' => $this->applyFacilityClaimStatusFilter(clone $allClaimsQuery, 'verified', 'facility_claims.')->count(),
+            'approved' => $this->applyFacilityClaimStatusFilter(clone $allClaimsQuery, 'approved_all', 'facility_claims.')->count(),
+            'paid' => $this->applyFacilityClaimStatusFilter(clone $allClaimsQuery, 'paid', 'facility_claims.')->count(),
+            'rejected' => $this->applyFacilityClaimStatusFilter(clone $allClaimsQuery, 'rejected', 'facility_claims.')->count(),
             'total_amount' => (clone $allClaimsQuery)->sum('facility_claims.total_amount'),
-            'paid_amount' => (clone $allClaimsQuery)->where('facility_claims.status', 'paid')->sum('facility_claims.total_amount'),
+            'paid_amount' => $this->applyFacilityClaimStatusFilter(clone $allClaimsQuery, 'paid', 'facility_claims.')->sum('facility_claims.total_amount'),
+            'rejected_amount' => $this->applyFacilityClaimStatusFilter(clone $allClaimsQuery, 'rejected', 'facility_claims.')->sum('facility_claims.total_amount'),
         ];
 
-        // Paid claims per facility with amount breakdown
+        // Claims per facility with amount breakdown
         $facilityBreakdown = (clone $baseQuery)
-            ->join('facilities as f', 'facility_claims.facility_id', '=', 'f.id')
             ->select(
                 'f.id as facility_id',
                 'f.name as facility_name',
                 DB::raw('COUNT(*) as claim_count'),
-                DB::raw('SUM(consultation_amount) as admin_charges'),
-                DB::raw('SUM(pharmacy_amount) as pharmacy'),
-                DB::raw('SUM(laboratory_amount) as laboratory'),
-                DB::raw('SUM(services_amount) as services'),
-                DB::raw('SUM(total_amount) as total_amount')
+                DB::raw('SUM(facility_claims.consultation_amount) as admin_charges'),
+                DB::raw('SUM(facility_claims.pharmacy_amount) as pharmacy'),
+                DB::raw('SUM(facility_claims.laboratory_amount) as laboratory'),
+                DB::raw('SUM(facility_claims.services_amount) as services'),
+                DB::raw('SUM(facility_claims.total_amount) as total_amount')
             )
             ->groupBy('f.id', 'f.name')
             ->orderBy('total_amount', 'desc')
@@ -1445,13 +1541,13 @@ class ClaimController extends Controller
         // Monthly trends from facility_claims
         $monthlyTrends = (clone $baseQuery)
             ->select(
-                DB::raw('DATE_FORMAT(service_date, "%Y-%m") as month'),
+                DB::raw('DATE_FORMAT(facility_claims.service_date, "%Y-%m") as month'),
                 DB::raw('COUNT(*) as claim_count'),
-                DB::raw('SUM(consultation_amount) as admin_charges'),
-                DB::raw('SUM(pharmacy_amount) as pharmacy'),
-                DB::raw('SUM(laboratory_amount) as laboratory'),
-                DB::raw('SUM(services_amount) as services'),
-                DB::raw('SUM(total_amount) as total_amount')
+                DB::raw('SUM(facility_claims.consultation_amount) as admin_charges'),
+                DB::raw('SUM(facility_claims.pharmacy_amount) as pharmacy'),
+                DB::raw('SUM(facility_claims.laboratory_amount) as laboratory'),
+                DB::raw('SUM(facility_claims.services_amount) as services'),
+                DB::raw('SUM(facility_claims.total_amount) as total_amount')
             )
             ->groupBy('month')
             ->orderBy('month')
@@ -1460,11 +1556,11 @@ class ClaimController extends Controller
         // Claims by type
         $claimsByType = (clone $baseQuery)
             ->select(
-                'claim_type',
+                'facility_claims.claim_type',
                 DB::raw('COUNT(*) as claim_count'),
-                DB::raw('SUM(total_amount) as total_amount')
+                DB::raw('SUM(facility_claims.total_amount) as total_amount')
             )
-            ->groupBy('claim_type')
+            ->groupBy('facility_claims.claim_type')
             ->orderBy('claim_count', 'desc')
             ->get();
 
@@ -1477,36 +1573,57 @@ class ClaimController extends Controller
     }
 
     /**
-     * Printable facility report — monthly cumulative (or last 3 months by default)
+     * Printable facility report — monthly cumulative
      */
     public function facilityReport(Request $request)
     {
         $facilityId = $request->input('facility_id');
         $programId = $request->input('program_id');
+        $statusFilter = $request->input('status');
         $dateFrom = $request->input('date_from');
         $dateTo = $request->input('date_to');
         $format = $request->input('format', 'html'); // html, pdf
 
-        if (!$dateFrom && !$dateTo) {
-            $dateTo = now()->format('Y-m-d');
-            $dateFrom = now()->subMonths(3)->format('Y-m-d');
+        $query = DB::table('facility_claims')
+            ->join('facilities as f', 'facility_claims.facility_id', '=', 'f.id')
+            ->whereNull('facility_claims.deleted_at');
+
+        if ($facilityId) {
+            $query->where('facility_claims.facility_id', $facilityId);
+        }
+        if ($programId) {
+            $this->applyFacilityClaimProgramFilter($query, $programId, 'facility_claims.');
+        }
+        if ($statusFilter) {
+            $this->applyFacilityClaimStatusFilter($query, $statusFilter, 'facility_claims.');
+        }
+        if ($dateFrom) {
+            $query->whereDate('facility_claims.service_date', '>=', $dateFrom);
+        }
+        if ($dateTo) {
+            $query->whereDate('facility_claims.service_date', '<=', $dateTo);
         }
 
-        $query = DB::table('facility_claims')->whereNull('deleted_at');
-        if ($facilityId) $query->where('facility_id', $facilityId);
-        if ($programId) $query->join('encounters as e', 'facility_claims.encounter_id', '=', 'e.id')->where('e.program_id', $programId);
-        if ($dateFrom) $query->whereDate('service_date', '>=', $dateFrom);
-        if ($dateTo) $query->whereDate('service_date', '<=', $dateTo);
+        // If no date bounds were passed, derive actual period bounds from matching claims for the report header
+        if (!$dateFrom || !$dateTo) {
+            $dateBounds = (clone $query)->selectRaw('MIN(facility_claims.service_date) as min_date, MAX(facility_claims.service_date) as max_date')->first();
+            if (!$dateFrom) {
+                $dateFrom = $dateBounds->min_date ?? now()->subMonths(3)->format('Y-m-d');
+            }
+            if (!$dateTo) {
+                $dateTo = $dateBounds->max_date ?? now()->format('Y-m-d');
+            }
+        }
 
         $monthly = (clone $query)
             ->select(
-                DB::raw('DATE_FORMAT(service_date, "%Y-%m") as month'),
+                DB::raw('DATE_FORMAT(facility_claims.service_date, "%Y-%m") as month'),
                 DB::raw('COUNT(*) as claim_count'),
-                DB::raw('SUM(consultation_amount) as admin_charges'),
-                DB::raw('SUM(pharmacy_amount) as pharmacy'),
-                DB::raw('SUM(laboratory_amount) as laboratory'),
-                DB::raw('SUM(services_amount) as services'),
-                DB::raw('SUM(total_amount) as total_amount')
+                DB::raw('SUM(facility_claims.consultation_amount) as admin_charges'),
+                DB::raw('SUM(facility_claims.pharmacy_amount) as pharmacy'),
+                DB::raw('SUM(facility_claims.laboratory_amount) as laboratory'),
+                DB::raw('SUM(facility_claims.services_amount) as services'),
+                DB::raw('SUM(facility_claims.total_amount) as total_amount')
             )
             ->groupBy('month')
             ->orderBy('month')
@@ -1519,7 +1636,7 @@ class ClaimController extends Controller
 
         if ($format === 'pdf') {
             $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('claims.facility-report-pdf', compact('monthly', 'facility', 'dateFrom', 'dateTo'));
-            $filename = ($facility ? str_slug($facility->name) : 'report') . '_' . now()->format('Y-m-d_His') . '.pdf';
+            $filename = ($facility ? \Illuminate\Support\Str::slug($facility->name) : 'report') . '_' . now()->format('Y-m-d_His') . '.pdf';
             return $pdf->download($filename);
         }
 
@@ -3907,24 +4024,102 @@ class ClaimController extends Controller
             }
 
             // Recalculate claim totals from actual database tables
-            $medTotal = DB::table('facility_claim_medications')
-                ->where('facility_claim_id', $claimId)
-                ->sum('total_price') ?? 0;
-                
-            $svcTotal = DB::table('facility_claim_services')
-                ->where('facility_claim_id', $claimId)
-                ->sum('total_price') ?? 0;
-                
-            DB::table('facility_claims')->where('id', $claimId)->update([
-                'pharmacy_amount' => $medTotal,
-                'services_amount' => $svcTotal,
-                'total_amount' => $medTotal + $svcTotal,
-            ]);
+            $this->recalculateFacilityClaimTotals($claimId);
 
             return response()->json(['success' => true, 'message' => 'Item updated successfully']);
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
         }
+    }
+
+    /**
+     * Recalculate consultation_amount, pharmacy_amount, laboratory_amount, services_amount, and total_amount
+     * for a facility claim from its medication and service line items.
+     */
+    public function recalculateFacilityClaimTotals($claimId)
+    {
+        $medTotal = (float)(DB::table('facility_claim_medications')
+            ->where('facility_claim_id', $claimId)
+            ->sum('total_price') ?? 0);
+
+        $serviceRows = DB::table('facility_claim_services as fcs')
+            ->leftJoin('service_order_items as soi', 'fcs.service_order_item_id', '=', 'soi.id')
+            ->leftJoin('service_items as si', 'soi.service_item_id', '=', 'si.id')
+            ->leftJoin('service_types as st', 'si.service_type_id', '=', 'st.id')
+            ->leftJoin('service_categories as sc', 'st.service_category_id', '=', 'sc.id')
+            ->where('fcs.facility_claim_id', $claimId)
+            ->select(
+                'fcs.service_type',
+                'fcs.service_name',
+                'fcs.total_price',
+                'st.name as st_name',
+                'sc.name as sc_name'
+            )
+            ->get();
+
+        $consultationAmount = 0.0;
+        $laboratoryAmount = 0.0;
+        $servicesAmount = 0.0;
+
+        foreach ($serviceRows as $r) {
+            $amt = (float)($r->total_price ?? 0);
+            $fcsType = strtolower(trim($r->service_type ?? ''));
+            $fcsName = strtolower(trim($r->service_name ?? ''));
+            $stName = strtolower(trim($r->st_name ?? ''));
+            $scName = strtolower(trim($r->sc_name ?? ''));
+
+            $isAdmin = in_array($fcsType, ['consultation', 'specialist_review', 'nursing_care', 'bed_occupancy', 'admin'])
+                || in_array($scName, ['admin charges', 'consultation services'])
+                || in_array($stName, ['admin', 'consultation fee', 'bed fee', 'nursing care', 'review'])
+                || in_array($fcsName, ['specialist initial consultation', 'specialist review (per visit)', 'nursing care (per day)', 'hospital bed occupancy']);
+
+            $isLab = !$isAdmin && (
+                str_contains($fcsType, 'lab')
+                || str_contains($scName, 'lab')
+                || str_contains($scName, 'haematology')
+                || str_contains($scName, 'heamatology')
+                || str_contains($scName, 'serolog')
+                || str_contains($stName, 'lab')
+                || str_contains($stName, 'haematology')
+                || str_contains($stName, 'heamatology')
+                || str_contains($stName, 'serolog')
+                || str_contains($stName, 'chemistry')
+                || str_contains($stName, 'microbiology')
+                || str_contains($stName, 'parasitology')
+                || str_contains($stName, 'immunology')
+                || in_array($fcsName, ['lipid profile', 'liver function test', 'thyroid function test'])
+            );
+
+            if ($isAdmin) {
+                $consultationAmount += $amt;
+            } elseif ($isLab) {
+                $laboratoryAmount += $amt;
+            } else {
+                $servicesAmount += $amt;
+            }
+        }
+
+        $consultationAmount = round($consultationAmount, 2);
+        $pharmacyAmount = round($medTotal, 2);
+        $laboratoryAmount = round($laboratoryAmount, 2);
+        $servicesAmount = round($servicesAmount, 2);
+        $totalAmount = round($consultationAmount + $pharmacyAmount + $laboratoryAmount + $servicesAmount, 2);
+
+        DB::table('facility_claims')->where('id', $claimId)->update([
+            'consultation_amount' => $consultationAmount,
+            'pharmacy_amount'     => $pharmacyAmount,
+            'laboratory_amount'   => $laboratoryAmount,
+            'services_amount'     => $servicesAmount,
+            'total_amount'        => $totalAmount,
+        ]);
+
+        return [
+            'consultation_amount' => $consultationAmount,
+            'pharmacy_amount'     => $pharmacyAmount,
+            'laboratory_amount'   => $laboratoryAmount,
+            'services_amount'     => $servicesAmount,
+            'total_amount'        => $totalAmount,
+        ];
     }
 
     /**
@@ -4042,19 +4237,7 @@ class ClaimController extends Controller
             }
 
             // Recalculate claim totals from actual database tables
-            $medTotal = DB::table('facility_claim_medications')
-                ->where('facility_claim_id', $claimId)
-                ->sum('total_price') ?? 0;
-                
-            $svcTotal = DB::table('facility_claim_services')
-                ->where('facility_claim_id', $claimId)
-                ->sum('total_price') ?? 0;
-                
-            DB::table('facility_claims')->where('id', $claimId)->update([
-                'pharmacy_amount' => $medTotal,
-                'services_amount' => $svcTotal,
-                'total_amount' => $medTotal + $svcTotal,
-            ]);
+            $this->recalculateFacilityClaimTotals($claimId);
 
             return response()->json(['success' => true, 'message' => 'Item deleted successfully']);
         } catch (\Exception $e) {
@@ -4144,14 +4327,7 @@ class ClaimController extends Controller
             ]);
 
             // Recalculate claim totals
-            $medTotal = DB::table('facility_claim_medications')->where('facility_claim_id', $claim->id)->sum('total_price');
-            $svcTotal = DB::table('facility_claim_services')->where('facility_claim_id', $claim->id)->sum('total_price');
-
-            DB::table('facility_claims')->where('id', $claimId)->update([
-                'pharmacy_amount' => $medTotal,
-                'services_amount' => $svcTotal,
-                'total_amount'    => $medTotal + $svcTotal,
-            ]);
+            $this->recalculateFacilityClaimTotals($claimId);
 
             DB::commit();
 
@@ -4227,14 +4403,7 @@ class ClaimController extends Controller
             ]);
 
             // Recalculate claim totals
-            $medTotal = DB::table('facility_claim_medications')->where('facility_claim_id', $claim->id)->sum('total_price');
-            $svcTotal = DB::table('facility_claim_services')->where('facility_claim_id', $claim->id)->sum('total_price');
-
-            DB::table('facility_claims')->where('id', $claimId)->update([
-                'pharmacy_amount' => $medTotal,
-                'services_amount' => $svcTotal,
-                'total_amount'    => $medTotal + $svcTotal,
-            ]);
+            $this->recalculateFacilityClaimTotals($claimId);
 
             DB::commit();
 

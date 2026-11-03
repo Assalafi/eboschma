@@ -13,7 +13,7 @@
             <div class="text-muted">Period: {{ $dateFrom }} to {{ $dateTo }}</div>
         </div>
         <div class="d-print-none">
-            <a href="?format=pdf" class="btn btn-sm btn-primary me-2"><i class="ti-download"></i> Download PDF</a>
+            <a href="{{ request()->fullUrlWithQuery(['format' => 'pdf']) }}" class="btn btn-sm btn-primary me-2"><i class="ti-download"></i> Download PDF</a>
             <button class="btn btn-sm btn-outline-secondary" onclick="window.print()"><i class="ti-printer"></i> Print</button>
         </div>
     </div>

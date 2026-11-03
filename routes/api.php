@@ -53,25 +53,25 @@ Route::get('/facilities', [BeneficiaryApiController::class, 'facilities']);
     Route::get('/filter/status/{status}', [BeneficiaryApiController::class, 'filterByStatus']);
     Route::get('/filter/facility/{facilityId}', [BeneficiaryApiController::class, 'filterByFacility']);
     
-    // Public routes (if needed)
+    // Public read-only routes
     Route::get('/', [BeneficiaryApiController::class, 'index']);
-    Route::post('/', [BeneficiaryApiController::class, 'store']);
-    
-    // Parameterized routes - MUST be after specific routes
     Route::get('/{beneficiary}', [BeneficiaryApiController::class, 'show']);
-    Route::put('/{beneficiary}', [BeneficiaryApiController::class, 'update']);
-    Route::patch('/{beneficiary}', [BeneficiaryApiController::class, 'update']);
-    Route::delete('/{beneficiary}', [BeneficiaryApiController::class, 'destroy']);
-    
-    // Additional utility endpoints
     Route::get('/{beneficiary}/children', [BeneficiaryApiController::class, 'children']);
     Route::get('/{beneficiary}/spouse', [BeneficiaryApiController::class, 'spouse']);
-    
-    // File upload endpoints
-    Route::post('/{beneficiary}/photo', [BeneficiaryApiController::class, 'uploadPhoto']);
-    Route::post('/{beneficiary}/spouse/photo', [BeneficiaryApiController::class, 'uploadSpousePhoto']);
-    Route::post('/{beneficiary}/children/{child}/photo', [BeneficiaryApiController::class, 'uploadChildPhoto']);
-    Route::post('/{beneficiary}/children/{child}/birth-certificate', [BeneficiaryApiController::class, 'uploadChildBirthCertificate']);
+
+    // Protected mutating and destructive routes
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::post('/', [BeneficiaryApiController::class, 'store']);
+        Route::put('/{beneficiary}', [BeneficiaryApiController::class, 'update']);
+        Route::patch('/{beneficiary}', [BeneficiaryApiController::class, 'update']);
+        Route::delete('/{beneficiary}', [BeneficiaryApiController::class, 'destroy']);
+
+        // File upload endpoints
+        Route::post('/{beneficiary}/photo', [BeneficiaryApiController::class, 'uploadPhoto']);
+        Route::post('/{beneficiary}/spouse/photo', [BeneficiaryApiController::class, 'uploadSpousePhoto']);
+        Route::post('/{beneficiary}/children/{child}/photo', [BeneficiaryApiController::class, 'uploadChildPhoto']);
+        Route::post('/{beneficiary}/children/{child}/birth-certificate', [BeneficiaryApiController::class, 'uploadChildBirthCertificate']);
+    });
 });
 
 // Civil Servant Authentication API Routes

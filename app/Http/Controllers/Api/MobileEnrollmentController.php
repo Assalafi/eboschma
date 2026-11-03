@@ -1742,9 +1742,11 @@ class MobileEnrollmentController extends Controller
                 'boschma_no' => $existingBoschmaNo
             ]);
 
-            // Calculate number of children
-            $numberOfChildren = 0;
-            if ($request->has_children && $request->children) {
+            // Calculate number of children (preserve existing count unless children are updated or explicitly deleted)
+            $numberOfChildren = $beneficiary->children()->count();
+            if ($request->boolean('delete_children')) {
+                $numberOfChildren = 0;
+            } elseif ($request->has_children && $request->children) {
                 $childrenData = json_decode($request->children, true);
                 if (is_array($childrenData)) {
                     $numberOfChildren = count(array_filter($childrenData, function($child) {
@@ -1752,6 +1754,10 @@ class MobileEnrollmentController extends Controller
                     }));
                 }
             }
+
+            $hasSpouseFlag = $request->boolean('delete_spouse')
+                ? 0
+                : (($request->has_spouse || $beneficiary->spouse) ? 1 : 0);
 
             // Update beneficiary - PRESERVE boschma_no and sequence_number
             $beneficiary->update([
@@ -1781,7 +1787,7 @@ class MobileEnrollmentController extends Controller
                 'place_of_work' => $request->place_of_work,
                 'date_of_employment' => $request->date_of_employment,
                 'date_of_retirement' => $request->date_of_retirement,
-                'has_spouse' => $request->has_spouse ? 1 : 0,
+                'has_spouse' => $hasSpouseFlag,
                 'number_of_children' => $numberOfChildren,
                 'updated_by' => $staffId,
                 'status' => 'pending',
@@ -1813,13 +1819,18 @@ class MobileEnrollmentController extends Controller
             ]);
             
             if (!$request->has_spouse) {
-                // DELETE spouse if exists
-                if ($beneficiary->spouse) {
-                    Log::info('🗑️ Deleting spouse', [
+                // Only delete spouse if explicitly requested via delete_spouse=true
+                if ($request->boolean('delete_spouse') && $beneficiary->spouse) {
+                    Log::info('🗑️ Deleting spouse (explicitly requested)', [
                         'spouse_id' => $beneficiary->spouse->id,
                         'boschma_no' => $beneficiary->spouse->boschma_no
                     ]);
                     $beneficiary->spouse->delete();
+                } elseif ($beneficiary->spouse) {
+                    Log::info('🛡️ Preserving existing spouse (has_spouse was false/omitted without delete_spouse)', [
+                        'spouse_id' => $beneficiary->spouse->id,
+                        'boschma_no' => $beneficiary->spouse->boschma_no
+                    ]);
                 }
             } else {
                 $spouseFacilityId = $request->spouse_use_alt_facility ? $request->alt_facility_id : $request->facility_id;
@@ -1899,33 +1910,21 @@ class MobileEnrollmentController extends Controller
             ]);
             
             if (!$request->has_children) {
-                // DELETE all children
-                if ($beneficiary->children->isNotEmpty()) {
-                    Log::info('🗑️ Deleting all children', [
+                // Only delete all children if explicitly requested via delete_children=true
+                if ($request->boolean('delete_children') && $beneficiary->children->isNotEmpty()) {
+                    Log::info('🗑️ Deleting all children (explicitly requested)', [
                         'count' => $beneficiary->children->count()
                     ]);
                     $beneficiary->children()->delete();
-                }
-            } else if ($request->children) {
-                $childrenData = json_decode($request->children, true);
-                $suffixes = ['B', 'C', 'D', 'E'];
-                
-                // Get existing child IDs from request
-                $requestChildIds = collect($childrenData)
-                    ->pluck('child_id')
-                    ->filter()
-                    ->toArray();
-
-                // DELETE children not in request
-                $deletedCount = $beneficiary->children()
-                    ->whereNotIn('id', $requestChildIds)
-                    ->delete();
-                    
-                if ($deletedCount > 0) {
-                    Log::info('🗑️ Deleted children not in update', [
-                        'deleted_count' => $deletedCount
+                } elseif ($beneficiary->children->isNotEmpty()) {
+                    Log::info('🛡️ Preserving existing children (has_children was false/omitted without delete_children)', [
+                        'count' => $beneficiary->children->count()
                     ]);
                 }
+            } else if ($request->children) {
+                $childrenData = json_decode($request->children, true) ?: [];
+                $suffixes = ['B', 'C', 'D', 'E'];
+                $processedChildIds = [];
 
                 // CREATE or UPDATE each child
                 foreach ($childrenData as $index => $childData) {
@@ -1960,29 +1959,56 @@ class MobileEnrollmentController extends Controller
                         Log::info("📄 Child $index Birth Cert Uploaded", ['path' => $birthCertPath]);
                     }
 
-                    if (isset($childData['child_id']) && $childData['child_id']) {
+                    $targetBoschmaNo = $existingBoschmaNo . $suffixes[$index];
+                    $existingChild = null;
+
+                    if (!empty($childData['child_id'])) {
+                        $existingChild = Child::where('id', $childData['child_id'])
+                            ->where('beneficiary_id', $beneficiary->id)
+                            ->first();
+                    }
+
+                    if (!$existingChild) {
+                        $existingChild = Child::where('beneficiary_id', $beneficiary->id)
+                            ->where('boschma_no', $targetBoschmaNo)
+                            ->first();
+                    }
+
+                    if ($existingChild) {
                         // UPDATE existing child
-                        $child = Child::find($childData['child_id']);
-                        if ($child && $child->beneficiary_id === $beneficiary->id) {
-                            $child->update($childUpdateData);
-                            Log::info('✅ Child Updated', [
-                                'child_id' => $child->id,
-                                'name' => $child->name,
-                                'photo_updated' => isset($childUpdateData['photo']) ? 'yes' : 'no',
-                                'birth_cert_updated' => isset($childUpdateData['birth_certificate_file']) ? 'yes' : 'no'
-                            ]);
-                        }
+                        $existingChild->update($childUpdateData);
+                        $processedChildIds[] = $existingChild->id;
+                        Log::info('✅ Child Updated', [
+                            'child_id' => $existingChild->id,
+                            'name' => $existingChild->name,
+                            'photo_updated' => isset($childUpdateData['photo']) ? 'yes' : 'no',
+                            'birth_cert_updated' => isset($childUpdateData['birth_certificate_file']) ? 'yes' : 'no'
+                        ]);
                     } else {
                         // CREATE new child
                         $childUpdateData['beneficiary_id'] = $beneficiary->id;
-                        $childUpdateData['boschma_no'] = $existingBoschmaNo . $suffixes[$index];
+                        $childUpdateData['boschma_no'] = $targetBoschmaNo;
                         $newChild = Child::create($childUpdateData);
+                        $processedChildIds[] = $newChild->id;
                         Log::info('✅ Child Created', [
                             'child_id' => $newChild->id,
                             'boschma_no' => $childUpdateData['boschma_no'],
                             'name' => $childUpdateData['name'],
                             'has_photo' => isset($childUpdateData['photo']) ? 'yes' : 'no',
                             'has_birth_cert' => isset($childUpdateData['birth_certificate_file']) ? 'yes' : 'no'
+                        ]);
+                    }
+                }
+
+                // Only delete children not in request if explicitly requested via delete_removed_children=true
+                if ($request->boolean('delete_removed_children') && !empty($processedChildIds)) {
+                    $deletedCount = $beneficiary->children()
+                        ->whereNotIn('id', $processedChildIds)
+                        ->delete();
+
+                    if ($deletedCount > 0) {
+                        Log::info('🗑️ Deleted children not in update (explicitly requested)', [
+                            'deleted_count' => $deletedCount
                         ]);
                     }
                 }

@@ -646,18 +646,18 @@ class BeneficiaryController extends Controller
             }
 
             // Handle children if exist (up to 4)
-            // Get existing children before deleting to preserve their files
-            $existingChildren = Child::where('beneficiary_id', $beneficiary->id)
-                ->orderBy('id')
-                ->get()
-                ->keyBy(function($child, $key) {
-                    return $key; // Index by order (0, 1, 2, 3)
-                });
-            
-            // Delete existing children before creating new ones to avoid duplicates
-            Child::where('beneficiary_id', $beneficiary->id)->delete();
-            
-            if ($request->has_children && is_array($request->child_name_)) {
+            $submittedChildNames = is_array($request->child_name_) ? array_filter($request->child_name_) : [];
+            if ($request->has_children && !empty($submittedChildNames)) {
+                // Get existing children before deleting to preserve their files
+                $existingChildren = Child::where('beneficiary_id', $beneficiary->id)
+                    ->orderBy('id')
+                    ->get()
+                    ->keyBy(function($child, $key) {
+                        return $key; // Index by order (0, 1, 2, 3)
+                    });
+                
+                // Delete existing children before creating new ones to avoid duplicates
+                Child::where('beneficiary_id', $beneficiary->id)->delete();
                 $suffixes = ['B', 'C', 'D', 'E'];
 
                 foreach ($request->child_name_ as $index => $childName) {
@@ -1009,14 +1009,26 @@ class BeneficiaryController extends Controller
                     }
 
                     // Update or create child
-                    if (isset($request->child_id[$index]) && $request->child_id[$index]) {
+                    $targetBoschmaNo = $beneficiary->boschma_no . $suffixes[$index];
+                    $existingChildRecord = null;
+                    if (!empty($request->child_id[$index])) {
+                        $existingChildRecord = Child::where('id', $request->child_id[$index])
+                            ->where('beneficiary_id', $beneficiary->id)
+                            ->first();
+                    }
+                    if (!$existingChildRecord) {
+                        $existingChildRecord = Child::where('beneficiary_id', $beneficiary->id)
+                            ->where('boschma_no', $targetBoschmaNo)
+                            ->first();
+                    }
+
+                    if ($existingChildRecord) {
                         // Update existing child (do NOT update boschma_no)
-                        $childId = $request->child_id[$index];
-                        Child::where('id', $childId)->update($childData);
-                        $existingChildIds[] = $childId;
+                        $existingChildRecord->update($childData);
+                        $existingChildIds[] = $existingChildRecord->id;
                     } else {
                         // Create new child - set boschma_no ONLY on creation
-                        $childData['boschma_no'] = $beneficiary->boschma_no . $suffixes[$index];
+                        $childData['boschma_no'] = $targetBoschmaNo;
                         $child = Child::create($childData);
                         $existingChildIds[] = $child->id;
                     }
@@ -1331,21 +1343,23 @@ class BeneficiaryController extends Controller
 
                 $beneficiary = Beneficiary::findOrFail($beneficiaryId);
 
-                // Get existing children to preserve their files if not replaced
-                $existingChildren = Child::where('beneficiary_id', $beneficiary->id)
-                    ->orderBy('id')
-                    ->get()
-                    ->keyBy(function($child, $key) {
-                        return $key; // Index 0, 1, 2, 3
-                    });
-
-                // Delete all existing children - we'll recreate them with preserved files
-                Child::where('beneficiary_id', $beneficiary->id)->delete();
-
                 // Update beneficiary has_children flag and count
-                $childCount = 0;
+                $childCount = $beneficiary->children()->count();
+                $submittedChildNames = is_array($request->child_name_) ? array_filter($request->child_name_) : [];
 
-                if ($request->has_children && is_array($request->child_name_)) {
+                if ($request->has_children && !empty($submittedChildNames)) {
+                    // Get existing children to preserve their files if not replaced
+                    $existingChildren = Child::where('beneficiary_id', $beneficiary->id)
+                        ->orderBy('id')
+                        ->get()
+                        ->keyBy(function($child, $key) {
+                            return $key; // Index 0, 1, 2, 3
+                        });
+
+                    // Delete all existing children - we'll recreate them with preserved files
+                    Child::where('beneficiary_id', $beneficiary->id)->delete();
+                    $childCount = 0;
+
                     // NOTE: Children NILs are optional and don't need verification
                     // Children are typically not civil servants, so we don't check civil_servants table
                     // We only validate uniqueness later in the process

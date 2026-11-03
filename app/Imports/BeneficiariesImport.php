@@ -73,12 +73,19 @@ class BeneficiariesImport implements ToModel, WithHeadingRow, WithValidation, Sk
             return null; // Return null since we're updating, not creating
         }
 
-        // Check if NIN already exists (if provided) - update it
+        // Check if NIN already exists (if provided)
         if (!empty($nin)) {
             $beneficiaryByNin = Beneficiary::where('nin', $nin)->first();
             if ($beneficiaryByNin) {
+                // Never overwrite an existing beneficiary who already has a different BOSCHMA number
+                if (!empty($beneficiaryByNin->boschma_no) && $beneficiaryByNin->boschma_no !== $boschmaNo) {
+                    $this->skippedCount++;
+                    $this->errors[] = "Row skipped: NIN '{$nin}' already belongs to BOSCHMA number '{$beneficiaryByNin->boschma_no}'";
+                    return null;
+                }
+
                 $beneficiaryByNin->update([
-                    'boschma_no' => $boschmaNo,
+                    'boschma_no' => $beneficiaryByNin->boschma_no ?: $boschmaNo,
                     'fullname' => $this->cleanStringField($row['name'] ?? null) ?? $beneficiaryByNin->fullname,
                     'date_of_birth' => $this->parseDate($row['dob'] ?? null) ?? $beneficiaryByNin->date_of_birth,
                     'gender' => $this->cleanGender($row['gender'] ?? null) ?? $beneficiaryByNin->gender,

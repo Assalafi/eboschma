@@ -35,6 +35,8 @@ class ClaimController extends Controller
      */
     public function index(Request $request)
     {
+        $this->syncFacilityClaimTotalsColumn();
+
         $programs = DB::table('programs')->where('status', 1)->get();
         $selectedProgram = null;
         if ($request->filled('program_id')) {
@@ -1462,10 +1464,25 @@ class ClaimController extends Controller
     }
 
     /**
+     * Ensure facility_claims.total_amount always equals consultation_amount + pharmacy_amount + laboratory_amount + services_amount.
+     */
+    protected function syncFacilityClaimTotalsColumn(): void
+    {
+        DB::table('facility_claims')
+            ->whereNull('deleted_at')
+            ->whereRaw('ABS((COALESCE(consultation_amount, 0) + COALESCE(pharmacy_amount, 0) + COALESCE(laboratory_amount, 0) + COALESCE(services_amount, 0)) - COALESCE(total_amount, 0)) > 0.005')
+            ->update([
+                'total_amount' => DB::raw('ROUND(COALESCE(consultation_amount, 0) + COALESCE(pharmacy_amount, 0) + COALESCE(laboratory_amount, 0) + COALESCE(services_amount, 0), 2)'),
+            ]);
+    }
+
+    /**
      * Display claims analytics dashboard.
      */
     public function analytics(Request $request)
     {
+        $this->syncFacilityClaimTotalsColumn();
+
         $dateFrom = $request->input('date_from');
         $dateTo = $request->input('date_to');
         $statusFilter = $request->input('status', null);
@@ -1500,6 +1517,8 @@ class ClaimController extends Controller
         if ($dateTo) $allClaimsQuery->whereDate('facility_claims.service_date', '<=', $dateTo);
         if ($programId) $this->applyFacilityClaimProgramFilter($allClaimsQuery, $programId, 'facility_claims.');
 
+        $componentSumExpr = 'COALESCE(facility_claims.consultation_amount, 0) + COALESCE(facility_claims.pharmacy_amount, 0) + COALESCE(facility_claims.laboratory_amount, 0) + COALESCE(facility_claims.services_amount, 0)';
+
         $overallStats = [
             'total_claims' => (clone $allClaimsQuery)->count(),
             'pending' => $this->applyFacilityClaimStatusFilter(clone $allClaimsQuery, 'pending', 'facility_claims.')->count(),
@@ -1507,9 +1526,9 @@ class ClaimController extends Controller
             'approved' => $this->applyFacilityClaimStatusFilter(clone $allClaimsQuery, 'approved_all', 'facility_claims.')->count(),
             'paid' => $this->applyFacilityClaimStatusFilter(clone $allClaimsQuery, 'paid', 'facility_claims.')->count(),
             'rejected' => $this->applyFacilityClaimStatusFilter(clone $allClaimsQuery, 'rejected', 'facility_claims.')->count(),
-            'total_amount' => (clone $allClaimsQuery)->sum('facility_claims.total_amount'),
-            'paid_amount' => $this->applyFacilityClaimStatusFilter(clone $allClaimsQuery, 'paid', 'facility_claims.')->sum('facility_claims.total_amount'),
-            'rejected_amount' => $this->applyFacilityClaimStatusFilter(clone $allClaimsQuery, 'rejected', 'facility_claims.')->sum('facility_claims.total_amount'),
+            'total_amount' => (float)((clone $allClaimsQuery)->selectRaw("COALESCE(SUM({$componentSumExpr}), 0) as agg_total")->value('agg_total') ?? 0),
+            'paid_amount' => (float)($this->applyFacilityClaimStatusFilter(clone $allClaimsQuery, 'paid', 'facility_claims.')->selectRaw("COALESCE(SUM({$componentSumExpr}), 0) as agg_total")->value('agg_total') ?? 0),
+            'rejected_amount' => (float)($this->applyFacilityClaimStatusFilter(clone $allClaimsQuery, 'rejected', 'facility_claims.')->selectRaw("COALESCE(SUM({$componentSumExpr}), 0) as agg_total")->value('agg_total') ?? 0),
         ];
 
         // Claims per facility with amount breakdown
@@ -1518,11 +1537,11 @@ class ClaimController extends Controller
                 'f.id as facility_id',
                 'f.name as facility_name',
                 DB::raw('COUNT(*) as claim_count'),
-                DB::raw('SUM(facility_claims.consultation_amount) as admin_charges'),
-                DB::raw('SUM(facility_claims.pharmacy_amount) as pharmacy'),
-                DB::raw('SUM(facility_claims.laboratory_amount) as laboratory'),
-                DB::raw('SUM(facility_claims.services_amount) as services'),
-                DB::raw('SUM(facility_claims.total_amount) as total_amount')
+                DB::raw('SUM(COALESCE(facility_claims.consultation_amount, 0)) as admin_charges'),
+                DB::raw('SUM(COALESCE(facility_claims.pharmacy_amount, 0)) as pharmacy'),
+                DB::raw('SUM(COALESCE(facility_claims.laboratory_amount, 0)) as laboratory'),
+                DB::raw('SUM(COALESCE(facility_claims.services_amount, 0)) as services'),
+                DB::raw("SUM({$componentSumExpr}) as total_amount")
             )
             ->groupBy('f.id', 'f.name')
             ->orderBy('total_amount', 'desc')
@@ -1543,11 +1562,11 @@ class ClaimController extends Controller
             ->select(
                 DB::raw('DATE_FORMAT(facility_claims.service_date, "%Y-%m") as month'),
                 DB::raw('COUNT(*) as claim_count'),
-                DB::raw('SUM(facility_claims.consultation_amount) as admin_charges'),
-                DB::raw('SUM(facility_claims.pharmacy_amount) as pharmacy'),
-                DB::raw('SUM(facility_claims.laboratory_amount) as laboratory'),
-                DB::raw('SUM(facility_claims.services_amount) as services'),
-                DB::raw('SUM(facility_claims.total_amount) as total_amount')
+                DB::raw('SUM(COALESCE(facility_claims.consultation_amount, 0)) as admin_charges'),
+                DB::raw('SUM(COALESCE(facility_claims.pharmacy_amount, 0)) as pharmacy'),
+                DB::raw('SUM(COALESCE(facility_claims.laboratory_amount, 0)) as laboratory'),
+                DB::raw('SUM(COALESCE(facility_claims.services_amount, 0)) as services'),
+                DB::raw("SUM({$componentSumExpr}) as total_amount")
             )
             ->groupBy('month')
             ->orderBy('month')
@@ -1558,7 +1577,7 @@ class ClaimController extends Controller
             ->select(
                 'facility_claims.claim_type',
                 DB::raw('COUNT(*) as claim_count'),
-                DB::raw('SUM(facility_claims.total_amount) as total_amount')
+                DB::raw("SUM({$componentSumExpr}) as total_amount")
             )
             ->groupBy('facility_claims.claim_type')
             ->orderBy('claim_count', 'desc')
@@ -1577,6 +1596,8 @@ class ClaimController extends Controller
      */
     public function facilityReport(Request $request)
     {
+        $this->syncFacilityClaimTotalsColumn();
+
         $facilityId = $request->input('facility_id');
         $programId = $request->input('program_id');
         $statusFilter = $request->input('status');
@@ -1615,15 +1636,17 @@ class ClaimController extends Controller
             }
         }
 
+        $componentSumExpr = 'COALESCE(facility_claims.consultation_amount, 0) + COALESCE(facility_claims.pharmacy_amount, 0) + COALESCE(facility_claims.laboratory_amount, 0) + COALESCE(facility_claims.services_amount, 0)';
+
         $monthly = (clone $query)
             ->select(
                 DB::raw('DATE_FORMAT(facility_claims.service_date, "%Y-%m") as month'),
                 DB::raw('COUNT(*) as claim_count'),
-                DB::raw('SUM(facility_claims.consultation_amount) as admin_charges'),
-                DB::raw('SUM(facility_claims.pharmacy_amount) as pharmacy'),
-                DB::raw('SUM(facility_claims.laboratory_amount) as laboratory'),
-                DB::raw('SUM(facility_claims.services_amount) as services'),
-                DB::raw('SUM(facility_claims.total_amount) as total_amount')
+                DB::raw('SUM(COALESCE(facility_claims.consultation_amount, 0)) as admin_charges'),
+                DB::raw('SUM(COALESCE(facility_claims.pharmacy_amount, 0)) as pharmacy'),
+                DB::raw('SUM(COALESCE(facility_claims.laboratory_amount, 0)) as laboratory'),
+                DB::raw('SUM(COALESCE(facility_claims.services_amount, 0)) as services'),
+                DB::raw("SUM({$componentSumExpr}) as total_amount")
             )
             ->groupBy('month')
             ->orderBy('month')

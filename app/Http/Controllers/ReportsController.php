@@ -1181,8 +1181,26 @@ class ReportsController extends Controller
         return $pdf->stream($filename);
     }
 
+    /**
+     * Synchronize drug_stocks.status with quantity_remaining so eBOSCHMA and EHR stay in sync:
+     * - Batches with quantity_remaining > 0 that were marked 'dispensed' become 'approved' (active in EHR)
+     * - Batches with quantity_remaining <= 0 that are still 'approved' become 'dispensed' (exhausted in EHR)
+     */
+    protected function syncDrugStockStatuses(): void
+    {
+        \App\Models\DrugStock::where('quantity_remaining', '>', 0)
+            ->where('status', \App\Models\DrugStock::STATUS_DISPENSED)
+            ->update(['status' => \App\Models\DrugStock::STATUS_APPROVED]);
+
+        \App\Models\DrugStock::where('quantity_remaining', '<=', 0)
+            ->where('status', \App\Models\DrugStock::STATUS_APPROVED)
+            ->update(['status' => \App\Models\DrugStock::STATUS_DISPENSED]);
+    }
+
     public function pharmacyStock(Request $request)
     {
+        $this->syncDrugStockStatuses();
+
         $facilityId = $request->get('facility_id');
         $programId = $request->get('program_id');
         $dateFrom = $request->get('date_from');
@@ -1192,17 +1210,21 @@ class ReportsController extends Controller
         $facilities = Facility::orderBy('name')->get();
         $programs = \App\Models\Program::orderBy('name')->get();
 
-        // Overview of all pharmacy activities
-        $globalStatsQuery = \App\Models\DrugStock::query();
+        // Overview of all pharmacy activities (active/dispensed/expired stock, excluding pending/rejected)
+        $globalStatsQuery = \App\Models\DrugStock::whereIn('status', [
+            \App\Models\DrugStock::STATUS_APPROVED,
+            \App\Models\DrugStock::STATUS_DISPENSED,
+            \App\Models\DrugStock::STATUS_EXPIRED,
+        ]);
         if ($programId) {
             $globalStatsQuery->where('program_id', $programId);
         }
         
         $globalStats = [
             'total_received' => (clone $globalStatsQuery)->sum('quantity_received'),
-            'total_remaining' => (clone $globalStatsQuery)->sum('quantity_remaining'),
+            'total_remaining' => (clone $globalStatsQuery)->where('status', \App\Models\DrugStock::STATUS_APPROVED)->sum('quantity_remaining'),
             'total_dispensed' => (clone $globalStatsQuery)->sum(\Illuminate\Support\Facades\DB::raw('CAST(quantity_received AS SIGNED) - CAST(quantity_remaining AS SIGNED)')),
-            'total_value' => (clone $globalStatsQuery)->sum(\Illuminate\Support\Facades\DB::raw('CAST(quantity_remaining AS SIGNED) * CAST(unit_cost AS SIGNED)')),
+            'total_value' => (clone $globalStatsQuery)->where('status', \App\Models\DrugStock::STATUS_APPROVED)->sum(\Illuminate\Support\Facades\DB::raw('CAST(quantity_remaining AS DECIMAL(15,2)) * COALESCE(unit_cost, 0)')),
         ];
 
         $stockRecords = null;
@@ -1212,7 +1234,13 @@ class ReportsController extends Controller
         if ($facilityId) {
             $selectedFacility = Facility::find($facilityId);
             
-            $query = \App\Models\DrugStock::where('facility_id', $facilityId)->with('drug');
+            $query = \App\Models\DrugStock::where('facility_id', $facilityId)
+                ->whereIn('status', [
+                    \App\Models\DrugStock::STATUS_APPROVED,
+                    \App\Models\DrugStock::STATUS_DISPENSED,
+                    \App\Models\DrugStock::STATUS_EXPIRED,
+                ])
+                ->with('drug');
             
             if ($programId) {
                 $query->where('program_id', $programId);
@@ -1238,7 +1266,12 @@ class ReportsController extends Controller
             $stockRecords->appends($request->all());
 
             // Stats for selected facility
-            $facilityQuery = \App\Models\DrugStock::where('facility_id', $facilityId);
+            $facilityQuery = \App\Models\DrugStock::where('facility_id', $facilityId)
+                ->whereIn('status', [
+                    \App\Models\DrugStock::STATUS_APPROVED,
+                    \App\Models\DrugStock::STATUS_DISPENSED,
+                    \App\Models\DrugStock::STATUS_EXPIRED,
+                ]);
             
             if ($programId) {
                 $facilityQuery->where('program_id', $programId);
@@ -1253,9 +1286,9 @@ class ReportsController extends Controller
 
             $facilityStats = [
                 'total_received' => (clone $facilityQuery)->sum('quantity_received'),
-                'total_remaining' => (clone $facilityQuery)->sum('quantity_remaining'),
+                'total_remaining' => (clone $facilityQuery)->where('status', \App\Models\DrugStock::STATUS_APPROVED)->sum('quantity_remaining'),
                 'total_dispensed' => (clone $facilityQuery)->sum(\Illuminate\Support\Facades\DB::raw('CAST(quantity_received AS SIGNED) - CAST(quantity_remaining AS SIGNED)')),
-                'total_value' => (clone $facilityQuery)->sum(\Illuminate\Support\Facades\DB::raw('CAST(quantity_remaining AS SIGNED) * CAST(unit_cost AS SIGNED)')),
+                'total_value' => (clone $facilityQuery)->where('status', \App\Models\DrugStock::STATUS_APPROVED)->sum(\Illuminate\Support\Facades\DB::raw('CAST(quantity_remaining AS DECIMAL(15,2)) * COALESCE(unit_cost, 0)')),
             ];
         }
 
@@ -1286,6 +1319,14 @@ class ReportsController extends Controller
             $field = $request->field;
             $oldValue = $stock->{$field};
             $stock->{$field} = $request->value;
+
+            // Keep status synchronized with quantity_remaining so EHR and eBOSCHMA match
+            if ((int) $stock->quantity_remaining > 0 && $stock->status === \App\Models\DrugStock::STATUS_DISPENSED) {
+                $stock->status = \App\Models\DrugStock::STATUS_APPROVED;
+            } elseif ((int) $stock->quantity_remaining <= 0 && $stock->status === \App\Models\DrugStock::STATUS_APPROVED) {
+                $stock->status = \App\Models\DrugStock::STATUS_DISPENSED;
+            }
+
             $stock->save();
 
             return response()->json([

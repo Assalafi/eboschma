@@ -26,6 +26,9 @@
                 <div class="card mb-3">
                     <div class="card-body py-3">
                         <form method="GET" action="{{ route('reports.pharmacy_stock') }}" class="row g-3 align-items-end">
+                            @if(request('search'))
+                                <input type="hidden" name="search" value="{{ request('search') }}">
+                            @endif
                             <div class="col-md-3">
                                 <label class="form-label">Filter by Program</label>
                                 <select name="program_id" class="form-select">
@@ -196,7 +199,7 @@
                                                         {{ $record->expiry_date->format('Y-m-d') }}
                                                         @if($record->expiry_date->isPast())
                                                             <span class="badge bg-danger ms-2">Expired</span>
-                                                        @elseif($record->expiry_date->diffInDays(now()) <= 30)
+                                                        @elseif(now()->diffInDays($record->expiry_date, false) <= 30)
                                                             <span class="badge bg-warning ms-2">Expiring Soon</span>
                                                         @endif
                                                     @else

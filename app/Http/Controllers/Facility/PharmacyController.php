@@ -919,12 +919,12 @@ class PharmacyController extends Controller
         
         // Get stock summary
         $stockSummary = [
-            'in_stock_batches' => $drug->drugStocks->where('status', 'dispensed')->where('quantity_remaining', '>', 0)->count(),
+            'in_stock_batches' => $drug->drugStocks->where('status', 'approved')->where('quantity_remaining', '>', 0)->count(),
             'expired_batches' => $drug->drugStocks->where('status', 'expired')->count(),
             'near_expiry_count' => $drug->drugStocks->filter(function($stock) {
                 return $stock->isNearExpiry();
             })->count(),
-            'total_value' => $drug->drugStocks->where('status', 'dispensed')->sum(function($stock) {
+            'total_value' => $drug->drugStocks->where('status', 'approved')->sum(function($stock) {
                 return $stock->quantity_remaining * $stock->unit_cost;
             }),
         ];
@@ -1374,12 +1374,12 @@ class PharmacyController extends Controller
         
         $totalStock = DrugStock::where('drug_id', $id)
             ->where('facility_id', $facilityId)
-            ->where('status', 'dispensed')
+            ->where('status', 'approved')
             ->sum('quantity_remaining');
         
         $nearExpiry = DrugStock::where('drug_id', $id)
             ->where('facility_id', $facilityId)
-            ->where('status', 'dispensed')
+            ->where('status', 'approved')
             ->nearExpiry()
             ->sum('quantity_remaining');
         

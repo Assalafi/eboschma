@@ -149,14 +149,14 @@ class DrugStock extends Model
     public function scopeInStock($query)
     {
         return $query->where('quantity_remaining', '>', 0)
-                    ->where('status', self::STATUS_DISPENSED);
+                    ->where('status', self::STATUS_APPROVED);
     }
 
     public function scopeLowStock($query, $threshold = 10)
     {
         return $query->where('quantity_remaining', '>', 0)
                     ->where('quantity_remaining', '<=', $threshold)
-                    ->where('status', self::STATUS_DISPENSED);
+                    ->where('status', self::STATUS_APPROVED);
     }
 
     public function scopeOutOfStock($query)
@@ -250,12 +250,12 @@ class DrugStock extends Model
 
     public function isInStock()
     {
-        return $this->quantity_remaining > 0 && $this->status === self::STATUS_DISPENSED;
+        return $this->quantity_remaining > 0 && $this->status === self::STATUS_APPROVED;
     }
 
     public function isLowStock($threshold = 10)
     {
-        return $this->quantity_remaining > 0 && $this->quantity_remaining <= $threshold && $this->status === self::STATUS_DISPENSED;
+        return $this->quantity_remaining > 0 && $this->quantity_remaining <= $threshold && $this->status === self::STATUS_APPROVED;
     }
 
     public function isOutOfStock()
@@ -271,7 +271,8 @@ class DrugStock extends Model
 
         $this->quantity_remaining -= $quantity;
         
-        if ($this->quantity_remaining == 0) {
+        if ($this->quantity_remaining <= 0) {
+            $this->status = self::STATUS_DISPENSED;
             $this->notes = ($this->notes ? $this->notes . "\n\n" : '') . 
                          "Stock depleted on " . now()->format('Y-m-d H:i:s') . ". Reason: " . $reason;
         }
@@ -289,6 +290,12 @@ class DrugStock extends Model
 
         $oldQuantity = $this->quantity_remaining;
         $this->quantity_remaining = $newQuantity;
+
+        if ($this->quantity_remaining > 0 && $this->status === self::STATUS_DISPENSED) {
+            $this->status = self::STATUS_APPROVED;
+        } elseif ($this->quantity_remaining <= 0 && $this->status === self::STATUS_APPROVED) {
+            $this->status = self::STATUS_DISPENSED;
+        }
         
         $this->notes = ($this->notes ? $this->notes . "\n\n" : '') . 
                      "Stock adjusted on " . now()->format('Y-m-d H:i:s') . 
@@ -334,10 +341,10 @@ class DrugStock extends Model
                 SUM(CASE WHEN status = ? OR quantity_remaining = 0 THEN 1 ELSE 0 END) as out_of_stock_count,
                 COUNT(*) as total_batches
             ', [
-                self::STATUS_DISPENSED,
-                self::STATUS_DISPENSED,
+                self::STATUS_APPROVED,
+                self::STATUS_APPROVED,
                 now()->addDays(30),
-                self::STATUS_DISPENSED,
+                self::STATUS_APPROVED,
                 now()->addDays(30),
                 self::STATUS_EXPIRED
             ])

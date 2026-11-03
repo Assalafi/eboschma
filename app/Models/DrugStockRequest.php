@@ -257,7 +257,7 @@ class DrugStockRequest extends Model
                     'notes' => $stockData['notes'] ?? null,
                     'stocked_by' => $dispensedBy,
                     'stocked_at' => now(),
-                    'status' => 'dispensed',
+                    'status' => 'approved',
                     'dispensed_by' => $dispensedBy,
                     'dispensed_at' => now(),
                 ]);

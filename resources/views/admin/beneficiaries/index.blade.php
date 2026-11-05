@@ -153,7 +153,7 @@
                                             <label class="small mb-1" style="color: #01542B;">Search</label>
                                             <input type="text" name="search" id="search"
                                                 class="form-control form-control-sm"
-                                                placeholder="Search by ID, Name, Phone..."
+                                                placeholder="Search by ID, Name, NIN, Phone..."
                                                 value="{{ request('search') }}">
                                         </div>
                                         <div class="col-lg-2 col-md-6 mb-2">

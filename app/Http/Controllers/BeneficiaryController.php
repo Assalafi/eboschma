@@ -82,6 +82,7 @@ class BeneficiaryController extends Controller
             $query->where(function($q) use ($search) {
                 $q->where('boschma_no', 'like', "%{$search}%")
                   ->orWhere('fullname', 'like', "%{$search}%")
+                  ->orWhere('nin', 'like', "%{$search}%")
                   ->orWhere('phone_no', 'like', "%{$search}%")
                   ->orWhere('email', 'like', "%{$search}%");
             });

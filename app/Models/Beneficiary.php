@@ -9,6 +9,24 @@ use Illuminate\Support\Facades\DB;
 class Beneficiary extends Model
 {
     use HasFactory;
+
+    public const OCCUPATION_OPTIONS = [
+        'Teacher/Education officer',
+        'Trader/Business person',
+        'Civil servant/Government worker',
+        'Farmer/Agricultural worker',
+        'Artisan/Skilled worker',
+        'Others',
+    ];
+
+    public const EDUCATIONAL_STATUS_OPTIONS = [
+        'Primary',
+        'Secondary',
+        'Tertiary',
+        'Postgraduate',
+        'No formal education',
+        'Others',
+    ];
     
     /**
      * Mass assignable attributes.
@@ -41,11 +59,14 @@ class Beneficiary extends Model
         'remarks',
         'place_of_birth',
         'lga',
+        'ward',
+        'community',
         'nationality',
         'marital_status',
         'ethnicity',
         'religion',
         'occupation',
+        'educational_status',
         'dp_no',
         'place_of_work',
         'date_of_employment',

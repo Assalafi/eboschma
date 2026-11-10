@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 
 class MobileEnrollmentController extends Controller
 {
@@ -207,9 +208,10 @@ class MobileEnrollmentController extends Controller
                 'beneficiaries.boschma_no', 'beneficiaries.sequence_number',
                 'beneficiaries.fullname', 'beneficiaries.gender', 'beneficiaries.date_of_birth', 'beneficiaries.place_of_birth',
                 'beneficiaries.lga', 'beneficiaries.state', 'beneficiaries.nationality', 
+                'beneficiaries.ward', 'beneficiaries.community',
                 'beneficiaries.marital_status', 'beneficiaries.ethnicity', 'beneficiaries.religion',
                 'beneficiaries.contact_address', 'beneficiaries.phone_no', 'beneficiaries.email',
-                'beneficiaries.occupation', 'beneficiaries.dp_no', 'beneficiaries.id_type', 'beneficiaries.id_no', 'beneficiaries.nin',
+                'beneficiaries.occupation', 'beneficiaries.educational_status', 'beneficiaries.dp_no', 'beneficiaries.id_type', 'beneficiaries.id_no', 'beneficiaries.nin',
                 'beneficiaries.place_of_work', 'beneficiaries.date_of_employment', 'beneficiaries.date_of_retirement', 'beneficiaries.category',
                 'beneficiaries.photo', 'beneficiaries.has_spouse', 'beneficiaries.number_of_children', 'beneficiaries.status',
                 'beneficiaries.created_at', 'beneficiaries.updated_at', 'beneficiaries.created_by', 'beneficiaries.submitted_by', 'beneficiaries.updated_by', 'beneficiaries.signature_date',
@@ -592,9 +594,13 @@ class MobileEnrollmentController extends Controller
             'gender' => 'required|in:Male,Female',
             'date_of_birth' => 'required|date',
             'phone_no' => 'required|string|max:20',
+            'ward' => 'nullable|string|max:255',
+            'community' => 'nullable|string|max:255',
             'id_type' => 'required|string',
             'id_no' => 'required|string',
             'category' => 'required|string',
+            'occupation' => ['nullable', 'string', 'max:255', Rule::in(Beneficiary::OCCUPATION_OPTIONS)],
+            'educational_status' => ['nullable', 'string', 'max:255', Rule::in(Beneficiary::EDUCATIONAL_STATUS_OPTIONS)],
             'status' => 'nullable|in:In Progress,active,pending,rejected,inactive',
             // Spouse data
             'has_spouse' => 'nullable|boolean',
@@ -657,6 +663,7 @@ class MobileEnrollmentController extends Controller
                 'contact_address' => $request->contact_address ?? $request->address,
                 'lga' => $request->lga,
                 'ward' => $request->ward,
+                'community' => $request->community,
                 'state' => $request->state,
                 'nationality' => $request->nationality,
                 'place_of_birth' => $request->place_of_birth,
@@ -664,6 +671,7 @@ class MobileEnrollmentController extends Controller
                 'ethnicity' => $request->ethnicity,
                 'religion' => $request->religion,
                 'occupation' => $request->occupation,
+                'educational_status' => $request->educational_status,
                 'dp_no' => $request->dp_no,
                 'id_type' => $request->id_type,
                 'id_no' => $request->id_no,
@@ -777,6 +785,11 @@ class MobileEnrollmentController extends Controller
         $validator = Validator::make($request->all(), [
             'fullname' => 'sometimes|required|string|max:255',
             'phone_no' => 'sometimes|required|string|max:20',
+            'lga' => 'sometimes|nullable|string|max:255',
+            'ward' => 'sometimes|nullable|string|max:255',
+            'community' => 'sometimes|nullable|string|max:255',
+            'occupation' => ['sometimes', 'nullable', 'string', 'max:255', Rule::in(Beneficiary::OCCUPATION_OPTIONS)],
+            'educational_status' => ['sometimes', 'nullable', 'string', 'max:255', Rule::in(Beneficiary::EDUCATIONAL_STATUS_OPTIONS)],
             'status' => 'sometimes|in:In Progress,active,pending,rejected,inactive',
         ]);
 
@@ -793,8 +806,8 @@ class MobileEnrollmentController extends Controller
         try {
             $beneficiary->update(array_merge(
                 $request->only([
-                    'fullname', 'phone_no', 'email', 'address', 'lga', 'ward',
-                    'occupation', 'id_type', 'id_no', 'category', 'status'
+                    'fullname', 'phone_no', 'email', 'address', 'lga', 'ward', 'community',
+                    'occupation', 'educational_status', 'id_type', 'id_no', 'category', 'status'
                 ]),
                 ['updated_by' => $staff->id]
             ));
@@ -954,13 +967,16 @@ class MobileEnrollmentController extends Controller
             'email' => 'nullable|email',
             'contact_address' => 'nullable|string',
             'lga' => 'nullable|string',
+            'ward' => 'nullable|string|max:255',
+            'community' => 'nullable|string|max:255',
             'state' => 'nullable|string',
             'nationality' => 'nullable|string',
             'place_of_birth' => 'nullable|string',
             'place_of_work' => 'nullable|string',
             'date_of_employment' => 'nullable|date',
             'date_of_retirement' => 'nullable|date',
-            'occupation' => 'nullable|string',
+            'occupation' => ['nullable', 'string', 'max:255', Rule::in(Beneficiary::OCCUPATION_OPTIONS)],
+            'educational_status' => ['nullable', 'string', 'max:255', Rule::in(Beneficiary::EDUCATIONAL_STATUS_OPTIONS)],
             'category' => 'required|string',
             'id_type' => 'nullable|string',
             'id_no' => 'nullable|string',
@@ -1166,6 +1182,8 @@ class MobileEnrollmentController extends Controller
                 'email' => $request->email,
                 'contact_address' => $request->contact_address,
                 'lga' => $request->lga,
+                'ward' => $request->ward,
+                'community' => $request->community,
                 'state' => $request->state,
                 'nationality' => 'Nigerian',
                 'place_of_birth' => $request->place_of_birth,
@@ -1173,6 +1191,7 @@ class MobileEnrollmentController extends Controller
                 'date_of_employment' => $request->date_of_employment,
                 'date_of_retirement' => $request->date_of_retirement,
                 'occupation' => $request->occupation,
+                'educational_status' => $request->educational_status,
                 'category' => $request->category,
                 'id_type' => $request->id_type,
                 'id_no' => $request->id_no,
@@ -1710,10 +1729,15 @@ class MobileEnrollmentController extends Controller
             'program_id' => 'required|exists:programs,id',
             'facility_id' => 'required|exists:facilities,id',
             'alt_facility_id' => 'nullable|exists:facilities,id',
+            'lga' => 'nullable|string|max:255',
+            'ward' => 'nullable|string|max:255',
+            'community' => 'nullable|string|max:255',
             'fullname' => 'required|string|max:255',
             'gender' => 'required|in:Male,Female',
             'date_of_birth' => 'required|date',
             'phone_no' => 'required|string|max:20',
+            'occupation' => ['nullable', 'string', 'max:255', Rule::in(Beneficiary::OCCUPATION_OPTIONS)],
+            'educational_status' => ['nullable', 'string', 'max:255', Rule::in(Beneficiary::EDUCATIONAL_STATUS_OPTIONS)],
             // Spouse
             'has_spouse' => 'nullable|boolean',
             'spouse_id' => 'nullable|integer', // For tracking UPDATE/DELETE
@@ -1773,12 +1797,14 @@ class MobileEnrollmentController extends Controller
                 'contact_address' => $request->contact_address,
                 'lga' => $request->lga,
                 'ward' => $request->ward,
+                'community' => $request->community,
                 'state' => $request->state,
                 'nationality' => $request->nationality,
                 'marital_status' => $request->marital_status,
                 'ethnicity' => $request->ethnicity,
                 'religion' => $request->religion,
                 'occupation' => $request->occupation,
+                'educational_status' => $request->educational_status,
                 'category' => $request->category,
                 'dp_no' => $request->dp_no,
                 'id_type' => $request->id_type,

@@ -3,8 +3,82 @@
 @section('title', 'Facility Claims - ' . $facility->name)
 
 @section('content')
+    @php
+        $userStage = $userStage ?? 'admin';
+        $stageConfig = match($userStage) {
+            'verifier' => [
+                'pending_label' => 'Pending Verification',
+                'pending_sub' => 'Awaiting Verifier Review',
+                'pending_filter' => 'verifier_pending',
+                'approved_label' => 'Total Verified',
+                'approved_sub' => 'Verified by Claim Verifier',
+                'approved_filter' => 'verifier_approved',
+                'rejected_label' => 'Rejected Claims',
+                'rejected_sub' => 'Rejected by Claim Approver',
+                'rejected_filter' => 'rejected_by_approver',
+                'self_rejected_label' => 'Rejected to Facility',
+                'self_rejected_filter' => 'rejected_by_verifier',
+                'pending_val_label' => 'Pending Amount',
+                'pending_val_sub' => 'Waiting to be Verified',
+                'approved_val_label' => 'Total Approved (Verifier)',
+                'approved_val_sub' => 'Approved at Verifier Stage',
+            ],
+            'approver' => [
+                'pending_label' => 'Pending Approval',
+                'pending_sub' => 'Awaiting Approver Review',
+                'pending_filter' => 'approver_pending',
+                'approved_label' => 'Total Approved',
+                'approved_sub' => 'Approved by Claim Approver',
+                'approved_filter' => 'approver_approved',
+                'rejected_label' => 'Rejected Claims',
+                'rejected_sub' => 'Rejected by Claim ES',
+                'rejected_filter' => 'rejected_by_es',
+                'self_rejected_label' => 'Rejected to Verifier',
+                'self_rejected_filter' => 'rejected_by_approver',
+                'pending_val_label' => 'Pending Amount',
+                'pending_val_sub' => 'Waiting to be Approved',
+                'approved_val_label' => 'Total Approved (Approver)',
+                'approved_val_sub' => 'Approved at Approver Stage',
+            ],
+            'es' => [
+                'pending_label' => 'Pending ES Approval',
+                'pending_sub' => 'Awaiting ES Final Approval',
+                'pending_filter' => 'es_pending',
+                'approved_label' => 'Total ES Approved',
+                'approved_sub' => 'Approved by Claim ES',
+                'approved_filter' => 'es_stage_approved',
+                'rejected_label' => 'Rejected Claims',
+                'rejected_sub' => 'Rejected by Claim Finance',
+                'rejected_filter' => 'rejected_by_finance',
+                'self_rejected_label' => 'Rejected to Approver',
+                'self_rejected_filter' => 'rejected_by_es',
+                'pending_val_label' => 'Pending ES Amount',
+                'pending_val_sub' => 'Waiting for ES Approval',
+                'approved_val_label' => 'Total Approved (ES)',
+                'approved_val_sub' => 'Approved at ES Stage',
+            ],
+            'finance' => [
+                'pending_label' => 'Pending Payment',
+                'pending_sub' => 'Awaiting Finance Payment',
+                'pending_filter' => 'finance_pending',
+                'approved_label' => 'Total Paid',
+                'approved_sub' => 'Paid by Claim Finance',
+                'approved_filter' => 'finance_paid',
+                'rejected_label' => 'Rejected Claims',
+                'rejected_sub' => 'Rejected at Finance Stage',
+                'rejected_filter' => 'rejected_by_finance',
+                'self_rejected_label' => 'Rejected to ES',
+                'self_rejected_filter' => 'rejected_by_finance',
+                'pending_val_label' => 'Pending Payment Amount',
+                'pending_val_sub' => 'Waiting to be Paid',
+                'approved_val_label' => 'Total Paid (Finance)',
+                'approved_val_sub' => 'Paid at Finance Stage',
+            ],
+            default => null,
+        };
+    @endphp
     <div class="page-header d-print-none">
-        <div class="container-xl">
+        <div class="container-fluid">
             <div class="row g-2 align-items-center">
                 <div class="col">
                     <div class="page-pretitle">
@@ -31,7 +105,7 @@
     </div>
 
     <div class="page-body">
-        <div class="container-xl">
+        <div class="container-fluid">
             @if(session('success'))
                 <div class="alert alert-success alert-dismissible fade show mb-4" role="alert" style="border-radius: 10px;">
                     <div class="d-flex align-items-center">
@@ -67,58 +141,159 @@
             @endif
 
             <!-- Statistics Cards -->
-            <div class="row row-deck row-cards mb-4">
-                <div class="col-sm-6 col-lg-3">
-                    <div class="card border-0 shadow-sm hover-lift" style="border-radius: 12px;">
-                        <div class="card-body">
-                            <div class="d-flex align-items-center mb-1">
-                                <div class="subheader">Total Claims</div>
+            @if ($stageConfig)
+                <div class="row row-deck row-cards mb-4">
+                    <div class="col-sm-6 col-lg-4 col-xl-2">
+                        <div class="card border-0 shadow-sm hover-lift" style="border-radius: 12px; border-left: 4px solid #206bc4 !important;">
+                            <div class="card-body p-3">
+                                <div class="d-flex align-items-center mb-1">
+                                    <div class="subheader">Total Claims</div>
+                                </div>
+                                <div class="h2 mb-1 fw-bold text-dark">{{ number_format($stats['total_claims'] ?? 0) }}</div>
+                                <div class="text-muted small text-truncate" title="₦{{ number_format($stats['total_amount'] ?? 0, 2) }}">
+                                    ₦{{ number_format($stats['total_amount'] ?? 0, 2) }} total value
+                                </div>
                             </div>
-                            <div class="h2 mb-2 fw-bold text-dark">{{ $stats['total_claims'] ?? 0 }}</div>
-                            <div class="text-muted small">
-                                Latest: {{ $claims->first()?->created_at ? \Carbon\Carbon::parse($claims->first()->created_at)->format('M j, Y') : 'N/A' }}
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-lg-4 col-xl-2">
+                        <div class="card border-0 shadow-sm hover-lift" style="border-radius: 12px; border-left: 4px solid #f59f00 !important;">
+                            <div class="card-body p-3">
+                                <div class="d-flex align-items-center mb-1">
+                                    <div class="subheader">{{ $stageConfig['pending_label'] }}</div>
+                                </div>
+                                <div class="h2 mb-1 fw-bold text-warning">{{ number_format($stats['stage_pending'] ?? 0) }}</div>
+                                <div class="text-muted small">{{ $stageConfig['pending_sub'] }}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-lg-4 col-xl-2">
+                        <div class="card border-0 shadow-sm hover-lift" style="border-radius: 12px; border-left: 4px solid #2fb344 !important;">
+                            <div class="card-body p-3">
+                                <div class="d-flex align-items-center mb-1">
+                                    <div class="subheader">{{ $stageConfig['approved_label'] }}</div>
+                                </div>
+                                <div class="h2 mb-1 fw-bold text-success">{{ number_format($stats['stage_approved'] ?? 0) }}</div>
+                                <div class="text-muted small">{{ $stageConfig['approved_sub'] }}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-lg-4 col-xl-2">
+                        <div class="card border-0 shadow-sm hover-lift" style="border-radius: 12px; border-left: 4px solid #d63939 !important;">
+                            <div class="card-body p-3">
+                                <div class="d-flex align-items-center mb-1">
+                                    <div class="subheader">{{ $stageConfig['rejected_label'] }}</div>
+                                </div>
+                                <div class="h2 mb-1 fw-bold text-danger">{{ number_format($stats['stage_rejected'] ?? 0) }}</div>
+                                <div class="text-muted small" title="₦{{ number_format($stats['stage_rejected_value'] ?? 0, 2) }}">
+                                    {{ $stageConfig['rejected_sub'] }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-lg-4 col-xl-2">
+                        <div class="card border-0 shadow-sm hover-lift" style="border-radius: 12px; border-left: 4px solid #f59f00 !important;">
+                            <div class="card-body p-3">
+                                <div class="d-flex align-items-center mb-1">
+                                    <div class="subheader">{{ $stageConfig['pending_val_label'] }}</div>
+                                </div>
+                                <div class="h3 mb-1 fw-bold text-warning text-truncate" title="₦{{ number_format($stats['stage_pending_value'] ?? 0, 2) }}">
+                                    ₦{{ number_format($stats['stage_pending_value'] ?? 0, 2) }}
+                                </div>
+                                <div class="text-muted small">{{ $stageConfig['pending_val_sub'] }}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-lg-4 col-xl-2">
+                        <div class="card border-0 shadow-sm hover-lift" style="border-radius: 12px; border-left: 4px solid #016634 !important;">
+                            <div class="card-body p-3">
+                                <div class="d-flex align-items-center mb-1">
+                                    <div class="subheader">{{ $stageConfig['approved_val_label'] }}</div>
+                                </div>
+                                <div class="h3 mb-1 fw-bold text-success text-truncate" title="₦{{ number_format($stats['stage_approved_value'] ?? 0, 2) }}">
+                                    ₦{{ number_format($stats['stage_approved_value'] ?? 0, 2) }}
+                                </div>
+                                <div class="text-muted small">{{ $stageConfig['approved_val_sub'] }}</div>
                             </div>
                         </div>
                     </div>
                 </div>
-                <div class="col-sm-6 col-lg-3">
-                    <div class="card border-0 shadow-sm hover-lift" style="border-radius: 12px;">
-                        <div class="card-body">
-                            <div class="d-flex align-items-center mb-1">
-                                <div class="subheader">Pending Verification</div>
-                            </div>
-                            <div class="h2 mb-2 fw-bold text-dark">{{ $stats['verifier_pending'] ?? 0 }}</div>
-                            <div class="text-muted small">Awaiting Verifier Review</div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-sm-6 col-lg-3">
-                    <div class="card border-0 shadow-sm hover-lift" style="border-radius: 12px;">
-                        <div class="card-body">
-                            <div class="d-flex align-items-center mb-1">
-                                <div class="subheader">ES Approval</div>
-                            </div>
-                            <div class="h2 mb-2 fw-bold text-dark">{{ $stats['es_pending'] ?? 0 }}</div>
-                            <div class="text-muted small">Awaiting ES Final Approval</div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-sm-6 col-lg-3">
-                    <div class="card border-0 shadow-sm hover-lift" style="border-radius: 12px;">
-                        <div class="card-body">
-                            <div class="d-flex align-items-center mb-1">
-                                <div class="subheader">Total Value</div>
-                            </div>
-                            <div class="h2 mb-2 fw-bold text-dark text-truncate" style="font-size: 1.5rem;" title="₦{{ number_format($stats['total_amount'] ?? 0, 2) }}">
-                                ₦{{ number_format($stats['total_amount'] ?? 0, 2) }}
-                            </div>
-                            <div class="text-muted" style="font-size: 0.9rem;">
-                                Approved: <span class="fw-semibold text-success">₦{{ number_format($stats['approved_amount'] ?? 0, 2) }}</span>
+            @else
+                <div class="row row-deck row-cards mb-4">
+                    <div class="col-sm-6 col-lg-4 col-xl-2">
+                        <div class="card border-0 shadow-sm hover-lift" style="border-radius: 12px;">
+                            <div class="card-body p-3">
+                                <div class="d-flex align-items-center mb-1">
+                                    <div class="subheader">Total Claims</div>
+                                </div>
+                                <div class="h2 mb-1 fw-bold text-dark">{{ number_format($stats['total_claims'] ?? 0) }}</div>
+                                <div class="text-muted small">
+                                    Latest: {{ $claims->first()?->created_at ? \Carbon\Carbon::parse($claims->first()->created_at)->format('M j, Y') : 'N/A' }}
+                                </div>
                             </div>
                         </div>
                     </div>
+                    <div class="col-sm-6 col-lg-4 col-xl-2">
+                        <div class="card border-0 shadow-sm hover-lift" style="border-radius: 12px;">
+                            <div class="card-body p-3">
+                                <div class="d-flex align-items-center mb-1">
+                                    <div class="subheader">Pending Verification</div>
+                                </div>
+                                <div class="h2 mb-1 fw-bold text-warning">{{ number_format($stats['verifier_pending'] ?? 0) }}</div>
+                                <div class="text-muted small">Awaiting Verifier Review</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-lg-4 col-xl-2">
+                        <div class="card border-0 shadow-sm hover-lift" style="border-radius: 12px;">
+                            <div class="card-body p-3">
+                                <div class="d-flex align-items-center mb-1">
+                                    <div class="subheader">Pending Approval</div>
+                                </div>
+                                <div class="h2 mb-1 fw-bold text-info">{{ number_format($stats['approver_pending'] ?? 0) }}</div>
+                                <div class="text-muted small">ES Pending: {{ number_format($stats['es_pending'] ?? 0) }}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-lg-4 col-xl-2">
+                        <div class="card border-0 shadow-sm hover-lift" style="border-radius: 12px;">
+                            <div class="card-body p-3">
+                                <div class="d-flex align-items-center mb-1">
+                                    <div class="subheader">Rejected Claims</div>
+                                </div>
+                                <div class="h2 mb-1 fw-bold text-danger">{{ number_format($stats['rejected'] ?? 0) }}</div>
+                                <div class="text-muted small">Across All Stages</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-lg-4 col-xl-2">
+                        <div class="card border-0 shadow-sm hover-lift" style="border-radius: 12px;">
+                            <div class="card-body p-3">
+                                <div class="d-flex align-items-center mb-1">
+                                    <div class="subheader">Total Value</div>
+                                </div>
+                                <div class="h3 mb-1 fw-bold text-dark text-truncate" title="₦{{ number_format($stats['total_amount'] ?? 0, 2) }}">
+                                    ₦{{ number_format($stats['total_amount'] ?? 0, 2) }}
+                                </div>
+                                <div class="text-muted small">All Facility Claims</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-lg-4 col-xl-2">
+                        <div class="card border-0 shadow-sm hover-lift" style="border-radius: 12px;">
+                            <div class="card-body p-3">
+                                <div class="d-flex align-items-center mb-1">
+                                    <div class="subheader">Approved Value</div>
+                                </div>
+                                <div class="h3 mb-1 fw-bold text-success text-truncate" title="₦{{ number_format($stats['approved_amount'] ?? 0, 2) }}">
+                                    ₦{{ number_format($stats['approved_amount'] ?? 0, 2) }}
+                                </div>
+                                <div class="text-muted small">Paid Claims: {{ number_format($stats['paid'] ?? 0) }}</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            </div>
+            @endif
 
             <!-- Search & Filters -->
             <div class="card border-0 shadow-sm mb-4" style="border-radius: 12px;">
@@ -147,13 +322,32 @@
                                 <label class="form-label">Status</label>
                                 <select name="status" class="form-select">
                                     <option value="">All Statuses</option>
-                                    <option value="draft" {{ request('status') == 'draft' ? 'selected' : '' }}>Draft</option>
-                                    <option value="submitted" {{ request('status') == 'submitted' ? 'selected' : '' }}>Submitted</option>
-                                    <option value="verified" {{ request('status') == 'verified' ? 'selected' : '' }}>Verified</option>
-                                    <option value="approved" {{ request('status') == 'approved' ? 'selected' : '' }}>Approved</option>
-                                    <option value="es_approved" {{ request('status') == 'es_approved' ? 'selected' : '' }}>ES Approved</option>
-                                    <option value="rejected" {{ request('status') == 'rejected' ? 'selected' : '' }}>Rejected</option>
-                                    <option value="paid" {{ request('status') == 'paid' ? 'selected' : '' }}>Paid</option>
+                                    @if ($stageConfig)
+                                        <option value="{{ $stageConfig['pending_filter'] }}" {{ request('status') == $stageConfig['pending_filter'] ? 'selected' : '' }}>
+                                            {{ $stageConfig['pending_label'] }}
+                                        </option>
+                                        <option value="{{ $stageConfig['approved_filter'] }}" {{ request('status') == $stageConfig['approved_filter'] ? 'selected' : '' }}>
+                                            {{ $stageConfig['approved_label'] }}
+                                        </option>
+                                        <option value="{{ $stageConfig['rejected_filter'] }}" {{ request('status') == $stageConfig['rejected_filter'] ? 'selected' : '' }}>
+                                            {{ $stageConfig['rejected_sub'] }}
+                                        </option>
+                                        @if ($stageConfig['self_rejected_filter'] !== $stageConfig['rejected_filter'])
+                                            <option value="{{ $stageConfig['self_rejected_filter'] }}" {{ request('status') == $stageConfig['self_rejected_filter'] ? 'selected' : '' }}>
+                                                {{ $stageConfig['self_rejected_label'] }}
+                                            </option>
+                                        @endif
+                                    @else
+                                        <option value="verifier_pending" {{ in_array(request('status'), ['verifier_pending', 'submitted']) ? 'selected' : '' }}>Pending Verification</option>
+                                        <option value="approver_pending" {{ request('status') == 'approver_pending' ? 'selected' : '' }}>Pending Approval</option>
+                                        <option value="es_pending" {{ request('status') == 'es_pending' ? 'selected' : '' }}>Pending ES Approval</option>
+                                        <option value="finance_pending" {{ request('status') == 'finance_pending' ? 'selected' : '' }}>Pending Payment</option>
+                                        <option value="verifier_approved" {{ in_array(request('status'), ['verifier_approved', 'verified']) ? 'selected' : '' }}>Verified (All)</option>
+                                        <option value="approver_approved" {{ in_array(request('status'), ['approver_approved', 'approved']) ? 'selected' : '' }}>Approved (All)</option>
+                                        <option value="es_stage_approved" {{ in_array(request('status'), ['es_stage_approved', 'es_approved']) ? 'selected' : '' }}>ES Approved (All)</option>
+                                        <option value="paid" {{ request('status') == 'paid' ? 'selected' : '' }}>Paid</option>
+                                        <option value="rejected" {{ request('status') == 'rejected' ? 'selected' : '' }}>Rejected</option>
+                                    @endif
                                 </select>
                             </div>
                             <div class="col-md-2">
@@ -231,18 +425,49 @@
                                 <i class="ti-download me-1"></i>Export
                             </button>
                             <div class="dropdown-menu">
-                                <a href="{{ route('claims.export') }}?facility_id={{ $facility->id }}"
+                                <a href="{{ route('claims.export', ['facility_id' => $facility->id, 'format' => 'excel']) }}"
                                     class="dropdown-item">
-                                    <i class="ti-file me-2"></i>Export All Claims
+                                    <i class="ti-file me-2"></i>Export All Claims (Excel)
                                 </a>
-                                <a href="{{ route('claims.export') }}?facility_id={{ $facility->id }}&status=submitted"
-                                    class="dropdown-item">
-                                    <i class="ti-clock me-2"></i>Export Pending
-                                </a>
-                                <a href="{{ route('claims.export') }}?facility_id={{ $facility->id }}&status=approved"
-                                    class="dropdown-item">
-                                    <i class="ti-check me-2"></i>Export Approved
-                                </a>
+                                @if ($stageConfig)
+                                    <a href="{{ route('claims.export', ['facility_id' => $facility->id, 'status' => $stageConfig['pending_filter'], 'format' => 'excel']) }}"
+                                        class="dropdown-item">
+                                        <i class="ti-clock me-2 text-warning"></i>Export {{ $stageConfig['pending_label'] }}
+                                    </a>
+                                    <a href="{{ route('claims.export', ['facility_id' => $facility->id, 'status' => $stageConfig['approved_filter'], 'format' => 'excel']) }}"
+                                        class="dropdown-item">
+                                        <i class="ti-check me-2 text-success"></i>Export {{ $stageConfig['approved_label'] }} (Excel)
+                                    </a>
+                                    <a href="{{ route('claims.export', ['facility_id' => $facility->id, 'status' => $stageConfig['approved_filter'], 'format' => 'pdf']) }}"
+                                        class="dropdown-item">
+                                        <i class="ti-file-text me-2 text-primary"></i>Export {{ $stageConfig['approved_label'] }} (PDF Slip)
+                                    </a>
+                                    <a href="{{ route('claims.export', ['facility_id' => $facility->id, 'status' => $stageConfig['rejected_filter'], 'format' => 'excel']) }}"
+                                        class="dropdown-item">
+                                        <i class="ti-x me-2 text-danger"></i>Export {{ $stageConfig['rejected_sub'] }}
+                                    </a>
+                                @else
+                                    <a href="{{ route('claims.export', ['facility_id' => $facility->id, 'status' => 'verifier_pending', 'format' => 'excel']) }}"
+                                        class="dropdown-item">
+                                        <i class="ti-clock me-2 text-warning"></i>Export Pending Verification
+                                    </a>
+                                    <a href="{{ route('claims.export', ['facility_id' => $facility->id, 'status' => 'approver_pending', 'format' => 'excel']) }}"
+                                        class="dropdown-item">
+                                        <i class="ti-clock me-2 text-info"></i>Export Pending Approval
+                                    </a>
+                                    <a href="{{ route('claims.export', ['facility_id' => $facility->id, 'status' => 'es_pending', 'format' => 'excel']) }}"
+                                        class="dropdown-item">
+                                        <i class="ti-shield-check me-2 text-primary"></i>Export Pending ES Approval
+                                    </a>
+                                    <a href="{{ route('claims.export', ['facility_id' => $facility->id, 'status' => 'approved', 'format' => 'pdf']) }}"
+                                        class="dropdown-item">
+                                        <i class="ti-check me-2 text-success"></i>Export Approved (PDF Slip)
+                                    </a>
+                                    <a href="{{ route('claims.export', ['facility_id' => $facility->id, 'status' => 'rejected', 'format' => 'excel']) }}"
+                                        class="dropdown-item">
+                                        <i class="ti-x me-2 text-danger"></i>Export Rejected
+                                    </a>
+                                @endif
                                 <div class="dropdown-divider"></div>
                                 <a href="{{ route('claims.export', array_merge(['facility_id' => $facility->id], request()->except('page'))) }}"
                                     class="dropdown-item">
@@ -326,52 +551,99 @@
                                                 ₦{{ number_format($claim->total_amount, 2) }}</div>
                                         </td>
                                         <td class="align-middle">
-                                            @php
-                                                // A claim is "rejected" if any stage was rejected;
-                                                // its overall status is rolled back to the previous level.
-                                                $rejectedStage = null;
-                                                if (($claim->verifier_status ?? '') === 'rejected') {
-                                                    $rejectedStage = 'verifier';
-                                                } elseif (($claim->approver_status ?? '') === 'rejected') {
-                                                    $rejectedStage = 'approver';
-                                                } elseif (($claim->es_status ?? '') === 'rejected') {
-                                                    $rejectedStage = 'es';
-                                                } elseif (($claim->finance_status ?? '') === 'rejected') {
-                                                    $rejectedStage = 'finance';
-                                                }
-
-                                                $rejectedBackTo = match ($rejectedStage) {
-                                                    'verifier' => 'Facility (Resubmit)',
-                                                    'approver' => 'Verifier',
-                                                    'es' => 'Approver',
-                                                    'finance' => 'Executive Secretary',
-                                                    default => null,
-                                                };
-                                            @endphp
-
-                                            @if ($rejectedStage)
-                                                <span class="badge bg-danger">
-                                                    <i class="ti-x me-1"></i>Rejected
-                                                </span>
-                                                <div class="text-danger small mt-1 fw-semibold">
-                                                    Back to {{ $rejectedBackTo }}
-                                                </div>
-                                            @elseif ($claim->status === 'submitted')
-                                                <span class="badge bg-warning">Pending Verification</span>
-                                            @elseif ($claim->status === 'verified')
-                                                <span class="badge bg-primary">Pending Approval</span>
-                                            @elseif ($claim->status === 'approved')
-                                                <span class="badge bg-info">Pending ES</span>
-                                            @elseif ($claim->status === 'es_approved')
-                                                <span class="badge bg-primary">Pending Payment</span>
-                                            @elseif ($claim->status === 'paid')
-                                                <span class="badge bg-success">Paid</span>
-                                            @elseif ($claim->status === 'rejected')
-                                                <span class="badge bg-danger">Rejected</span>
-                                            @elseif ($claim->status === 'draft')
-                                                <span class="badge bg-secondary">Draft</span>
+                                            @if ($userStage === 'verifier')
+                                                @if (($claim->approver_status ?? '') === 'rejected')
+                                                    <span class="badge bg-danger"><i class="ti-x me-1"></i>Rejected</span>
+                                                    <div class="text-danger small mt-1 fw-semibold">Rejected by Approver (Back to Verifier)</div>
+                                                @elseif (($claim->verifier_status ?? '') === 'rejected')
+                                                    <span class="badge bg-danger"><i class="ti-x me-1"></i>Rejected</span>
+                                                    <div class="text-danger small mt-1 fw-semibold">Back to Facility (Resubmit)</div>
+                                                @elseif (($claim->verifier_status ?? '') === 'approved')
+                                                    <span class="badge bg-success"><i class="ti-check me-1"></i>Verified</span>
+                                                @else
+                                                    <span class="badge bg-warning">Pending Verification</span>
+                                                @endif
+                                            @elseif ($userStage === 'approver')
+                                                @if (($claim->es_status ?? '') === 'rejected')
+                                                    <span class="badge bg-danger"><i class="ti-x me-1"></i>Rejected</span>
+                                                    <div class="text-danger small mt-1 fw-semibold">Rejected by ES (Back to Approver)</div>
+                                                @elseif (($claim->approver_status ?? '') === 'rejected')
+                                                    <span class="badge bg-danger"><i class="ti-x me-1"></i>Rejected</span>
+                                                    <div class="text-danger small mt-1 fw-semibold">Back to Verifier</div>
+                                                @elseif (($claim->approver_status ?? '') === 'approved')
+                                                    <span class="badge bg-success"><i class="ti-check me-1"></i>Approved</span>
+                                                @else
+                                                    <span class="badge bg-warning">Pending Approval</span>
+                                                @endif
+                                            @elseif ($userStage === 'es')
+                                                @if (($claim->finance_status ?? '') === 'rejected')
+                                                    <span class="badge bg-danger"><i class="ti-x me-1"></i>Rejected</span>
+                                                    <div class="text-danger small mt-1 fw-semibold">Rejected by Finance (Back to ES)</div>
+                                                @elseif (($claim->es_status ?? '') === 'rejected')
+                                                    <span class="badge bg-danger"><i class="ti-x me-1"></i>Rejected</span>
+                                                    <div class="text-danger small mt-1 fw-semibold">Back to Approver</div>
+                                                @elseif (($claim->es_status ?? '') === 'approved')
+                                                    <span class="badge bg-success"><i class="ti-check me-1"></i>ES Approved</span>
+                                                @else
+                                                    <span class="badge bg-warning">Pending ES Approval</span>
+                                                @endif
+                                            @elseif ($userStage === 'finance')
+                                                @if (($claim->finance_status ?? '') === 'rejected')
+                                                    <span class="badge bg-danger"><i class="ti-x me-1"></i>Rejected</span>
+                                                    <div class="text-danger small mt-1 fw-semibold">Back to Executive Secretary</div>
+                                                @elseif (($claim->finance_status ?? '') === 'paid' || $claim->status === 'paid')
+                                                    <span class="badge bg-success"><i class="ti-money me-1"></i>Paid</span>
+                                                @else
+                                                    <span class="badge bg-warning">Pending Payment</span>
+                                                @endif
                                             @else
-                                                <span class="badge bg-secondary">{{ ucfirst($claim->status) }}</span>
+                                                @php
+                                                    // A claim is "rejected" if any stage was rejected;
+                                                    // its overall status is rolled back to the previous level.
+                                                    $rejectedStage = null;
+                                                    if (($claim->verifier_status ?? '') === 'rejected') {
+                                                        $rejectedStage = 'verifier';
+                                                    } elseif (($claim->approver_status ?? '') === 'rejected') {
+                                                        $rejectedStage = 'approver';
+                                                    } elseif (($claim->es_status ?? '') === 'rejected') {
+                                                        $rejectedStage = 'es';
+                                                    } elseif (($claim->finance_status ?? '') === 'rejected') {
+                                                        $rejectedStage = 'finance';
+                                                    }
+
+                                                    $rejectedBackTo = match ($rejectedStage) {
+                                                        'verifier' => 'Facility (Resubmit)',
+                                                        'approver' => 'Verifier',
+                                                        'es' => 'Approver',
+                                                        'finance' => 'Executive Secretary',
+                                                        default => null,
+                                                    };
+                                                @endphp
+
+                                                @if ($rejectedStage)
+                                                    <span class="badge bg-danger">
+                                                        <i class="ti-x me-1"></i>Rejected
+                                                    </span>
+                                                    <div class="text-danger small mt-1 fw-semibold">
+                                                        Back to {{ $rejectedBackTo }}
+                                                    </div>
+                                                @elseif ($claim->status === 'submitted')
+                                                    <span class="badge bg-warning">Pending Verification</span>
+                                                @elseif ($claim->status === 'verified')
+                                                    <span class="badge bg-primary">Pending Approval</span>
+                                                @elseif ($claim->status === 'approved')
+                                                    <span class="badge bg-info">Pending ES</span>
+                                                @elseif ($claim->status === 'es_approved')
+                                                    <span class="badge bg-primary">Pending Payment</span>
+                                                @elseif ($claim->status === 'paid')
+                                                    <span class="badge bg-success">Paid</span>
+                                                @elseif ($claim->status === 'rejected')
+                                                    <span class="badge bg-danger">Rejected</span>
+                                                @elseif ($claim->status === 'draft')
+                                                    <span class="badge bg-secondary">Draft</span>
+                                                @else
+                                                    <span class="badge bg-secondary">{{ ucfirst($claim->status) }}</span>
+                                                @endif
                                             @endif
                                         </td>
                                         <td class="align-middle">

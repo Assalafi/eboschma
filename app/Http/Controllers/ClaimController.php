@@ -37,6 +37,9 @@ class ClaimController extends Controller
     {
         $this->syncFacilityClaimTotalsColumn();
 
+        $user = auth('staff')->user() ?: auth()->user();
+        $userStage = $this->getUserClaimStage($user);
+
         $programs = DB::table('programs')->where('status', 1)->get();
         $selectedProgram = null;
         if ($request->filled('program_id')) {
@@ -44,7 +47,9 @@ class ClaimController extends Controller
         }
 
         // Helper filter function for base facility_claims queries
-        $applyFilters = function ($query, $tablePrefix = 'fc.') use ($request, $selectedProgram) {
+        $applyFilters = function ($query, $tablePrefix = 'fc.') use ($request, $selectedProgram, $userStage) {
+            $this->applyStageVisibilityFilter($query, $userStage, $tablePrefix);
+
             if ($selectedProgram) {
                 $this->applyFacilityClaimProgramFilter($query, $selectedProgram->id, $tablePrefix);
             }
@@ -64,7 +69,7 @@ class ClaimController extends Controller
             }
 
             if ($request->filled('status')) {
-                $this->applyFacilityClaimStatusFilter($query, $request->get('status'), $tablePrefix);
+                $this->applyFacilityClaimStatusFilter($query, $request->get('status'), $tablePrefix, $userStage);
             }
 
             if ($request->filled('date_from')) {
@@ -83,6 +88,14 @@ class ClaimController extends Controller
         $applyFilters($facilitiesQuery, 'fc.');
 
         $rejectedSql = '(fc.status = "rejected" OR fc.verifier_status = "rejected" OR fc.approver_status = "rejected" OR fc.es_status = "rejected" OR fc.finance_status = "rejected")';
+        $verifierPendingSql = "(fc.status = 'submitted' AND COALESCE(fc.verifier_status, 'pending') = 'pending' AND COALESCE(fc.approver_status, 'pending') != 'rejected' AND COALESCE(fc.verifier_status, 'pending') != 'rejected')";
+        $verifierApprovedSql = "(fc.verifier_status = 'approved' AND COALESCE(fc.approver_status, 'pending') != 'rejected')";
+        $approverPendingSql = "(fc.verifier_status = 'approved' AND COALESCE(fc.approver_status, 'pending') = 'pending' AND COALESCE(fc.es_status, 'pending') != 'rejected')";
+        $approverApprovedSql = "(fc.approver_status = 'approved' AND COALESCE(fc.es_status, 'pending') != 'rejected')";
+        $esPendingSql = "(fc.approver_status = 'approved' AND COALESCE(fc.es_status, 'pending') = 'pending' AND COALESCE(fc.finance_status, 'pending') != 'rejected')";
+        $esApprovedSql = "(fc.es_status = 'approved' AND COALESCE(fc.finance_status, 'pending') != 'rejected')";
+        $financePendingSql = "(fc.es_status = 'approved' AND COALESCE(fc.finance_status, 'pending') = 'pending')";
+        $financePaidSql = "(fc.finance_status = 'paid' OR fc.status = 'paid')";
 
         $facilities = $facilitiesQuery
             ->select([
@@ -97,10 +110,31 @@ class ClaimController extends Controller
                 DB::raw('COALESCE(SUM(CASE WHEN fc.status = "approved" OR fc.status = "es_approved" OR fc.status = "paid" THEN fc.total_amount ELSE 0 END), 0) as approved_value'),
                 DB::raw('MAX(fc.service_date) as latest_service_date'),
                 DB::raw('MAX(fc.created_at) as latest_claim_date'),
-                DB::raw("SUM(CASE WHEN (fc.status = 'submitted' OR fc.verifier_status = 'pending') AND fc.status NOT IN ('approved', 'es_approved', 'paid', 'rejected') AND NOT {$rejectedSql} THEN 1 ELSE 0 END) as ro_pending"),
-                DB::raw('SUM(CASE WHEN fc.status = "verified" OR fc.verifier_status = "approved" THEN 1 ELSE 0 END) as ro_approved'),
-                DB::raw("SUM(CASE WHEN fc.status = 'verified' AND NOT {$rejectedSql} THEN 1 ELSE 0 END) as e5_pending"),
-                DB::raw('SUM(CASE WHEN fc.status = "approved" OR fc.status = "es_approved" OR fc.status = "paid" THEN 1 ELSE 0 END) as e5_approved'),
+                DB::raw("SUM(CASE WHEN {$verifierPendingSql} THEN 1 ELSE 0 END) as ro_pending"),
+                DB::raw("SUM(CASE WHEN {$verifierApprovedSql} THEN 1 ELSE 0 END) as ro_approved"),
+                DB::raw("SUM(CASE WHEN {$approverPendingSql} THEN 1 ELSE 0 END) as e5_pending"),
+                DB::raw("SUM(CASE WHEN {$approverApprovedSql} THEN 1 ELSE 0 END) as e5_approved"),
+                // Stage-specific counts and values
+                DB::raw("SUM(CASE WHEN {$verifierPendingSql} THEN 1 ELSE 0 END) as verifier_pending"),
+                DB::raw("COALESCE(SUM(CASE WHEN {$verifierPendingSql} THEN fc.total_amount ELSE 0 END), 0) as verifier_pending_value"),
+                DB::raw("SUM(CASE WHEN {$verifierApprovedSql} THEN 1 ELSE 0 END) as verifier_approved"),
+                DB::raw("COALESCE(SUM(CASE WHEN {$verifierApprovedSql} THEN fc.total_amount ELSE 0 END), 0) as verifier_approved_value"),
+                DB::raw("SUM(CASE WHEN fc.approver_status = 'rejected' THEN 1 ELSE 0 END) as rejected_by_approver"),
+                DB::raw("SUM(CASE WHEN fc.verifier_status = 'rejected' THEN 1 ELSE 0 END) as rejected_by_verifier"),
+                DB::raw("SUM(CASE WHEN {$approverPendingSql} THEN 1 ELSE 0 END) as approver_pending"),
+                DB::raw("COALESCE(SUM(CASE WHEN {$approverPendingSql} THEN fc.total_amount ELSE 0 END), 0) as approver_pending_value"),
+                DB::raw("SUM(CASE WHEN {$approverApprovedSql} THEN 1 ELSE 0 END) as approver_approved"),
+                DB::raw("COALESCE(SUM(CASE WHEN {$approverApprovedSql} THEN fc.total_amount ELSE 0 END), 0) as approver_approved_value"),
+                DB::raw("SUM(CASE WHEN fc.es_status = 'rejected' THEN 1 ELSE 0 END) as rejected_by_es"),
+                DB::raw("SUM(CASE WHEN {$esPendingSql} THEN 1 ELSE 0 END) as es_pending"),
+                DB::raw("COALESCE(SUM(CASE WHEN {$esPendingSql} THEN fc.total_amount ELSE 0 END), 0) as es_pending_value"),
+                DB::raw("SUM(CASE WHEN {$esApprovedSql} THEN 1 ELSE 0 END) as es_approved_count"),
+                DB::raw("COALESCE(SUM(CASE WHEN {$esApprovedSql} THEN fc.total_amount ELSE 0 END), 0) as es_approved_value"),
+                DB::raw("SUM(CASE WHEN fc.finance_status = 'rejected' THEN 1 ELSE 0 END) as rejected_by_finance"),
+                DB::raw("SUM(CASE WHEN {$financePendingSql} THEN 1 ELSE 0 END) as finance_pending"),
+                DB::raw("COALESCE(SUM(CASE WHEN {$financePendingSql} THEN fc.total_amount ELSE 0 END), 0) as finance_pending_value"),
+                DB::raw("SUM(CASE WHEN {$financePaidSql} THEN 1 ELSE 0 END) as finance_paid"),
+                DB::raw("COALESCE(SUM(CASE WHEN {$financePaidSql} THEN fc.total_amount ELSE 0 END), 0) as finance_paid_value"),
             ])
             ->groupBy('f.id', 'f.name')
             ->orderBy('latest_claim_date', 'desc')
@@ -125,26 +159,34 @@ class ClaimController extends Controller
             return $q;
         };
 
-        $stats = [
+        $stageMeta = $this->computeStageStats($statsBaseQuery, $userStage);
+
+        $stats = array_merge([
             'total_claims' => $statsBaseQuery()->count(),
-            'ro_pending' => $this->applyFacilityClaimStatusFilter($statsBaseQuery(), 'ro_pending', 'fc.')->count(),
-            'e5_pending' => $this->applyFacilityClaimStatusFilter($statsBaseQuery(), 'e5_pending', 'fc.')->count(),
-            'approved' => $this->applyFacilityClaimStatusFilter($statsBaseQuery(), 'approved_all', 'fc.')->count(),
-            'paid' => $this->applyFacilityClaimStatusFilter($statsBaseQuery(), 'paid', 'fc.')->count(),
-            'total_value' => $statsBaseQuery()->sum('fc.total_amount'),
-            'approved_value' => $statsBaseQuery()->whereIn('fc.status', ['approved', 'es_approved', 'paid'])->sum('fc.total_amount'),
+            'ro_pending' => $this->applyFacilityClaimStatusFilter($statsBaseQuery(), 'verifier_pending', 'fc.', $userStage)->count(),
+            'e5_pending' => $this->applyFacilityClaimStatusFilter($statsBaseQuery(), 'approver_pending', 'fc.', $userStage)->count(),
+            'es_pending' => $this->applyFacilityClaimStatusFilter($statsBaseQuery(), 'es_pending', 'fc.', $userStage)->count(),
+            'finance_pending' => $this->applyFacilityClaimStatusFilter($statsBaseQuery(), 'finance_pending', 'fc.', $userStage)->count(),
+            'approved' => $this->applyFacilityClaimStatusFilter($statsBaseQuery(), 'approved_all', 'fc.', $userStage)->count(),
+            'paid' => $this->applyFacilityClaimStatusFilter($statsBaseQuery(), 'paid', 'fc.', $userStage)->count(),
+            'rejected' => $this->applyFacilityClaimStatusFilter($statsBaseQuery(), 'rejected', 'fc.', $userStage)->count(),
+            'total_value' => $statsBaseQuery()->sum('fc.total_amount') ?: 0,
+            'approved_value' => $statsBaseQuery()->whereIn('fc.status', ['approved', 'es_approved', 'paid'])->sum('fc.total_amount') ?: 0,
             'this_month_claims' => $statsBaseQuery()->whereMonth('fc.created_at', now()->month)
                                                     ->whereYear('fc.created_at', now()->year)
                                                     ->count(),
             'this_month_value' => $statsBaseQuery()->whereMonth('fc.created_at', now()->month)
                                                    ->whereYear('fc.created_at', now()->year)
-                                                   ->sum('fc.total_amount'),
-        ];
+                                                   ->sum('fc.total_amount') ?: 0,
+        ], $stageMeta);
 
         // Get recent activity from facility_claims
-        $recentActivity = DB::table('facility_claims as fc')
+        $recentActivityQuery = DB::table('facility_claims as fc')
             ->join('facilities as f', 'fc.facility_id', '=', 'f.id')
-            ->whereNull('fc.deleted_at')
+            ->whereNull('fc.deleted_at');
+        $this->applyStageVisibilityFilter($recentActivityQuery, $userStage, 'fc.');
+
+        $recentActivity = $recentActivityQuery
             ->select('fc.*', 'f.name as facility_name')
             ->orderBy('fc.updated_at', 'desc')
             ->limit(10)
@@ -190,7 +232,7 @@ class ClaimController extends Controller
 
         $recentClaims = $query->orderBy('fc.created_at', 'desc')->paginate(20)->appends($request->query());
 
-        return view('claims.index', compact('facilities', 'stats', 'recentActivity', 'recentClaims', 'programs', 'selectedProgram'));
+        return view('claims.index', compact('facilities', 'stats', 'recentActivity', 'recentClaims', 'programs', 'selectedProgram', 'userStage'));
     }
 
     /**
@@ -664,6 +706,12 @@ class ClaimController extends Controller
                             'verifier_id' => $staffId,
                             'status' => 'verified',
                         ];
+                        if (($claim->approver_status ?? '') === 'rejected') {
+                            $updateData['approver_status'] = 'pending';
+                            $updateData['approver_notes'] = null;
+                            $updateData['approver_updated_at'] = null;
+                            $updateData['approver_id'] = null;
+                        }
                         break;
                         
                     case 'approver':
@@ -677,6 +725,12 @@ class ClaimController extends Controller
                             'approver_id' => $staffId,
                             'status' => 'approved',
                         ];
+                        if (($claim->es_status ?? '') === 'rejected') {
+                            $updateData['es_status'] = 'pending';
+                            $updateData['es_notes'] = null;
+                            $updateData['es_updated_at'] = null;
+                            $updateData['es_id'] = null;
+                        }
                         break;
                         
                     case 'es':
@@ -690,6 +744,12 @@ class ClaimController extends Controller
                             'es_id' => $staffId,
                             'status' => 'es_approved',
                         ];
+                        if (($claim->finance_status ?? '') === 'rejected') {
+                            $updateData['finance_status'] = 'pending';
+                            $updateData['finance_notes'] = null;
+                            $updateData['finance_updated_at'] = null;
+                            $updateData['finance_id'] = null;
+                        }
                         break;
                         
                     case 'finance':
@@ -787,6 +847,10 @@ class ClaimController extends Controller
                             'verifier_notes' => $rejectionReason,
                             'verifier_updated_at' => now(),
                             'verifier_id' => $staffId,
+                            'approver_status' => 'pending',
+                            'approver_notes' => null,
+                            'approver_updated_at' => null,
+                            'approver_id' => null,
                             'status' => 'rejected', // status updated to rejected
                         ];
                         break;
@@ -805,6 +869,10 @@ class ClaimController extends Controller
                             'verifier_notes' => null,
                             'verifier_updated_at' => null,
                             'verifier_id' => null,
+                            'es_status' => 'pending',
+                            'es_notes' => null,
+                            'es_updated_at' => null,
+                            'es_id' => null,
                             'status' => 'submitted',
                         ];
                         break;
@@ -823,6 +891,10 @@ class ClaimController extends Controller
                             'approver_notes' => null,
                             'approver_updated_at' => null,
                             'approver_id' => null,
+                            'finance_status' => 'pending',
+                            'finance_notes' => null,
+                            'finance_updated_at' => null,
+                            'finance_id' => null,
                             'status' => 'verified',
                         ];
                         break;
@@ -1060,19 +1132,15 @@ class ClaimController extends Controller
             });
         }
 
+        $user = auth('staff')->user() ?: auth()->user();
+        $userStage = $this->getUserClaimStage($user);
+
+        // Restrict visibility based on user workflow stage
+        $this->applyStageVisibilityFilter($claims, $userStage, 'facility_claims.');
+
         // Filter by status
         if ($request->filled('status')) {
-            if ($request->status === 'rejected') {
-                $claims->where(function ($q) {
-                    $q->where('status', 'rejected')
-                      ->orWhere('verifier_status', 'rejected')
-                      ->orWhere('approver_status', 'rejected')
-                      ->orWhere('es_status', 'rejected')
-                      ->orWhere('finance_status', 'rejected');
-                });
-            } else {
-                $claims->where('status', $request->status);
-            }
+            $this->applyFacilityClaimStatusFilter($claims, $request->status, 'facility_claims.', $userStage);
         }
         
         if ($request->filled('claim_type')) {
@@ -1087,42 +1155,16 @@ class ClaimController extends Controller
             $claims->whereDate('service_date', '<=', $request->date_to);
         }
 
-        // Restrict visibility based on user workflow permissions
-        $user = auth()->user();
-        $isSuperAdmin = $user && ($user->hasRole('Super Admin') || $user->hasRole('admin'));
-
-        if (!$isSuperAdmin && $user) {
-            $allowedStatuses = [];
-            
-            if ($user->can('claim.verify')) {
-                $allowedStatuses = array_merge($allowedStatuses, ['submitted', 'verified', 'approved', 'es_approved', 'paid', 'rejected']);
-            }
-            if ($user->can('claim.approve')) {
-                $allowedStatuses = array_merge($allowedStatuses, ['verified', 'approved', 'es_approved', 'paid', 'rejected']);
-            }
-            if ($user->can('claim.es-approve')) {
-                $allowedStatuses = array_merge($allowedStatuses, ['approved', 'es_approved', 'paid', 'rejected']);
-            }
-            if ($user->can('claim.finance-approve')) {
-                $allowedStatuses = array_merge($allowedStatuses, ['es_approved', 'paid', 'rejected']);
-            }
-            
-            $allowedStatuses = array_unique($allowedStatuses);
-            
-            if (!empty($allowedStatuses)) {
-                $claims->whereIn('status', $allowedStatuses);
-            }
-        }
-
         $filteredClaims = $claims->orderBy('created_at', 'desc')->get();
 
-        if (($request->status === 'approved' || $request->status === 'paid' || $request->status === 'es_approved') && $request->get('format') !== 'excel') {
+        $approvedPdfStatuses = ['approved', 'paid', 'es_approved', 'verifier_approved', 'approver_approved', 'es_stage_approved', 'finance_paid'];
+        if (in_array($request->status, $approvedPdfStatuses, true) && $request->get('format') !== 'excel') {
             $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('claims.approved-pdf', ['claims' => $filteredClaims]);
             $pdf->setPaper('A4', 'portrait');
             return $pdf->stream('approved-claims-slips.pdf');
         }
 
-        return Excel::download(new ClaimsExport($filteredClaims), 'claims-' . now()->format('Y-m-d') . '.xlsx');
+        return Excel::download(new ClaimsExport($filteredClaims, $userStage), 'claims-' . now()->format('Y-m-d') . '.xlsx');
     }
 
     /**
@@ -1405,9 +1447,127 @@ class ClaimController extends Controller
     }
 
     /**
-     * Apply status filter consistently to a facility_claims query, accounting for stage rejections.
+     * Resolve the current user's claim workflow stage ('verifier', 'approver', 'es', 'finance', or 'admin').
      */
-    private function applyFacilityClaimStatusFilter($query, $status, $tablePrefix = 'facility_claims.')
+    protected function getUserClaimStage($user = null): string
+    {
+        $user = $user ?: (auth('staff')->user() ?: auth()->user());
+        if (!$user) {
+            return 'admin';
+        }
+
+        if ($user->hasRole('Super Admin') || $user->hasRole('admin')) {
+            return 'admin';
+        }
+
+        if ($user->hasRole('claim-verifier')) {
+            return 'verifier';
+        }
+        if ($user->hasRole('claim-approver')) {
+            return 'approver';
+        }
+        if ($user->hasRole('claim-es')) {
+            return 'es';
+        }
+        if ($user->hasRole('claim-finance')) {
+            return 'finance';
+        }
+
+        if ($user->can('claim.verify') && !$user->can('claim.approve') && !$user->can('claim.es-approve') && !$user->can('claim.finance-approve')) {
+            return 'verifier';
+        }
+        if ($user->can('claim.approve') && !$user->can('claim.es-approve') && !$user->can('claim.finance-approve')) {
+            return 'approver';
+        }
+        if ($user->can('claim.es-approve') && !$user->can('claim.finance-approve')) {
+            return 'es';
+        }
+        if ($user->can('claim.finance-approve')) {
+            return 'finance';
+        }
+
+        return 'admin';
+    }
+
+    /**
+     * Restrict query to claims visible at the user's stage.
+     */
+    protected function applyStageVisibilityFilter($query, string $userStage, string $tablePrefix = 'fc.')
+    {
+        if ($userStage === 'verifier') {
+            $query->where($tablePrefix . 'status', '!=', 'draft');
+        } elseif ($userStage === 'approver') {
+            $query->where(function ($q) use ($tablePrefix) {
+                $q->where($tablePrefix . 'verifier_status', 'approved')
+                  ->orWhereIn($tablePrefix . 'approver_status', ['approved', 'rejected'])
+                  ->orWhereIn($tablePrefix . 'status', ['verified', 'approved', 'es_approved', 'paid']);
+            });
+        } elseif ($userStage === 'es') {
+            $query->where(function ($q) use ($tablePrefix) {
+                $q->where($tablePrefix . 'approver_status', 'approved')
+                  ->orWhereIn($tablePrefix . 'es_status', ['approved', 'rejected'])
+                  ->orWhereIn($tablePrefix . 'status', ['approved', 'es_approved', 'paid']);
+            });
+        } elseif ($userStage === 'finance') {
+            $query->where(function ($q) use ($tablePrefix) {
+                $q->where($tablePrefix . 'es_status', 'approved')
+                  ->orWhereIn($tablePrefix . 'finance_status', ['paid', 'rejected'])
+                  ->orWhereIn($tablePrefix . 'status', ['es_approved', 'paid']);
+            });
+        }
+
+        return $query;
+    }
+
+    /**
+     * Compute stage-specific statistics for cards on /claims and /claims/facility/{id}.
+     */
+    protected function computeStageStats(callable $baseQueryFactory, string $userStage, string $tablePrefix = 'fc.'): array
+    {
+        if ($userStage === 'verifier') {
+            $pendingQ = fn() => $this->applyFacilityClaimStatusFilter($baseQueryFactory(), 'verifier_pending', $tablePrefix, $userStage);
+            $approvedQ = fn() => $this->applyFacilityClaimStatusFilter($baseQueryFactory(), 'verifier_approved', $tablePrefix, $userStage);
+            $rejectedByNextQ = fn() => $this->applyFacilityClaimStatusFilter($baseQueryFactory(), 'rejected_by_approver', $tablePrefix, $userStage);
+            $rejectedBySelfQ = fn() => $this->applyFacilityClaimStatusFilter($baseQueryFactory(), 'rejected_by_verifier', $tablePrefix, $userStage);
+        } elseif ($userStage === 'approver') {
+            $pendingQ = fn() => $this->applyFacilityClaimStatusFilter($baseQueryFactory(), 'approver_pending', $tablePrefix, $userStage);
+            $approvedQ = fn() => $this->applyFacilityClaimStatusFilter($baseQueryFactory(), 'approver_approved', $tablePrefix, $userStage);
+            $rejectedByNextQ = fn() => $this->applyFacilityClaimStatusFilter($baseQueryFactory(), 'rejected_by_es', $tablePrefix, $userStage);
+            $rejectedBySelfQ = fn() => $this->applyFacilityClaimStatusFilter($baseQueryFactory(), 'rejected_by_approver', $tablePrefix, $userStage);
+        } elseif ($userStage === 'es') {
+            $pendingQ = fn() => $this->applyFacilityClaimStatusFilter($baseQueryFactory(), 'es_pending', $tablePrefix, $userStage);
+            $approvedQ = fn() => $this->applyFacilityClaimStatusFilter($baseQueryFactory(), 'es_stage_approved', $tablePrefix, $userStage);
+            $rejectedByNextQ = fn() => $this->applyFacilityClaimStatusFilter($baseQueryFactory(), 'rejected_by_finance', $tablePrefix, $userStage);
+            $rejectedBySelfQ = fn() => $this->applyFacilityClaimStatusFilter($baseQueryFactory(), 'rejected_by_es', $tablePrefix, $userStage);
+        } elseif ($userStage === 'finance') {
+            $pendingQ = fn() => $this->applyFacilityClaimStatusFilter($baseQueryFactory(), 'finance_pending', $tablePrefix, $userStage);
+            $approvedQ = fn() => $this->applyFacilityClaimStatusFilter($baseQueryFactory(), 'finance_paid', $tablePrefix, $userStage);
+            $rejectedByNextQ = fn() => $this->applyFacilityClaimStatusFilter($baseQueryFactory(), 'rejected_by_finance', $tablePrefix, $userStage);
+            $rejectedBySelfQ = fn() => $this->applyFacilityClaimStatusFilter($baseQueryFactory(), 'rejected_by_finance', $tablePrefix, $userStage);
+        } else {
+            // Admin overview
+            $pendingQ = fn() => $this->applyFacilityClaimStatusFilter($baseQueryFactory(), 'verifier_pending', $tablePrefix, $userStage);
+            $approvedQ = fn() => $baseQueryFactory()->whereIn($tablePrefix . 'status', ['approved', 'es_approved', 'paid']);
+            $rejectedByNextQ = fn() => $this->applyFacilityClaimStatusFilter($baseQueryFactory(), 'rejected', $tablePrefix, $userStage);
+            $rejectedBySelfQ = fn() => $this->applyFacilityClaimStatusFilter($baseQueryFactory(), 'rejected_by_verifier', $tablePrefix, $userStage);
+        }
+
+        return [
+            'stage_pending' => $pendingQ()->count(),
+            'stage_pending_value' => $pendingQ()->sum($tablePrefix . 'total_amount') ?: 0,
+            'stage_approved' => $approvedQ()->count(),
+            'stage_approved_value' => $approvedQ()->sum($tablePrefix . 'total_amount') ?: 0,
+            'stage_rejected' => $rejectedByNextQ()->count(),
+            'stage_rejected_value' => $rejectedByNextQ()->sum($tablePrefix . 'total_amount') ?: 0,
+            'stage_rejected_self' => $rejectedBySelfQ()->count(),
+            'stage_rejected_self_value' => $rejectedBySelfQ()->sum($tablePrefix . 'total_amount') ?: 0,
+        ];
+    }
+
+    /**
+     * Apply status filter consistently to a facility_claims query, accounting for stage rejections and stage-sticky approvals.
+     */
+    private function applyFacilityClaimStatusFilter($query, $status, $tablePrefix = 'facility_claims.', $userStage = 'admin')
     {
         if (!$status) {
             return $query;
@@ -1429,32 +1589,110 @@ class ClaimController extends Controller
               });
         };
 
-        if ($status === 'rejected') {
+        // Stage-specific status filters
+        if (in_array($status, ['verifier_pending', 'ro_pending'], true) || ($status === 'submitted' && $userStage === 'verifier')) {
+            $query->where($tablePrefix . 'status', 'submitted')
+                  ->where(function ($q) use ($tablePrefix) {
+                      $q->whereNull($tablePrefix . 'verifier_status')
+                        ->orWhere($tablePrefix . 'verifier_status', 'pending');
+                  })
+                  ->where(function ($q) use ($tablePrefix) {
+                      $q->whereNull($tablePrefix . 'approver_status')
+                        ->orWhere($tablePrefix . 'approver_status', '!=', 'rejected');
+                  });
+        } elseif ($status === 'verifier_approved' || ($status === 'verified' && $userStage === 'verifier')) {
+            // Remains verified for claim-verifier even when subsequent stages advance status
+            $query->where($tablePrefix . 'verifier_status', 'approved')
+                  ->where(function ($q) use ($tablePrefix) {
+                      $q->whereNull($tablePrefix . 'approver_status')
+                        ->orWhere($tablePrefix . 'approver_status', '!=', 'rejected');
+                  });
+        } elseif (in_array($status, ['verifier_rejected', 'rejected_by_approver'], true)) {
+            $query->where($tablePrefix . 'approver_status', 'rejected');
+        } elseif ($status === 'rejected_by_verifier') {
+            $query->where($tablePrefix . 'verifier_status', 'rejected');
+        } elseif (in_array($status, ['approver_pending', 'e5_pending'], true) || ($status === 'verified' && $userStage === 'approver')) {
+            $query->where($tablePrefix . 'verifier_status', 'approved')
+                  ->where(function ($q) use ($tablePrefix) {
+                      $q->whereNull($tablePrefix . 'approver_status')
+                        ->orWhere($tablePrefix . 'approver_status', 'pending');
+                  })
+                  ->where(function ($q) use ($tablePrefix) {
+                      $q->whereNull($tablePrefix . 'es_status')
+                        ->orWhere($tablePrefix . 'es_status', '!=', 'rejected');
+                  });
+        } elseif ($status === 'approver_approved' || ($status === 'approved' && $userStage === 'approver')) {
+            // Remains approved for claim-approver even when subsequent stages advance status
+            $query->where($tablePrefix . 'approver_status', 'approved')
+                  ->where(function ($q) use ($tablePrefix) {
+                      $q->whereNull($tablePrefix . 'es_status')
+                        ->orWhere($tablePrefix . 'es_status', '!=', 'rejected');
+                  });
+        } elseif (in_array($status, ['approver_rejected', 'rejected_by_es'], true)) {
+            $query->where($tablePrefix . 'es_status', 'rejected');
+        } elseif ($status === 'es_pending' || ($status === 'approved' && $userStage === 'es')) {
+            $query->where($tablePrefix . 'approver_status', 'approved')
+                  ->where(function ($q) use ($tablePrefix) {
+                      $q->whereNull($tablePrefix . 'es_status')
+                        ->orWhere($tablePrefix . 'es_status', 'pending');
+                  })
+                  ->where(function ($q) use ($tablePrefix) {
+                      $q->whereNull($tablePrefix . 'finance_status')
+                        ->orWhere($tablePrefix . 'finance_status', '!=', 'rejected');
+                  });
+        } elseif ($status === 'es_stage_approved' || ($status === 'es_approved' && $userStage === 'es')) {
+            // Remains ES approved for claim-es even when finance pays it
+            $query->where($tablePrefix . 'es_status', 'approved')
+                  ->where(function ($q) use ($tablePrefix) {
+                      $q->whereNull($tablePrefix . 'finance_status')
+                        ->orWhere($tablePrefix . 'finance_status', '!=', 'rejected');
+                  });
+        } elseif (in_array($status, ['es_rejected', 'rejected_by_finance', 'finance_rejected'], true)) {
+            $query->where($tablePrefix . 'finance_status', 'rejected');
+        } elseif ($status === 'finance_pending' || ($status === 'es_approved' && $userStage === 'finance')) {
+            $query->where($tablePrefix . 'es_status', 'approved')
+                  ->where(function ($q) use ($tablePrefix) {
+                      $q->whereNull($tablePrefix . 'finance_status')
+                        ->orWhere($tablePrefix . 'finance_status', 'pending');
+                  });
+        } elseif (in_array($status, ['finance_paid', 'paid'], true)) {
             $query->where(function ($q) use ($tablePrefix) {
-                $q->where($tablePrefix . 'status', 'rejected')
-                  ->orWhere($tablePrefix . 'verifier_status', 'rejected')
-                  ->orWhere($tablePrefix . 'approver_status', 'rejected')
-                  ->orWhere($tablePrefix . 'es_status', 'rejected')
-                  ->orWhere($tablePrefix . 'finance_status', 'rejected');
+                $q->where($tablePrefix . 'finance_status', 'paid')
+                  ->orWhere($tablePrefix . 'status', 'paid');
             });
-        } elseif ($status === 'ro_pending') {
-            $query->where(function ($q) use ($tablePrefix) {
-                $q->where($tablePrefix . 'status', 'submitted')->orWhere($tablePrefix . 'verifier_status', 'pending');
-            })->whereNotIn($tablePrefix . 'status', ['approved', 'es_approved', 'paid', 'rejected']);
-            $notRejected($query);
-        } elseif ($status === 'e5_pending') {
-            $query->where(function ($q) use ($tablePrefix) {
-                $q->where($tablePrefix . 'status', 'verified')->orWhere($tablePrefix . 'verifier_status', 'approved');
-            })->whereNotIn($tablePrefix . 'status', ['approved', 'es_approved', 'paid', 'rejected']);
-            $notRejected($query);
+        } elseif ($status === 'rejected') {
+            if ($userStage === 'verifier') {
+                $query->where(function ($q) use ($tablePrefix) {
+                    $q->where($tablePrefix . 'approver_status', 'rejected')
+                      ->orWhere($tablePrefix . 'verifier_status', 'rejected');
+                });
+            } elseif ($userStage === 'approver') {
+                $query->where(function ($q) use ($tablePrefix) {
+                    $q->where($tablePrefix . 'es_status', 'rejected')
+                      ->orWhere($tablePrefix . 'approver_status', 'rejected');
+                });
+            } elseif ($userStage === 'es') {
+                $query->where(function ($q) use ($tablePrefix) {
+                    $q->where($tablePrefix . 'finance_status', 'rejected')
+                      ->orWhere($tablePrefix . 'es_status', 'rejected');
+                });
+            } elseif ($userStage === 'finance') {
+                $query->where($tablePrefix . 'finance_status', 'rejected');
+            } else {
+                $query->where(function ($q) use ($tablePrefix) {
+                    $q->where($tablePrefix . 'status', 'rejected')
+                      ->orWhere($tablePrefix . 'verifier_status', 'rejected')
+                      ->orWhere($tablePrefix . 'approver_status', 'rejected')
+                      ->orWhere($tablePrefix . 'es_status', 'rejected')
+                      ->orWhere($tablePrefix . 'finance_status', 'rejected');
+                });
+            }
         } elseif ($status === 'pending') {
             $query->whereIn($tablePrefix . 'status', ['draft', 'submitted']);
             $notRejected($query);
         } elseif ($status === 'approved_all') {
             $query->whereIn($tablePrefix . 'status', ['approved', 'es_approved']);
             $notRejected($query);
-        } elseif ($status === 'paid') {
-            $query->where($tablePrefix . 'status', 'paid');
         } else {
             $query->where($tablePrefix . 'status', $status);
             $notRejected($query);
@@ -3238,10 +3476,15 @@ class ClaimController extends Controller
      */
     public function facilityShow(Request $request, $facilityId)
     {
+        $this->syncFacilityClaimTotalsColumn();
+
         $facility = Facility::find($facilityId);
         if (!$facility) {
             abort(404, 'Facility not found');
         }
+
+        $user = auth('staff')->user() ?: auth()->user();
+        $userStage = $this->getUserClaimStage($user);
 
         $query = DB::table('facility_claims as fc')
             ->join('facilities as f', 'fc.facility_id', '=', 'f.id')
@@ -3249,32 +3492,8 @@ class ClaimController extends Controller
             ->whereNull('fc.deleted_at')
             ->select('fc.*', 'f.name as healthcare_provider');
 
-        // Restrict visibility based on user workflow permissions
-        $user = auth()->user();
-        $isSuperAdmin = $user && ($user->hasRole('Super Admin') || $user->hasRole('admin'));
-
-        if (!$isSuperAdmin && $user) {
-            $allowedStatuses = [];
-            
-            if ($user->can('claim.verify')) {
-                $allowedStatuses = array_merge($allowedStatuses, ['submitted', 'verified', 'approved', 'es_approved', 'paid', 'rejected']);
-            }
-            if ($user->can('claim.approve')) {
-                $allowedStatuses = array_merge($allowedStatuses, ['verified', 'approved', 'es_approved', 'paid', 'rejected']);
-            }
-            if ($user->can('claim.es-approve')) {
-                $allowedStatuses = array_merge($allowedStatuses, ['approved', 'es_approved', 'paid', 'rejected']);
-            }
-            if ($user->can('claim.finance-approve')) {
-                $allowedStatuses = array_merge($allowedStatuses, ['es_approved', 'paid', 'rejected']);
-            }
-            
-            $allowedStatuses = array_unique($allowedStatuses);
-            
-            if (!empty($allowedStatuses)) {
-                $query->whereIn('fc.status', $allowedStatuses);
-            }
-        }
+        // Restrict visibility based on user workflow stage
+        $this->applyStageVisibilityFilter($query, $userStage, 'fc.');
 
         // Search by patient name, claim number, or boschma_no
         if ($request->filled('search')) {
@@ -3287,55 +3506,9 @@ class ClaimController extends Controller
             });
         }
 
-        // Filter by status
-        if ($request->filled('status')) {
-            if ($request->status === 'rejected') {
-                // Rejected claims have a rejected stage column, not status='rejected'
-                $query->where(function ($q) {
-                    $q->where('fc.verifier_status', 'rejected')
-                      ->orWhere('fc.approver_status', 'rejected')
-                      ->orWhere('fc.es_status', 'rejected')
-                      ->orWhere('fc.finance_status', 'rejected');
-                });
-            } else {
-                $query->where('fc.status', $request->status);
-            }
-        }
-
         // Filter by program
         if ($request->filled('program_id')) {
-            $programId = $request->program_id;
-            $query->where(function($q) use ($programId) {
-                $q->where(function($q1) use ($programId) {
-                    $q1->where('fc.enrollee_type', 'beneficiary')
-                       ->whereExists(function($sub) use ($programId) {
-                           $sub->select(DB::raw(1))
-                               ->from('beneficiaries')
-                               ->whereColumn('beneficiaries.boschma_no', 'fc.enrollee_number')
-                               ->where('beneficiaries.program_id', $programId);
-                       });
-                })
-                ->orWhere(function($q2) use ($programId) {
-                    $q2->where('fc.enrollee_type', 'spouse')
-                       ->whereExists(function($sub) use ($programId) {
-                           $sub->select(DB::raw(1))
-                               ->from('spouses')
-                               ->join('beneficiaries', 'spouses.beneficiary_id', '=', 'beneficiaries.id')
-                               ->whereColumn('spouses.boschma_no', 'fc.enrollee_number')
-                               ->where('beneficiaries.program_id', $programId);
-                       });
-                })
-                ->orWhere(function($q3) use ($programId) {
-                    $q3->where('fc.enrollee_type', 'child')
-                       ->whereExists(function($sub) use ($programId) {
-                           $sub->select(DB::raw(1))
-                               ->from('children')
-                               ->join('beneficiaries', 'children.beneficiary_id', '=', 'beneficiaries.id')
-                               ->whereColumn('children.boschma_no', 'fc.enrollee_number')
-                               ->where('beneficiaries.program_id', $programId);
-                       });
-                });
-            });
+            $this->applyFacilityClaimProgramFilter($query, $request->program_id, 'fc.');
         }
 
         // Filter by date range
@@ -3346,27 +3519,34 @@ class ClaimController extends Controller
             $query->whereDate('fc.service_date', '<=', $request->date_to);
         }
 
-        // Clone base query for statistics calculation (ensuring stats reflect active filters & permissions for this facility)
-        $statsQuery = clone $query;
+        // Base query for stats (respects search, program, date filters & stage visibility)
+        $statsBaseQueryFactory = function () use ($query, $request, $userStage) {
+            $q = clone $query;
+            if ($request->filled('status')) {
+                $this->applyFacilityClaimStatusFilter($q, $request->status, 'fc.', $userStage);
+            }
+            return $q;
+        };
 
-        $stats = [
-            'total_claims' => (clone $statsQuery)->count(),
-            'verifier_pending' => (clone $statsQuery)->where(function($q) {
-                                    $q->where('fc.status', 'submitted')
-                                      ->orWhere('fc.verifier_status', 'pending');
-                                })
-                                ->whereNotIn('fc.status', ['approved', 'es_approved', 'paid', 'rejected'])
-                                ->count(),
-            'es_pending' => (clone $statsQuery)->where(function($q) {
-                                    $q->where('fc.status', 'verified')
-                                      ->orWhere('fc.verifier_status', 'approved');
-                                })
-                                ->whereNotIn('fc.status', ['approved', 'es_approved', 'paid', 'rejected'])
-                                ->count(),
-            'approved' => (clone $statsQuery)->whereIn('fc.status', ['approved', 'es_approved'])->count(),
-            'total_amount' => (clone $statsQuery)->sum('fc.total_amount') ?: 0,
-            'approved_amount' => (clone $statsQuery)->whereIn('fc.status', ['approved', 'es_approved', 'paid'])->sum('fc.total_amount') ?: 0,
-        ];
+        // Filter main listing query by status if requested
+        if ($request->filled('status')) {
+            $this->applyFacilityClaimStatusFilter($query, $request->status, 'fc.', $userStage);
+        }
+
+        $stageMeta = $this->computeStageStats($statsBaseQueryFactory, $userStage, 'fc.');
+
+        $stats = array_merge([
+            'total_claims' => $statsBaseQueryFactory()->count(),
+            'verifier_pending' => $this->applyFacilityClaimStatusFilter($statsBaseQueryFactory(), 'verifier_pending', 'fc.', $userStage)->count(),
+            'approver_pending' => $this->applyFacilityClaimStatusFilter($statsBaseQueryFactory(), 'approver_pending', 'fc.', $userStage)->count(),
+            'es_pending' => $this->applyFacilityClaimStatusFilter($statsBaseQueryFactory(), 'es_pending', 'fc.', $userStage)->count(),
+            'finance_pending' => $this->applyFacilityClaimStatusFilter($statsBaseQueryFactory(), 'finance_pending', 'fc.', $userStage)->count(),
+            'approved' => $statsBaseQueryFactory()->whereIn('fc.status', ['approved', 'es_approved'])->count(),
+            'paid' => $this->applyFacilityClaimStatusFilter($statsBaseQueryFactory(), 'paid', 'fc.', $userStage)->count(),
+            'rejected' => $this->applyFacilityClaimStatusFilter($statsBaseQueryFactory(), 'rejected', 'fc.', $userStage)->count(),
+            'total_amount' => $statsBaseQueryFactory()->sum('fc.total_amount') ?: 0,
+            'approved_amount' => $statsBaseQueryFactory()->whereIn('fc.status', ['approved', 'es_approved', 'paid'])->sum('fc.total_amount') ?: 0,
+        ], $stageMeta);
 
         $claims = $query->orderBy('fc.created_at', 'desc')
             ->paginate(20)
@@ -3374,7 +3554,7 @@ class ClaimController extends Controller
 
         $programs = Program::orderBy('name')->get();
 
-        return view('claims.facility-show', compact('claims', 'facility', 'stats', 'programs'));
+        return view('claims.facility-show', compact('claims', 'facility', 'stats', 'programs', 'userStage'));
     }
 
     /**
@@ -4511,6 +4691,12 @@ class ClaimController extends Controller
                         'verifier_id' => $staffId,
                         'status' => 'verified',
                     ];
+                    if (($claim->approver_status ?? '') === 'rejected') {
+                        $updateData['approver_status'] = 'pending';
+                        $updateData['approver_notes'] = null;
+                        $updateData['approver_updated_at'] = null;
+                        $updateData['approver_id'] = null;
+                    }
                 } elseif ($approvalType === 'approver') {
                     if (($claim->status ?? '') !== 'verified' || !in_array($claim->approver_status ?? 'pending', ['pending', null, ''])) {
                         $errors[] = "Claim #{$claim->claim_number}: Not pending approval";
@@ -4523,6 +4709,12 @@ class ClaimController extends Controller
                         'approver_id' => $staffId,
                         'status' => 'approved',
                     ];
+                    if (($claim->es_status ?? '') === 'rejected') {
+                        $updateData['es_status'] = 'pending';
+                        $updateData['es_notes'] = null;
+                        $updateData['es_updated_at'] = null;
+                        $updateData['es_id'] = null;
+                    }
                 } elseif ($approvalType === 'es') {
                     if (($claim->status ?? '') !== 'approved' || !in_array($claim->es_status ?? 'pending', ['pending', null, ''])) {
                         $errors[] = "Claim #{$claim->claim_number}: Not pending ES approval";
@@ -4536,6 +4728,12 @@ class ClaimController extends Controller
                         'es_id' => $staffId,
                         'status' => 'es_approved',
                     ];
+                    if (($claim->finance_status ?? '') === 'rejected') {
+                        $updateData['finance_status'] = 'pending';
+                        $updateData['finance_notes'] = null;
+                        $updateData['finance_updated_at'] = null;
+                        $updateData['finance_id'] = null;
+                    }
                 } elseif ($approvalType === 'finance') {
                     if (($claim->status ?? '') !== 'es_approved' || !in_array($claim->finance_status ?? 'pending', ['pending', null, ''])) {
                         $errors[] = "Claim #{$claim->claim_number}: Not pending payment";
@@ -4584,7 +4782,11 @@ class ClaimController extends Controller
                                 'verifier_notes' => $rejectionReason,
                                 'verifier_updated_at' => now(),
                                 'verifier_id' => $staffId,
-                                'status' => 'submitted',
+                                'approver_status' => 'pending',
+                                'approver_notes' => null,
+                                'approver_updated_at' => null,
+                                'approver_id' => null,
+                                'status' => 'rejected',
                             ];
                             break;
                         case 'approver':
@@ -4597,6 +4799,10 @@ class ClaimController extends Controller
                                 'verifier_notes' => null,
                                 'verifier_updated_at' => null,
                                 'verifier_id' => null,
+                                'es_status' => 'pending',
+                                'es_notes' => null,
+                                'es_updated_at' => null,
+                                'es_id' => null,
                                 'status' => 'submitted',
                             ];
                             break;
@@ -4610,6 +4816,10 @@ class ClaimController extends Controller
                                 'approver_notes' => null,
                                 'approver_updated_at' => null,
                                 'approver_id' => null,
+                                'finance_status' => 'pending',
+                                'finance_notes' => null,
+                                'finance_updated_at' => null,
+                                'finance_id' => null,
                                 'status' => 'verified',
                             ];
                             break;

@@ -4,6 +4,7 @@
 
 @section('content')
     @php
+        $authUser = auth('staff')->user() ?: auth()->user();
         $userStage = $userStage ?? 'admin';
         $stageConfig = match($userStage) {
             'verifier' => [
@@ -93,7 +94,7 @@
                         <a href="{{ route('claims.index') }}" class="btn">
                             <i class="ti-arrow-left me-1"></i> Back to Claims
                         </a>
-                        @if (auth()->user()->can('create-claims'))
+                        @if ($authUser && $authUser->can('create-claims'))
                             <a href="{{ route('facility.claims.create', $facility->id) }}" class="btn btn-primary">
                                 <i class="ti-plus me-1"></i> New Claim
                             </a>
@@ -351,11 +352,11 @@
                                 </select>
                             </div>
                             <div class="col-md-2">
-                                <label class="form-label">Date From</label>
+                                <label class="form-label">{{ ($userStage ?? '') === 'finance' ? 'Payment Date From' : 'Date From' }}</label>
                                 <input type="date" name="date_from" class="form-control" value="{{ request('date_from') }}">
                             </div>
                             <div class="col-md-2">
-                                <label class="form-label">Date To</label>
+                                <label class="form-label">{{ ($userStage ?? '') === 'finance' ? 'Payment Date To' : 'Date To' }}</label>
                                 <input type="date" name="date_to" class="form-control" value="{{ request('date_to') }}">
                             </div>
                             <div class="col-md-2">
@@ -379,9 +380,9 @@
                     <h3 class="card-title">Claims for {{ $facility->name }} ({{ $claims->total() }})</h3>
                     <div class="card-actions">
                         @php
-                            $user = auth()->user();
+                            $user = $authUser;
                             $isSuperAdmin = $user && ($user->hasRole('Super Admin') || $user->hasRole('admin'));
-                            $hasBulkAccess = $isSuperAdmin || $user->can('claim.es-approve') || $user->can('claim.finance-approve');
+                            $hasBulkAccess = $isSuperAdmin || ($user && ($user->can('claim.es-approve') || $user->can('claim.finance-approve')));
                         @endphp
                         
                         @if ($hasBulkAccess)
@@ -393,22 +394,22 @@
                                 <i class="ti-settings me-1"></i>Bulk Actions (<span id="selectedCount">0</span>)
                             </button>
                             <div class="dropdown-menu">
-                                @if (auth()->user()->can('claim.verify'))
+                                @if ($authUser && $authUser->can('claim.verify'))
                                 <a href="#" class="dropdown-item" onclick="processBulkAction('verifier')">
                                     <i class="ti-check text-warning me-2"></i>Verify Claims
                                 </a>
                                 @endif
-                                @if (auth()->user()->can('claim.approve'))
+                                @if ($authUser && $authUser->can('claim.approve'))
                                 <a href="#" class="dropdown-item" onclick="processBulkAction('approver')">
                                     <i class="ti-check text-success me-2"></i>Approve Claims
                                 </a>
                                 @endif
-                                @if (auth()->user()->can('claim.es-approve'))
+                                @if ($authUser && $authUser->can('claim.es-approve'))
                                 <a href="#" class="dropdown-item" onclick="processBulkAction('es')">
                                     <i class="ti-check text-primary me-2"></i>ES Approve
                                 </a>
                                 @endif
-                                @if (auth()->user()->can('claim.finance-approve'))
+                                @if ($authUser && $authUser->can('claim.finance-approve'))
                                 <a href="#" class="dropdown-item" onclick="processBulkAction('finance')">
                                     <i class="ti-money text-success me-2"></i>Process Payment
                                 </a>
@@ -493,7 +494,7 @@
                                     </th>
                                     <th class="border-0 fw-semibold">Claim #</th>
                                     <th class="border-0 fw-semibold">Beneficiary</th>
-                                    <th class="border-0 fw-semibold">Service Date</th>
+                                    <th class="border-0 fw-semibold">Date Claimed</th>
                                     <th class="border-0 fw-semibold">Amount</th>
                                     <th class="border-0 fw-semibold">Status</th>
                                     <th class="border-0 fw-semibold">Actions</th>
@@ -526,10 +527,10 @@
                                             @endif
                                         </td>
                                         <td class="align-middle">
-                                            <div class="fw-semibold">{{ $claim->claim_number ?? 'CLM-' . $claim->id }}
-                                            </div>
+                                            <div class="fw-semibold">{{ $claim->claim_number ?? 'CLM-' . $claim->id }}</div>
                                             <div class="text-muted small">
-                                                {{ \Carbon\Carbon::parse($claim->created_at)->format('M j, Y') }}</div>
+                                                {{ $claim->service_date ? \Carbon\Carbon::parse($claim->service_date)->format('M j, Y') : 'N/A' }}
+                                            </div>
                                         </td>
                                         <td class="align-middle">
                                             <div class="d-flex align-items-center">
@@ -544,7 +545,13 @@
                                         </td>
                                         <td class="align-middle">
                                             <div class="fw-semibold">
-                                                {{ \Carbon\Carbon::parse($claim->service_date)->format('M j, Y') }}</div>
+                                                {{ \Carbon\Carbon::parse($claim->submitted_at ?? $claim->created_at)->format('M j, Y') }}
+                                            </div>
+                                            @if (($userStage ?? '') === 'finance' && !empty($claim->payment_date))
+                                                <div class="text-success small">
+                                                    <i class="ti-check me-1"></i>Paid {{ \Carbon\Carbon::parse($claim->payment_date)->format('M j, Y') }}
+                                                </div>
+                                            @endif
                                         </td>
                                         <td class="align-middle">
                                             <div class="fw-semibold text-primary">
@@ -652,7 +659,7 @@
                                                     class="btn btn-sm btn-primary" title="View Claim">
                                                     <i class="ti-eye"></i>
                                                 </a>
-                                                @if (auth()->user()->can('claim.delete'))
+                                                @if ($authUser && $authUser->can('claim.delete'))
                                                     <form action="{{ route('claims.facility-claim.destroy', $claim->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this claim?');">
                                                         @csrf
                                                         @method('DELETE')
@@ -675,7 +682,7 @@
                                                 <p class="empty-subtitle text-muted">
                                                     No claims have been submitted for this facility yet.
                                                 </p>
-                                                @if (auth()->user()->can('create-claims'))
+                                                @if ($authUser && $authUser->can('create-claims'))
                                                     <a href="{{ route('facility.claims.create', $facility->id) }}"
                                                         class="btn btn-primary">
                                                         <i class="ti-plus me-1"></i> Create First Claim

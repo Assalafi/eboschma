@@ -690,7 +690,7 @@
                                     <th class="fw-bold text-muted text-uppercase" style="font-size: 0.75rem;">Claim #</th>
                                     <th class="fw-bold text-muted text-uppercase" style="font-size: 0.75rem;">Enrollee Details</th>
                                     <th class="fw-bold text-muted text-uppercase" style="font-size: 0.75rem;">Healthcare Provider</th>
-                                    <th class="fw-bold text-muted text-uppercase" style="font-size: 0.75rem;">Service Date</th>
+                                    <th class="fw-bold text-muted text-uppercase" style="font-size: 0.75rem;">Date Claimed</th>
                                     <th class="fw-bold text-muted text-uppercase" style="font-size: 0.75rem;">Claim Amount</th>
                                     <th class="fw-bold text-muted text-uppercase" style="font-size: 0.75rem;">Workflow Status</th>
                                     <th class="fw-bold text-muted text-uppercase text-end" style="font-size: 0.75rem;">Action</th>
@@ -701,7 +701,7 @@
                                     <tr>
                                         <td>
                                             <div class="fw-bold text-primary">{{ $claim->authorization_code ?? 'CLM-' . $claim->id }}</div>
-                                            <div class="text-muted small">Submitted {{ \Carbon\Carbon::parse($claim->created_at)->format('M j, Y') }}</div>
+                                            <div class="text-muted small">{{ $claim->service_date ? \Carbon\Carbon::parse($claim->service_date)->format('M j, Y') : 'N/A' }}</div>
                                         </td>
                                         <td>
                                             <div class="d-flex align-items-center">
@@ -720,8 +720,13 @@
                                         </td>
                                         <td>
                                             <div class="fw-semibold text-dark">
-                                                {{ $claim->service_date ? \Carbon\Carbon::parse($claim->service_date)->format('M j, Y') : 'N/A' }}
+                                                {{ \Carbon\Carbon::parse($claim->created_at)->format('M j, Y') }}
                                             </div>
+                                            @if (($userStage ?? '') === 'finance' && !empty($claim->payment_date))
+                                                <div class="text-success small">
+                                                    <i class="ti-check me-1"></i>Paid {{ \Carbon\Carbon::parse($claim->payment_date)->format('M j, Y') }}
+                                                </div>
+                                            @endif
                                         </td>
                                         <td>
                                             <div class="fw-bold text-dark">₦{{ number_format($claim->claim_amount ?? 0, 2) }}</div>

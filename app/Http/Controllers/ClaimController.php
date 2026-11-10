@@ -72,11 +72,40 @@ class ClaimController extends Controller
                 $this->applyFacilityClaimStatusFilter($query, $request->get('status'), $tablePrefix, $userStage);
             }
 
-            if ($request->filled('date_from')) {
-                $query->whereDate($tablePrefix . 'service_date', '>=', $request->get('date_from'));
-            }
-            if ($request->filled('date_to')) {
-                $query->whereDate($tablePrefix . 'service_date', '<=', $request->get('date_to'));
+            if ($userStage === 'finance') {
+                if ($request->filled('date_from')) {
+                    if ($request->get('status') === 'finance_pending') {
+                        $query->whereDate($tablePrefix . 'created_at', '>=', $request->get('date_from'));
+                    } else {
+                        $query->where(function($q) use ($tablePrefix, $request) {
+                            $q->whereDate($tablePrefix . 'payment_date', '>=', $request->get('date_from'))
+                              ->orWhere(function($sub) use ($tablePrefix, $request) {
+                                  $sub->whereNull($tablePrefix . 'payment_date')
+                                      ->whereDate($tablePrefix . 'finance_updated_at', '>=', $request->get('date_from'));
+                              });
+                        });
+                    }
+                }
+                if ($request->filled('date_to')) {
+                    if ($request->get('status') === 'finance_pending') {
+                        $query->whereDate($tablePrefix . 'created_at', '<=', $request->get('date_to'));
+                    } else {
+                        $query->where(function($q) use ($tablePrefix, $request) {
+                            $q->whereDate($tablePrefix . 'payment_date', '<=', $request->get('date_to'))
+                              ->orWhere(function($sub) use ($tablePrefix, $request) {
+                                  $sub->whereNull($tablePrefix . 'payment_date')
+                                      ->whereDate($tablePrefix . 'finance_updated_at', '<=', $request->get('date_to'));
+                              });
+                        });
+                    }
+                }
+            } else {
+                if ($request->filled('date_from')) {
+                    $query->whereDate($tablePrefix . 'service_date', '>=', $request->get('date_from'));
+                }
+                if ($request->filled('date_to')) {
+                    $query->whereDate($tablePrefix . 'service_date', '<=', $request->get('date_to'));
+                }
             }
         };
 
@@ -137,6 +166,13 @@ class ClaimController extends Controller
                 DB::raw("COALESCE(SUM(CASE WHEN {$financePaidSql} THEN fc.total_amount ELSE 0 END), 0) as finance_paid_value"),
             ])
             ->groupBy('f.id', 'f.name')
+            ->orderByDesc(match ($userStage) {
+                'verifier' => 'verifier_pending',
+                'approver' => 'approver_pending',
+                'es' => 'es_pending',
+                'finance' => 'finance_pending',
+                default => 'pending_claims',
+            })
             ->orderBy('latest_claim_date', 'desc')
             ->get()
             ->map(function ($facility) {
@@ -230,7 +266,7 @@ class ClaimController extends Controller
 
         $applyFilters($query, 'fc.');
 
-        $recentClaims = $query->orderBy('fc.created_at', 'desc')->paginate(20)->appends($request->query());
+        $recentClaims = $query->orderByRaw($this->getStagePendingOrderByRaw($userStage, 'fc.'))->paginate(20)->appends($request->query());
 
         return view('claims.index', compact('facilities', 'stats', 'recentActivity', 'recentClaims', 'programs', 'selectedProgram', 'userStage'));
     }
@@ -1147,15 +1183,43 @@ class ClaimController extends Controller
             $claims->where('claim_type', $request->claim_type);
         }
         
-        if ($request->filled('date_from')) {
-            $claims->whereDate('service_date', '>=', $request->date_from);
-        }
-        
-        if ($request->filled('date_to')) {
-            $claims->whereDate('service_date', '<=', $request->date_to);
+        if ($userStage === 'finance') {
+            if ($request->filled('date_from')) {
+                if ($request->get('status') === 'finance_pending') {
+                    $claims->whereDate('created_at', '>=', $request->date_from);
+                } else {
+                    $claims->where(function($q) use ($request) {
+                        $q->whereDate('payment_date', '>=', $request->date_from)
+                          ->orWhere(function($sub) use ($request) {
+                              $sub->whereNull('payment_date')
+                                  ->whereDate('finance_updated_at', '>=', $request->date_from);
+                          });
+                    });
+                }
+            }
+            if ($request->filled('date_to')) {
+                if ($request->get('status') === 'finance_pending') {
+                    $claims->whereDate('created_at', '<=', $request->date_to);
+                } else {
+                    $claims->where(function($q) use ($request) {
+                        $q->whereDate('payment_date', '<=', $request->date_to)
+                          ->orWhere(function($sub) use ($request) {
+                              $sub->whereNull('payment_date')
+                                  ->whereDate('finance_updated_at', '<=', $request->date_to);
+                          });
+                    });
+                }
+            }
+        } else {
+            if ($request->filled('date_from')) {
+                $claims->whereDate('service_date', '>=', $request->date_from);
+            }
+            if ($request->filled('date_to')) {
+                $claims->whereDate('service_date', '<=', $request->date_to);
+            }
         }
 
-        $filteredClaims = $claims->orderBy('created_at', 'desc')->get();
+        $filteredClaims = $claims->orderByRaw($this->getStagePendingOrderByRaw($userStage, ''))->get();
 
         $approvedPdfStatuses = ['approved', 'paid', 'es_approved', 'verifier_approved', 'approver_approved', 'es_stage_approved', 'finance_paid'];
         if (in_array($request->status, $approvedPdfStatuses, true) && $request->get('format') !== 'excel') {
@@ -1517,6 +1581,77 @@ class ClaimController extends Controller
         }
 
         return $query;
+    }
+
+    /**
+     * Build an ORDER BY SQL expression that places claims requiring action at the user's current stage first.
+     */
+    protected function getStagePendingOrderByRaw(string $userStage, string $tablePrefix = 'fc.'): string
+    {
+        $tp = $tablePrefix;
+
+        if ($userStage === 'verifier') {
+            // Priority 1: Waiting for verifier review (submitted & pending verifier review, not rejected)
+            // Priority 2: Rejected by approver (returned back to verifier)
+            // Priority 3: Verified claims (already approved at verifier stage)
+            // Priority 4: All other claims
+            return "CASE 
+                WHEN ({$tp}status = 'submitted' AND COALESCE({$tp}verifier_status, 'pending') = 'pending' AND COALESCE({$tp}approver_status, 'pending') != 'rejected' AND COALESCE({$tp}verifier_status, 'pending') != 'rejected') THEN 1
+                WHEN ({$tp}approver_status = 'rejected') THEN 2
+                WHEN ({$tp}verifier_status = 'approved') THEN 3
+                ELSE 4
+            END ASC, {$tp}created_at DESC";
+        }
+
+        if ($userStage === 'approver') {
+            // Priority 1: Waiting for approver review (verified & pending approver review, not rejected)
+            // Priority 2: Rejected by ES (returned back to approver)
+            // Priority 3: Approved claims (already approved at approver stage)
+            // Priority 4: All other claims
+            return "CASE 
+                WHEN ({$tp}verifier_status = 'approved' AND COALESCE({$tp}approver_status, 'pending') = 'pending' AND COALESCE({$tp}es_status, 'pending') != 'rejected') THEN 1
+                WHEN ({$tp}es_status = 'rejected') THEN 2
+                WHEN ({$tp}approver_status = 'approved') THEN 3
+                ELSE 4
+            END ASC, {$tp}created_at DESC";
+        }
+
+        if ($userStage === 'es') {
+            // Priority 1: Waiting for ES action (approved & pending ES review, not rejected)
+            // Priority 2: Rejected by Finance (returned back to ES)
+            // Priority 3: ES Approved claims
+            // Priority 4: All other claims
+            return "CASE 
+                WHEN ({$tp}approver_status = 'approved' AND COALESCE({$tp}es_status, 'pending') = 'pending' AND COALESCE({$tp}finance_status, 'pending') != 'rejected') THEN 1
+                WHEN ({$tp}finance_status = 'rejected') THEN 2
+                WHEN ({$tp}es_status = 'approved') THEN 3
+                ELSE 4
+            END ASC, {$tp}created_at DESC";
+        }
+
+        if ($userStage === 'finance') {
+            // Priority 1: Waiting for Finance payment (es_approved & pending finance payment)
+            // Priority 2: Rejected by Finance
+            // Priority 3: Paid claims
+            // Priority 4: All other claims
+            return "CASE 
+                WHEN ({$tp}es_status = 'approved' AND COALESCE({$tp}finance_status, 'pending') = 'pending') THEN 1
+                WHEN ({$tp}finance_status = 'rejected') THEN 2
+                WHEN ({$tp}finance_status = 'paid' OR {$tp}status = 'paid') THEN 3
+                ELSE 4
+            END ASC, COALESCE({$tp}payment_date, {$tp}created_at) DESC";
+        }
+
+        // Admin overview:
+        // Priority 1: Actionable in pipeline (submitted, verified, approved, es_approved)
+        // Priority 2: Paid
+        // Priority 3: Rejected / Draft
+        return "CASE 
+            WHEN ({$tp}status IN ('submitted', 'verified', 'approved', 'es_approved') AND COALESCE({$tp}verifier_status, 'pending') != 'rejected' AND COALESCE({$tp}approver_status, 'pending') != 'rejected' AND COALESCE({$tp}es_status, 'pending') != 'rejected' AND COALESCE({$tp}finance_status, 'pending') != 'rejected') THEN 1
+            WHEN ({$tp}status = 'paid' OR {$tp}finance_status = 'paid') THEN 2
+            WHEN ({$tp}status = 'rejected' OR {$tp}verifier_status = 'rejected' OR {$tp}approver_status = 'rejected' OR {$tp}es_status = 'rejected' OR {$tp}finance_status = 'rejected') THEN 3
+            ELSE 4
+        END ASC, {$tp}created_at DESC";
     }
 
     /**
@@ -3512,11 +3647,40 @@ class ClaimController extends Controller
         }
 
         // Filter by date range
-        if ($request->filled('date_from')) {
-            $query->whereDate('fc.service_date', '>=', $request->date_from);
-        }
-        if ($request->filled('date_to')) {
-            $query->whereDate('fc.service_date', '<=', $request->date_to);
+        if ($userStage === 'finance') {
+            if ($request->filled('date_from')) {
+                if ($request->get('status') === 'finance_pending') {
+                    $query->whereDate('fc.created_at', '>=', $request->date_from);
+                } else {
+                    $query->where(function($q) use ($request) {
+                        $q->whereDate('fc.payment_date', '>=', $request->date_from)
+                          ->orWhere(function($sub) use ($request) {
+                              $sub->whereNull('fc.payment_date')
+                                  ->whereDate('fc.finance_updated_at', '>=', $request->date_from);
+                          });
+                    });
+                }
+            }
+            if ($request->filled('date_to')) {
+                if ($request->get('status') === 'finance_pending') {
+                    $query->whereDate('fc.created_at', '<=', $request->date_to);
+                } else {
+                    $query->where(function($q) use ($request) {
+                        $q->whereDate('fc.payment_date', '<=', $request->date_to)
+                          ->orWhere(function($sub) use ($request) {
+                              $sub->whereNull('fc.payment_date')
+                                  ->whereDate('fc.finance_updated_at', '<=', $request->date_to);
+                          });
+                    });
+                }
+            }
+        } else {
+            if ($request->filled('date_from')) {
+                $query->whereDate('fc.service_date', '>=', $request->date_from);
+            }
+            if ($request->filled('date_to')) {
+                $query->whereDate('fc.service_date', '<=', $request->date_to);
+            }
         }
 
         // Base query for stats (respects search, program, date filters & stage visibility)
@@ -3548,7 +3712,7 @@ class ClaimController extends Controller
             'approved_amount' => $statsBaseQueryFactory()->whereIn('fc.status', ['approved', 'es_approved', 'paid'])->sum('fc.total_amount') ?: 0,
         ], $stageMeta);
 
-        $claims = $query->orderBy('fc.created_at', 'desc')
+        $claims = $query->orderByRaw($this->getStagePendingOrderByRaw($userStage, 'fc.'))
             ->paginate(20)
             ->appends($request->query());
 

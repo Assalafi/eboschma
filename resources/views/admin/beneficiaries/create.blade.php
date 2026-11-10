@@ -342,6 +342,20 @@
                                                                     </select>
                                                                 </div>
                                                             </div>
+                                                            <div class="row mb-3">
+                                                                <label class="col-md-4 form-label">Ward:</label>
+                                                                <div class="col-md-8">
+                                                                    <input type="text" class="form-control" name="ward"
+                                                                        value="{{ old('ward') }}">
+                                                                </div>
+                                                            </div>
+                                                            <div class="row mb-3">
+                                                                <label class="col-md-4 form-label">Community:</label>
+                                                                <div class="col-md-8">
+                                                                    <input type="text" class="form-control" name="community"
+                                                                        value="{{ old('community') }}">
+                                                                </div>
+                                                            </div>
                                                         </div>
 
                                                         <div class="col-md-6">
@@ -606,9 +620,30 @@
                                                             <div class="row mb-3">
                                                                 <label class="col-md-4 form-label">Occupation:</label>
                                                                 <div class="col-md-8">
-                                                                    <input type="text" class="form-control"
-                                                                        name="occupation"
-                                                                        value="{{ old('occupation') }}">
+                                                                    <select class="form-select" name="occupation">
+                                                                        <option value="">Select Occupation</option>
+                                                                        @foreach (\App\Models\Beneficiary::OCCUPATION_OPTIONS as $occupation)
+                                                                            <option value="{{ $occupation }}"
+                                                                                {{ old('occupation') == $occupation ? 'selected' : '' }}>
+                                                                                {{ $occupation }}
+                                                                            </option>
+                                                                        @endforeach
+                                                                    </select>
+                                                                </div>
+                                                            </div>
+
+                                                            <div class="row mb-3">
+                                                                <label class="col-md-4 form-label">Educational Status:</label>
+                                                                <div class="col-md-8">
+                                                                    <select class="form-select" name="educational_status">
+                                                                        <option value="">Select Educational Status</option>
+                                                                        @foreach (\App\Models\Beneficiary::EDUCATIONAL_STATUS_OPTIONS as $education)
+                                                                            <option value="{{ $education }}"
+                                                                                {{ old('educational_status') == $education ? 'selected' : '' }}>
+                                                                                {{ $education }}
+                                                                            </option>
+                                                                        @endforeach
+                                                                    </select>
                                                                 </div>
                                                             </div>
 
@@ -1724,6 +1759,8 @@
                 form.find('input[name="date_of_birth"]').val(beneficiary.date_of_birth);
                 form.find('input[name="place_of_birth"]').val(beneficiary.place_of_birth);
                 form.find('select[name="lga"]').val(beneficiary.lga).trigger('change');
+                form.find('input[name="ward"]').val(beneficiary.ward);
+                form.find('input[name="community"]').val(beneficiary.community);
                 form.find('select[name="state"]').val(beneficiary.state).trigger('change');
                 form.find('select[name="nationality"]').val(beneficiary.nationality).trigger('change');
                 form.find('select[name="marital_status"]').val(beneficiary.marital_status).trigger('change');
@@ -1732,7 +1769,14 @@
                 form.find('textarea[name="contact_address"]').val(beneficiary.contact_address);
                 form.find('input[name="phone_no"]').val(beneficiary.phone_no);
                 form.find('input[name="email"]').val(beneficiary.email);
-                form.find('input[name="occupation"]').val(beneficiary.occupation);
+                const occupationOptions = @json(\App\Models\Beneficiary::OCCUPATION_OPTIONS);
+                const educationOptions = @json(\App\Models\Beneficiary::EDUCATIONAL_STATUS_OPTIONS);
+                form.find('select[name="occupation"]')
+                    .val(occupationOptions.includes(beneficiary.occupation) ? beneficiary.occupation : 'Others')
+                    .trigger('change');
+                form.find('select[name="educational_status"]')
+                    .val(educationOptions.includes(beneficiary.educational_status) ? beneficiary.educational_status : '')
+                    .trigger('change');
                 form.find('input[name="dp_no"]').val(beneficiary.dp_no);
                 form.find('select[name="id_type"]').val(beneficiary.id_type).trigger('change');
                 form.find('input[name="id_no"]').val(beneficiary.id_no);

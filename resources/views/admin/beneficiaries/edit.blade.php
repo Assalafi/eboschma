@@ -233,6 +233,20 @@
                                                     </select>
                                                 </div>
                                             </div>
+                                            <div class="row mb-3">
+                                                <label class="col-md-3 form-label">Ward:</label>
+                                                <div class="col-md-9">
+                                                    <input type="text" class="form-control" name="ward"
+                                                        value="{{ old('ward', $beneficiary->ward) }}">
+                                                </div>
+                                            </div>
+                                            <div class="row mb-3">
+                                                <label class="col-md-3 form-label">Community:</label>
+                                                <div class="col-md-9">
+                                                    <input type="text" class="form-control" name="community"
+                                                        value="{{ old('community', $beneficiary->community) }}">
+                                                </div>
+                                            </div>
 
                                             <div class="row mb-3">
                                                 <label class="col-md-3 form-label">State:</label>
@@ -499,8 +513,30 @@
                                             <div class="row mb-3">
                                                 <label class="col-md-4 form-label">Occupation:</label>
                                                 <div class="col-md-8">
-                                                    <input type="text" class="form-control" name="occupation"
-                                                        value="{{ old('occupation', $beneficiary->occupation) }}">
+                                                    <select class="form-select" name="occupation">
+                                                        <option value="">Select Occupation</option>
+                                                        @foreach (\App\Models\Beneficiary::OCCUPATION_OPTIONS as $occupation)
+                                                            <option value="{{ $occupation }}"
+                                                                {{ old('occupation', $beneficiary->occupation) == $occupation ? 'selected' : '' }}>
+                                                                {{ $occupation }}
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+                                                </div>
+                                            </div>
+
+                                            <div class="row mb-3">
+                                                <label class="col-md-4 form-label">Educational Status:</label>
+                                                <div class="col-md-8">
+                                                    <select class="form-select" name="educational_status">
+                                                        <option value="">Select Educational Status</option>
+                                                        @foreach (\App\Models\Beneficiary::EDUCATIONAL_STATUS_OPTIONS as $education)
+                                                            <option value="{{ $education }}"
+                                                                {{ old('educational_status', $beneficiary->educational_status) == $education ? 'selected' : '' }}>
+                                                                {{ $education }}
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
                                                 </div>
                                             </div>
 

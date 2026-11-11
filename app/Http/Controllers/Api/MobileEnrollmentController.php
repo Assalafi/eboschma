@@ -14,7 +14,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\Rule;
 
 class MobileEnrollmentController extends Controller
 {
@@ -599,8 +598,10 @@ class MobileEnrollmentController extends Controller
             'id_type' => 'required|string',
             'id_no' => 'required|string',
             'category' => 'required|string',
-            'occupation' => ['nullable', 'string', 'max:255', Rule::in(Beneficiary::OCCUPATION_OPTIONS)],
-            'educational_status' => ['nullable', 'string', 'max:255', Rule::in(Beneficiary::EDUCATIONAL_STATUS_OPTIONS)],
+            // Keep accepting legacy values already stored on mobile records. The app
+            // still presents the approved dropdown options for new entries.
+            'occupation' => 'nullable|string|max:255',
+            'educational_status' => 'nullable|string|max:255',
             'status' => 'nullable|in:In Progress,active,pending,rejected,inactive',
             // Spouse data
             'has_spouse' => 'nullable|boolean',
@@ -788,8 +789,8 @@ class MobileEnrollmentController extends Controller
             'lga' => 'sometimes|nullable|string|max:255',
             'ward' => 'sometimes|nullable|string|max:255',
             'community' => 'sometimes|nullable|string|max:255',
-            'occupation' => ['sometimes', 'nullable', 'string', 'max:255', Rule::in(Beneficiary::OCCUPATION_OPTIONS)],
-            'educational_status' => ['sometimes', 'nullable', 'string', 'max:255', Rule::in(Beneficiary::EDUCATIONAL_STATUS_OPTIONS)],
+            'occupation' => 'sometimes|nullable|string|max:255',
+            'educational_status' => 'sometimes|nullable|string|max:255',
             'status' => 'sometimes|in:In Progress,active,pending,rejected,inactive',
         ]);
 
@@ -975,8 +976,8 @@ class MobileEnrollmentController extends Controller
             'place_of_work' => 'nullable|string',
             'date_of_employment' => 'nullable|date',
             'date_of_retirement' => 'nullable|date',
-            'occupation' => ['nullable', 'string', 'max:255', Rule::in(Beneficiary::OCCUPATION_OPTIONS)],
-            'educational_status' => ['nullable', 'string', 'max:255', Rule::in(Beneficiary::EDUCATIONAL_STATUS_OPTIONS)],
+            'occupation' => 'nullable|string|max:255',
+            'educational_status' => 'nullable|string|max:255',
             'category' => 'required|string',
             'id_type' => 'nullable|string',
             'id_no' => 'nullable|string',
@@ -1736,8 +1737,8 @@ class MobileEnrollmentController extends Controller
             'gender' => 'required|in:Male,Female',
             'date_of_birth' => 'required|date',
             'phone_no' => 'required|string|max:20',
-            'occupation' => ['nullable', 'string', 'max:255', Rule::in(Beneficiary::OCCUPATION_OPTIONS)],
-            'educational_status' => ['nullable', 'string', 'max:255', Rule::in(Beneficiary::EDUCATIONAL_STATUS_OPTIONS)],
+            'occupation' => 'nullable|string|max:255',
+            'educational_status' => 'nullable|string|max:255',
             // Spouse
             'has_spouse' => 'nullable|boolean',
             'spouse_id' => 'nullable|integer', // For tracking UPDATE/DELETE

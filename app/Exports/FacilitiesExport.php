@@ -100,7 +100,8 @@ class FacilitiesExport implements FromCollection, WithHeadings, WithMapping, Sho
                     });
                 }
             }])
-            ->orderBy('beneficiaries_count', 'desc')
+            ->orderBy('name')
+            ->orderBy('id')
             ->get();
     }
 

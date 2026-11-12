@@ -43,7 +43,7 @@ class FacilityController extends Controller
             $query->byType($request->get('type'));
         }
 
-        $facilities = $query->latest()->paginate(15)->appends($request->query());
+        $facilities = $query->orderBy('name')->orderBy('id')->paginate(15)->appends($request->query());
         
         // Get filter options
         $lgas = Facility::getBornoLGAs();

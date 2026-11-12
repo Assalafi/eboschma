@@ -505,6 +505,13 @@
                                 @endforeach
                             </select>
                             <div class="form-text">The facility type is shown to distinguish Primary and Secondary facilities with similar names.</div>
+                            <div class="form-check mt-3">
+                                <input class="form-check-input" type="checkbox" name="apply_to_all_same_destination" value="1" id="apply_to_all_same_destination">
+                                <label class="form-check-label fw-semibold" for="apply_to_all_same_destination">
+                                    Apply to all active referrals currently sent to this same destination facility
+                                </label>
+                                <div class="form-text">Only pending, approved patient referrals are changed. Completed and rejected referrals remain unchanged.</div>
+                            </div>
                             @error('to_facility_id')
                                 <div class="text-danger small mt-2">{{ $message }}</div>
                             @enderror

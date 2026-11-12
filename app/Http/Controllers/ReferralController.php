@@ -352,11 +352,27 @@ class ReferralController extends Controller
 
         $referral = ServiceReferral::findOrFail($id);
         $destination = Facility::findOrFail($validated['to_facility_id']);
+        $oldDestination = $referral->toFacility;
 
         if ((int) $destination->id === (int) $referral->from_facility_id) {
             return back()->withErrors([
                 'to_facility_id' => 'The destination facility must be different from the referring facility.',
             ])->withInput();
+        }
+
+        if ($request->boolean('apply_to_all_same_destination')) {
+            $updatedCount = ServiceReferral::where('to_facility_id', $referral->to_facility_id)
+                ->where('referral_type', ServiceReferral::TYPE_PATIENT)
+                ->where('status', ServiceReferral::STATUS_PENDING)
+                ->where('approval_status', 'approved')
+                ->whereNull('service_item_id')
+                ->update([
+                    'to_facility_id' => $destination->id,
+                    'updated_at' => now(),
+                ]);
+
+            return redirect()->route('referrals.show', $referral->id)
+                ->with('success', "Destination changed for {$updatedCount} active referrals from " . ($oldDestination->name ?? 'the previous facility') . ' to ' . $destination->name . ' (' . ($destination->type ?: 'Type not set') . ').');
         }
 
         $referral->update(['to_facility_id' => $destination->id]);

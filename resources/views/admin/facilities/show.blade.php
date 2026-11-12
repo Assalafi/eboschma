@@ -1,6 +1,11 @@
 @extends('layouts.app')
 
 @section('content')
+    @php
+        $activityTotal = collect($activitySummary)->sum('count');
+        $activeActivities = collect($activitySummary)->filter(fn ($activity) => $activity['count'] > 0);
+    @endphp
+
     <div class="container-fluid pt-3">
         <div class="row">
             <div class="col-lg-8 col-md-12">
@@ -223,15 +228,93 @@
                 <div class="card custom-card">
                     <div class="card-body">
                         <h6 class="main-content-label mb-3">Danger Zone</h6>
-                        <p class="text-muted small mb-3">This action cannot be undone</p>
-                        <form action="{{ route('facilities.destroy', $facility) }}" method="POST"
-                            onsubmit="return confirm('Are you sure you want to delete this facility? This action cannot be undone.')">
-                            @csrf
-                            @method('DELETE')
-                            <button type="submit" class="btn btn-danger btn-sm">
-                                <i class="fe fe-trash"></i> Delete Facility
-                            </button>
-                        </form>
+                        @if ($activityTotal > 0)
+                            <div class="alert alert-danger mb-0" role="alert">
+                                <div class="d-flex align-items-start">
+                                    <i class="fe fe-lock fs-18 me-2 mt-1"></i>
+                                    <div>
+                                        <strong>Deletion is locked</strong>
+                                        <p class="small mb-2">This facility has linked records. Delete or transfer the records below before removing the facility.</p>
+                                        <ul class="small mb-0 ps-3">
+                                            @foreach ($activeActivities as $activity)
+                                                <li>{{ $activity['label'] }}: <strong>{{ number_format($activity['count']) }}</strong></li>
+                                            @endforeach
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        @else
+                            <p class="text-muted small mb-3">No linked activity was found. This action cannot be undone.</p>
+                            <form action="{{ route('facilities.destroy', $facility) }}" method="POST"
+                                onsubmit="return confirm('Are you sure you want to delete this facility? This action cannot be undone.')">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="btn btn-danger btn-sm">
+                                    <i class="fe fe-trash"></i> Delete Facility
+                                </button>
+                            </form>
+                        @endif
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-3">
+            <div class="col-12">
+                <div class="card custom-card border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+                            <div>
+                                <div class="d-flex align-items-center gap-2 mb-1">
+                                    <h6 class="main-content-label mb-0">Activity &amp; linked records</h6>
+                                    @if ($activityTotal > 0)
+                                        <span class="badge bg-danger-transparent text-danger">Protected</span>
+                                    @else
+                                        <span class="badge bg-success-transparent text-success">No activity</span>
+                                    @endif
+                                </div>
+                                <p class="text-muted card-sub-title mb-0">A complete view of records connected to this facility across enrolment, EHR, referrals, pharmacy and administration.</p>
+                            </div>
+                            <div class="text-md-end">
+                                <div class="text-muted small">Tracked records</div>
+                                <div class="fs-24 fw-semibold text-dark">{{ number_format($activityTotal) }}</div>
+                            </div>
+                        </div>
+
+                        @if ($activityTotal > 0)
+                            <div class="alert alert-warning d-flex align-items-start mb-4" role="alert">
+                                <i class="fe fe-alert-triangle fs-18 me-2 mt-1"></i>
+                                <div>
+                                    <strong>This facility cannot be deleted.</strong>
+                                    <div class="small">The protection covers every non-zero activity shown below, including historical reassignment records and configuration that is still linked to the facility.</div>
+                                </div>
+                            </div>
+                        @else
+                            <div class="alert alert-success d-flex align-items-start mb-4" role="alert">
+                                <i class="fe fe-check-circle fs-18 me-2 mt-1"></i>
+                                <div>
+                                    <strong>No linked activity found.</strong>
+                                    <div class="small">All tracked activity categories currently have zero records for this facility.</div>
+                                </div>
+                            </div>
+                        @endif
+
+                        <div class="row g-3">
+                            @foreach ($activitySummary as $activity)
+                                <div class="col-sm-6 col-xl-3">
+                                    <div class="border rounded-3 p-3 h-100 {{ $activity['count'] > 0 ? 'bg-' . $activity['tone'] . '-transparent border-' . $activity['tone'] : 'bg-light' }}">
+                                        <div class="d-flex justify-content-between align-items-start gap-2">
+                                            <div class="avatar avatar-sm brround bg-white shadow-sm">
+                                                <i class="fe fe-{{ $activity['icon'] }} text-{{ $activity['tone'] }}"></i>
+                                            </div>
+                                            <span class="fs-20 fw-semibold text-{{ $activity['count'] > 0 ? $activity['tone'] : 'muted' }}">{{ number_format($activity['count']) }}</span>
+                                        </div>
+                                        <div class="fw-semibold mt-3">{{ $activity['label'] }}</div>
+                                        <div class="text-muted small mt-1">{{ $activity['description'] }}</div>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
                     </div>
                 </div>
             </div>

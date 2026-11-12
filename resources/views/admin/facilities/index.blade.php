@@ -39,6 +39,33 @@
                         </div>
                     @endif
 
+                    @if (session('facility_activity_blocks'))
+                        <div class="alert alert-warning border-0 shadow-sm" role="alert">
+                            <div class="d-flex align-items-start">
+                                <i class="fe fe-lock fs-18 me-2 mt-1"></i>
+                                <div class="w-100">
+                                    <div class="fw-semibold mb-1">Some facilities were protected from deletion</div>
+                                    <div class="small mb-3">The following facilities have linked activity. Review the complete activity breakdown before trying again.</div>
+                                    @foreach (session('facility_activity_blocks') as $blockedFacility)
+                                        <div class="bg-white rounded-2 p-2 mb-2">
+                                            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                                                <a href="{{ route('facilities.show', $blockedFacility['id']) }}" class="fw-semibold text-dark text-decoration-none">
+                                                    {{ $blockedFacility['name'] }}
+                                                </a>
+                                                <span class="badge bg-danger-transparent text-danger">{{ number_format($blockedFacility['total']) }} linked records</span>
+                                            </div>
+                                            <div class="small text-muted mt-1">
+                                                @foreach ($blockedFacility['activities'] as $activity)
+                                                    <span class="me-3">{{ $activity['label'] }}: <strong>{{ number_format($activity['count']) }}</strong></span>
+                                                @endforeach
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        </div>
+                    @endif
+
                     <!-- Filters -->
                     <div class="mb-4 p-3 bg-light rounded">
                         <form method="GET" action="{{ route('facilities.index') }}" class="row g-3">

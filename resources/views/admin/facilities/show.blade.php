@@ -7,6 +7,16 @@
     @endphp
 
     <div class="container-fluid pt-3">
+        @if (session('error'))
+            <div class="alert alert-danger alert-dismissible fade show shadow-sm" role="alert">
+                <div class="d-flex align-items-start">
+                    <i class="fe fe-alert-octagon fs-18 me-2 mt-1"></i>
+                    <div>{{ session('error') }}</div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        @endif
+
         <div class="row">
             <div class="col-lg-8 col-md-12">
                 <div class="card custom-card">

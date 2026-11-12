@@ -610,6 +610,7 @@ Route::middleware(['auth:staff,web'])->group(function () {
     Route::middleware(['permission:referral.edit,staff'])->group(function () {
         Route::get('referrals/{referral}/edit', [ReferralController::class, 'edit'])->name('referrals.edit');
         Route::put('referrals/{referral}', [ReferralController::class, 'update'])->name('referrals.update');
+        Route::patch('referrals/{referral}/destination', [ReferralController::class, 'updateDestination'])->name('referrals.destination.update');
         Route::patch('referrals/{referral}/status', [ReferralController::class, 'updateStatus'])->name('referrals.update.status');
         Route::patch('referrals/{referral}/commission-status', [ReferralController::class, 'updateCommissionStatus'])->name('referrals.update.commission-status');
     });

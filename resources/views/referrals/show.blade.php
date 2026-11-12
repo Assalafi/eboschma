@@ -14,6 +14,7 @@
 
         $canApproveReferral = (auth('staff')->user()?->can('referral.approve')) || (auth()->user()?->can('referral.approve'));
         $canRejectReferral = (auth('staff')->user()?->can('referral.reject')) || (auth()->user()?->can('referral.reject'));
+        $canEditDestination = (auth('staff')->user()?->can('referral.edit')) || (auth()->user()?->can('referral.edit'));
     @endphp
 
     <div class="container-fluid ref-wrap">
@@ -50,6 +51,11 @@
                 <a href="{{ route('referrals.pdf', $referral->id) }}" target="_blank" class="btn btn-light">
                     <i class="fas fa-file-pdf"></i> PDF
                 </a>
+                @if ($canEditDestination)
+                    <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#changeDestinationModal">
+                        <i class="fas fa-route"></i> Change Destination
+                    </button>
+                @endif
                 <button type="button" class="btn btn-outline-light" onclick="window.print()">
                     <i class="fas fa-print"></i> Print
                 </button>
@@ -72,7 +78,7 @@
                 <div class="ref-stat-label">Referral Route</div>
                 <div class="ref-stat-value">
                     {{ $referral->fromFacility->name ?? 'N/A' }}
-                    <small><i class="fas fa-arrow-right me-1"></i>{{ $referral->toFacility->name ?? 'N/A' }}</small>
+                    <small><i class="fas fa-arrow-right me-1"></i>{{ $referral->toFacility->name ?? 'N/A' }} — {{ $referral->toFacility->type ?? 'Type not set' }}</small>
                 </div>
             </div>
             <div class="ref-stat">
@@ -160,8 +166,8 @@
                                         @if ($referral->serviceItem)
                                             <tr><th>Service</th><td>{{ $referral->serviceItem->name }} <span class="text-muted">({{ $referral->serviceItem->type ?? 'Service' }})</span></td></tr>
                                         @endif
-                                        <tr><th>From Facility</th><td>{{ $referral->fromFacility->name ?? 'N/A' }}</td></tr>
-                                        <tr><th>To Facility</th><td>{{ $referral->toFacility->name ?? 'N/A' }}</td></tr>
+                                        <tr><th>From Facility</th><td>{{ $referral->fromFacility->name ?? 'N/A' }} <span class="text-muted">({{ $referral->fromFacility->type ?? 'Type not set' }})</span></td></tr>
+                                        <tr><th>To Facility</th><td>{{ $referral->toFacility->name ?? 'N/A' }} <span class="text-muted">({{ $referral->toFacility->type ?? 'Type not set' }})</span></td></tr>
                                         <tr><th>Created</th><td>{{ $referral->created_at ? $referral->created_at->format('d M Y g:i A') : 'N/A' }}</td></tr>
                                         @if ($referral->approval_status === 'approved' && $referral->approved_by_name)
                                             <tr><th>Approved By</th><td>{{ $referral->approved_by_name }}
@@ -474,6 +480,44 @@
             </div>
         </div>
     </div>
+
+    @if ($canEditDestination)
+        <!-- Change Destination Modal -->
+        <div class="modal fade" id="changeDestinationModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <form action="{{ route('referrals.destination.update', $referral->id) }}" method="POST">
+                    @csrf
+                    @method('PATCH')
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Change Referral Destination</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <label for="to_facility_id" class="form-label fw-semibold">Destination Facility</label>
+                            <select name="to_facility_id" id="to_facility_id" class="form-select" required>
+                                @foreach ($facilities as $facility)
+                                    @if ((int) $facility->id !== (int) $referral->from_facility_id)
+                                        <option value="{{ $facility->id }}" {{ (string) old('to_facility_id', $referral->to_facility_id) === (string) $facility->id ? 'selected' : '' }}>
+                                            {{ $facility->name }} — {{ $facility->type ?: 'Type not set' }} ({{ $facility->lga ?: 'LGA not set' }}{{ $facility->ward ? ', ' . $facility->ward : '' }})
+                                        </option>
+                                    @endif
+                                @endforeach
+                            </select>
+                            <div class="form-text">The facility type is shown to distinguish Primary and Secondary facilities with similar names.</div>
+                            @error('to_facility_id')
+                                <div class="text-danger small mt-2">{{ $message }}</div>
+                            @enderror
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i> Save Destination</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    @endif
 
     <!-- Reject Referral Modal -->
     <div class="modal fade" id="rejectReferralModal" tabindex="-1" aria-hidden="true">

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use App\Models\ServiceReferral;
+use App\Models\Facility;
 use DataTables;
 use Auth;
 
@@ -142,11 +143,13 @@ class ReferralController extends Controller
                 ->addColumn('facility_info', function($referral) {
                     $fromName = $referral->fromFacility ? $referral->fromFacility->name : 'Unknown';
                     $toName = $referral->toFacility ? $referral->toFacility->name : 'Unknown';
+                    $fromType = $referral->fromFacility?->type ?: 'Type not set';
+                    $toType = $referral->toFacility?->type ?: 'Type not set';
                     
                     return "<div class='small text-muted'>From:</div>" .
-                           "<strong>{$fromName}</strong>" .
+                           "<strong>{$fromName}</strong><div class='small text-muted'>{$fromType}</div>" .
                            "<div class='small text-muted'>To:</div>" .
-                           "<strong>{$toName}</strong>";
+                           "<strong>{$toName}</strong><div class='small text-muted'>{$toType}</div>";
                 })
                 ->addColumn('status_badge', function($referral) {
                     $badges = $referral->status_badge;
@@ -319,6 +322,7 @@ class ReferralController extends Controller
         }
 
         $totalAmount = $pharmacyTotal + $labTotal + $servicesTotal;
+        $facilities = Facility::orderBy('name')->orderBy('type')->get();
 
         return view('referrals.show', compact(
             'referral', 
@@ -332,8 +336,33 @@ class ReferralController extends Controller
             'pharmacyTotal',
             'labTotal',
             'servicesTotal',
-            'totalAmount'
+            'totalAmount',
+            'facilities'
         ));
+    }
+
+    /**
+     * Change the destination facility for a referral.
+     */
+    public function updateDestination(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'to_facility_id' => 'required|integer|exists:facilities,id',
+        ]);
+
+        $referral = ServiceReferral::findOrFail($id);
+        $destination = Facility::findOrFail($validated['to_facility_id']);
+
+        if ((int) $destination->id === (int) $referral->from_facility_id) {
+            return back()->withErrors([
+                'to_facility_id' => 'The destination facility must be different from the referring facility.',
+            ])->withInput();
+        }
+
+        $referral->update(['to_facility_id' => $destination->id]);
+
+        return redirect()->route('referrals.show', $referral->id)
+            ->with('success', 'Referral destination changed to ' . $destination->name . ' (' . ($destination->type ?: 'Type not set') . ').');
     }
 
     public function approve(Request $request, $id)

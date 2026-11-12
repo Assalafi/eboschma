@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\FacilitiesExport;
+use App\Exports\FacilityServicesExport;
 use App\Imports\FacilitiesImport;
 
 class FacilityController extends Controller
@@ -102,8 +103,35 @@ class FacilityController extends Controller
     public function show(Facility $facility)
     {
         $activitySummary = $this->facilityActivitySummary($facility->id);
+        $availableServices = $facility->facilityServices()
+            ->where('is_available', true)
+            ->with('serviceItem.serviceType.serviceCategory')
+            ->orderBy('id')
+            ->paginate(8, ['*'], 'available_services_page');
+        $unavailableServices = $facility->facilityServices()
+            ->where('is_available', false)
+            ->with('serviceItem.serviceType.serviceCategory')
+            ->orderBy('id')
+            ->paginate(8, ['*'], 'unavailable_services_page');
+        $servicesTotal = $availableServices->total() + $unavailableServices->total();
 
-        return view('admin.facilities.show', compact('facility', 'activitySummary'));
+        return view('admin.facilities.show', compact(
+            'facility',
+            'activitySummary',
+            'availableServices',
+            'unavailableServices',
+            'servicesTotal'
+        ));
+    }
+
+    /**
+     * Export every configured service for a facility, not only the current page.
+     */
+    public function exportServices(Facility $facility)
+    {
+        $filename = 'facility-services-' . $facility->id . '-' . now()->format('Y-m-d') . '.xlsx';
+
+        return Excel::download(new FacilityServicesExport($facility->id), $filename);
     }
 
     /**

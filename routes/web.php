@@ -57,6 +57,7 @@ Route::middleware(['auth:staff,web'])->group(function () {
         Route::get('/download/template', [App\Http\Controllers\FacilityController::class, 'downloadTemplate'])->name('download.template')->middleware('permission:facility.view,staff');
         Route::delete('/bulk-delete', [App\Http\Controllers\FacilityController::class, 'bulkDelete'])->name('bulk-delete')->middleware('permission:facility.delete,staff');
         Route::post('/bulk-delete', [App\Http\Controllers\FacilityController::class, 'bulkDelete'])->name('bulk-delete.post')->middleware('permission:facility.delete,staff');
+        Route::get('/{facility}/services/export', [App\Http\Controllers\FacilityController::class, 'exportServices'])->name('services.export')->middleware('permission:facility.view,staff');
         
         // Individual facility routes (must be after specific routes)
         Route::get('/{facility}', [App\Http\Controllers\FacilityController::class, 'show'])->name('show')->middleware('permission:facility.view,staff');

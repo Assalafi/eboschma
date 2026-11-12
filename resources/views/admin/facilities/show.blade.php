@@ -86,32 +86,28 @@
                             </div>
                         </div>
 
-                        @php
-                            $facilityServices = $facility
-                                ->facilityServices()
-                                ->with('serviceItem.serviceType.serviceCategory')
-                                ->get();
-                            $availableServices = $facilityServices->where('is_available', true);
-                            $unavailableServices = $facilityServices->where('is_available', false);
-                        @endphp
-
-                        @if ($facilityServices->count() > 0)
+                        @if ($servicesTotal > 0)
                             <div class="row">
                                 <div class="col-12">
                                     <hr class="my-4">
                                     <div class="d-flex justify-content-between align-items-center mb-3">
-                                        <h6 class="main-content-label mb-0">Services Offered</h6>
-                                        <span class="badge bg-primary">{{ $facilityServices->count() }} Total</span>
+                                        <div>
+                                            <h6 class="main-content-label mb-1">Services Offered</h6>
+                                            <p class="text-muted small mb-0">{{ number_format($servicesTotal) }} service items configured for this facility</p>
+                                        </div>
+                                        <a href="{{ route('facilities.services.export', $facility) }}" class="btn btn-sm btn-outline-success">
+                                            <i class="fe fe-download me-1"></i> Export All
+                                        </a>
                                     </div>
 
-                                    @if ($availableServices->count() > 0)
+                                    @if ($availableServices->total() > 0)
                                         <h6 class="text-muted small mb-2">
                                             <i class="fe fe-check-circle text-success me-1"></i>Available Services
-                                            ({{ $availableServices->count() }})
+                                            ({{ number_format($availableServices->total()) }})
                                         </h6>
-                                        <div class="table-responsive mb-4">
+                                        <div class="table-responsive mb-2" style="max-height: 360px; overflow-y: auto;">
                                             <table class="table table-sm table-hover">
-                                                <thead class="bg-light">
+                                                <thead class="bg-light" style="position: sticky; top: 0; z-index: 1;">
                                                     <tr>
                                                         <th>Service Name</th>
                                                         <th>Category</th>
@@ -120,7 +116,7 @@
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    @foreach ($availableServices->sortBy('serviceItem.serviceType.serviceCategory.name') as $facilityService)
+                                                    @foreach ($availableServices as $facilityService)
                                                         <tr>
                                                             <td>
                                                                 <i class="fe fe-check-circle text-success me-1"></i>
@@ -140,16 +136,20 @@
                                                 </tbody>
                                             </table>
                                         </div>
+                                        <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+                                            <span class="text-muted small">Showing {{ $availableServices->firstItem() }} - {{ $availableServices->lastItem() }} of {{ number_format($availableServices->total()) }}</span>
+                                            {{ $availableServices->withQueryString()->links() }}
+                                        </div>
                                     @endif
 
-                                    @if ($unavailableServices->count() > 0)
+                                    @if ($unavailableServices->total() > 0)
                                         <h6 class="text-muted small mb-2">
                                             <i class="fe fe-x-circle text-warning me-1"></i>Unavailable Services
-                                            ({{ $unavailableServices->count() }})
+                                            ({{ number_format($unavailableServices->total()) }})
                                         </h6>
-                                        <div class="table-responsive">
+                                        <div class="table-responsive mb-2" style="max-height: 360px; overflow-y: auto;">
                                             <table class="table table-sm">
-                                                <thead class="bg-light">
+                                                <thead class="bg-light" style="position: sticky; top: 0; z-index: 1;">
                                                     <tr>
                                                         <th>Service Name</th>
                                                         <th>Category</th>
@@ -176,6 +176,10 @@
                                                     @endforeach
                                                 </tbody>
                                             </table>
+                                        </div>
+                                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                                            <span class="text-muted small">Showing {{ $unavailableServices->firstItem() }} - {{ $unavailableServices->lastItem() }} of {{ number_format($unavailableServices->total()) }}</span>
+                                            {{ $unavailableServices->withQueryString()->links() }}
                                         </div>
                                     @endif
                                 </div>

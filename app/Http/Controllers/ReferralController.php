@@ -371,13 +371,13 @@ class ReferralController extends Controller
                     'updated_at' => now(),
                 ]);
 
-            return redirect()->route('referrals.show', $referral->id)
+            return redirect()->route('referrals.index')
                 ->with('success', "Destination changed for {$updatedCount} active referrals from " . ($oldDestination->name ?? 'the previous facility') . ' to ' . $destination->name . ' (' . ($destination->type ?: 'Type not set') . ').');
         }
 
         $referral->update(['to_facility_id' => $destination->id]);
 
-        return redirect()->route('referrals.show', $referral->id)
+        return redirect()->route('referrals.index')
             ->with('success', 'Referral destination changed to ' . $destination->name . ' (' . ($destination->type ?: 'Type not set') . ').');
     }
 

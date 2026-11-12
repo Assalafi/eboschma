@@ -12,9 +12,6 @@
                             <p class="text-muted card-sub-title">List of all registered facilities in Borno State ({{ $facilities->total() }} total)</p>
                         </div>
                         <div>
-                            <button type="button" id="bulk-delete-btn" class="btn btn-danger me-2" style="display: none;">
-                                <i class="fe fe-trash"></i> Delete Selected
-                            </button>
                             <a href="{{ route('facilities.create') }}" class="btn btn-primary me-2">
                                 <i class="fe fe-plus-circle"></i> New Facility
                             </a>
@@ -106,15 +103,10 @@
                     </div>
 
                     @if ($facilities->count() > 0)
-                        <form id="bulk-delete-form" method="POST" action="{{ route('facilities.bulk-delete.post') }}">
-                            @csrf
-                            <div class="table-responsive">
-                                <table class="table table-bordered text-nowrap border-bottom">
+                        <div class="table-responsive">
+                            <table class="table table-bordered text-nowrap border-bottom">
                                     <thead class="table-light">
                                         <tr>
-                                            <th>
-                                                <input type="checkbox" id="select-all" class="form-check-input">
-                                            </th>
                                             <th>#</th>
                                             <th>Name</th>
                                             <th>LGA</th>
@@ -127,9 +119,6 @@
                                     <tbody>
                                         @foreach ($facilities as $facility)
                                             <tr>
-                                                <td>
-                                                    <input type="checkbox" name="ids[]" value="{{ $facility->id }}" class="form-check-input facility-checkbox">
-                                                </td>
                                                 <td>{{ $facilities->firstItem() + $loop->index }}</td>
                                             <td>
                                                 <div class="d-flex align-items-center">
@@ -161,16 +150,6 @@
                                                         class="btn btn-sm btn-primary" title="Edit">
                                                         <i class="fe fe-edit"></i>
                                                     </a>
-                                                    <form action="{{ route('facilities.destroy', $facility) }}"
-                                                        method="POST" class="d-inline"
-                                                        onsubmit="return confirm('Are you sure you want to delete this facility?')">
-                                                        @csrf
-                                                        @method('DELETE')
-                                                        <button type="submit" class="btn btn-sm btn-danger"
-                                                            title="Delete">
-                                                            <i class="fe fe-trash"></i>
-                                                        </button>
-                                                    </form>
                                                 </div>
                                             </td>
                                         </tr>
@@ -178,7 +157,6 @@
                                 </tbody>
                             </table>
                         </div>
-                        </form>
 
                         <!-- Pagination -->
                         <div class="d-flex justify-content-between align-items-center mt-4">
@@ -212,54 +190,4 @@
     </div>
 </div>
 
-<script>
-// Bulk selection functionality
-document.addEventListener('DOMContentLoaded', function() {
-    const selectAllCheckbox = document.getElementById('select-all');
-    const facilityCheckboxes = document.querySelectorAll('.facility-checkbox');
-    const bulkDeleteBtn = document.getElementById('bulk-delete-btn');
-    const bulkDeleteForm = document.getElementById('bulk-delete-form');
-
-    // Select all functionality
-    selectAllCheckbox.addEventListener('change', function() {
-        facilityCheckboxes.forEach(checkbox => {
-            checkbox.checked = this.checked;
-        });
-        toggleBulkDeleteButton();
-    });
-
-    // Individual checkbox change
-    facilityCheckboxes.forEach(checkbox => {
-        checkbox.addEventListener('change', function() {
-            const checkedCount = document.querySelectorAll('.facility-checkbox:checked').length;
-            selectAllCheckbox.checked = checkedCount === facilityCheckboxes.length;
-            selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < facilityCheckboxes.length;
-            toggleBulkDeleteButton();
-        });
-    });
-
-    function toggleBulkDeleteButton() {
-        const checkedCount = document.querySelectorAll('.facility-checkbox:checked').length;
-        bulkDeleteBtn.style.display = checkedCount > 0 ? 'inline-block' : 'none';
-    }
-
-    // Bulk delete action
-    bulkDeleteBtn.addEventListener('click', function() {
-        const checkedCount = document.querySelectorAll('.facility-checkbox:checked').length;
-        if (checkedCount === 0) {
-            alert('Please select facilities to delete.');
-            return;
-        }
-
-        if (confirm(`Are you sure you want to delete ${checkedCount} selected facilities? This action cannot be undone.`)) {
-            // Show loading state
-            bulkDeleteBtn.innerHTML = '<i class="fe fe-loader"></i> Deleting...';
-            bulkDeleteBtn.disabled = true;
-            
-            // Submit the form normally (not AJAX for now)
-            bulkDeleteForm.submit();
-        }
-    });
-});
-</script>
 @endsection

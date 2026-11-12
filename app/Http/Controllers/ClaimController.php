@@ -128,7 +128,7 @@ class ClaimController extends Controller
 
         $facilities = $facilitiesQuery
             ->select([
-                DB::raw("CONCAT(COALESCE(f.type, 'Type not set'), ' - ', f.name) as facility_name"),
+                DB::raw("CONCAT(f.name, ' - ', COALESCE(f.type, 'Type not set')) as facility_name"),
                 'f.id as facility_id',
                 DB::raw('COUNT(DISTINCT fc.id) as total_claims'),
                 DB::raw("SUM(CASE WHEN fc.status IN ('draft', 'submitted') AND NOT {$rejectedSql} THEN 1 ELSE 0 END) as pending_claims"),
@@ -223,7 +223,7 @@ class ClaimController extends Controller
         $this->applyStageVisibilityFilter($recentActivityQuery, $userStage, 'fc.');
 
         $recentActivity = $recentActivityQuery
-            ->select('fc.*', DB::raw("CONCAT(COALESCE(f.type, 'Type not set'), ' - ', f.name) as facility_name"))
+            ->select('fc.*', DB::raw("CONCAT(f.name, ' - ', COALESCE(f.type, 'Type not set')) as facility_name"))
             ->orderBy('fc.updated_at', 'desc')
             ->limit(10)
             ->get()
@@ -1908,7 +1908,7 @@ class ClaimController extends Controller
         $facilityBreakdown = (clone $baseQuery)
             ->select(
                 'f.id as facility_id',
-                DB::raw("CONCAT(COALESCE(f.type, 'Type not set'), ' - ', f.name) as facility_name"),
+                DB::raw("CONCAT(f.name, ' - ', COALESCE(f.type, 'Type not set')) as facility_name"),
                 DB::raw('COUNT(*) as claim_count'),
                 DB::raw('SUM(COALESCE(facility_claims.consultation_amount, 0)) as admin_charges'),
                 DB::raw('SUM(COALESCE(facility_claims.pharmacy_amount, 0)) as pharmacy'),
@@ -3731,7 +3731,7 @@ class ClaimController extends Controller
             ->leftJoin('encounters as e', 'fc.encounter_id', '=', 'e.id')
             ->where('fc.id', $claimId)
             ->whereNull('fc.deleted_at')
-            ->select('fc.*', DB::raw("CONCAT(COALESCE(f.type, 'Type not set'), ' - ', f.name) as facility_name"), 'e.nature_of_visit as encounter_nature_of_visit')
+            ->select('fc.*', DB::raw("CONCAT(f.name, ' - ', COALESCE(f.type, 'Type not set')) as facility_name"), 'e.nature_of_visit as encounter_nature_of_visit')
             ->first();
 
         if (!$claim) {
@@ -5032,7 +5032,7 @@ class ClaimController extends Controller
             ->leftJoin('encounters as e', 'fc.encounter_id', '=', 'e.id')
             ->where('fc.id', $claimId)
             ->whereNull('fc.deleted_at')
-            ->select('fc.*', DB::raw("CONCAT(COALESCE(f.type, 'Type not set'), ' - ', f.name) as facility_name"), 'e.nature_of_visit as encounter_nature_of_visit')
+            ->select('fc.*', DB::raw("CONCAT(f.name, ' - ', COALESCE(f.type, 'Type not set')) as facility_name"), 'e.nature_of_visit as encounter_nature_of_visit')
             ->first();
 
         if (!$claim) {

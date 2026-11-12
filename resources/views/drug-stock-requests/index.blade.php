@@ -110,7 +110,7 @@
                                 <option value="">All Facilities</option>
                                 @foreach($facilities as $facility)
                                     <option value="{{ $facility->id }}" {{ request('facility_id') == $facility->id ? 'selected' : '' }}>
-                                        {{ $facility->type ?: 'Type not set' }} — {{ $facility->name }}
+                                        {{ $facility->name }} — {{ $facility->type ?: 'Type not set' }}
                                     </option>
                                 @endforeach
                             </select>

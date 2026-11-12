@@ -342,7 +342,7 @@ class DrugStoreController extends Controller
                 'drug_stocks.batch_number',
                 'drug_stocks.expiry_date',
                 'drug_stocks.created_at',
-                DB::raw("CONCAT(COALESCE(facilities.type, 'Type not set'), ' - ', facilities.name) as facility_name"),
+                DB::raw("CONCAT(facilities.name, ' - ', COALESCE(facilities.type, 'Type not set')) as facility_name"),
                 'drug_stock_requests.id as request_id',
                 'drug_stock_requests.status as request_status'
             )

@@ -68,7 +68,7 @@ class Facility extends Model
      */
     public function getDisplayNameAttribute(): string
     {
-        return ($this->type ? $this->type . ' — ' : '') . $this->name;
+        return $this->name . ($this->type ? ' — ' . $this->type : '');
     }
 
     /**

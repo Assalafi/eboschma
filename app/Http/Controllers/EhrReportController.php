@@ -199,7 +199,7 @@ class EhrReportController extends Controller
     {
         return DB::table('encounters as e')
             ->join('facilities as f', 'e.facility_id', '=', 'f.id')
-            ->select(DB::raw("CONCAT(COALESCE(f.type, 'Type not set'), ' - ', f.name) as facility_name"), 'f.id as facility_id', DB::raw('COUNT(*) as total'),
+            ->select(DB::raw("CONCAT(f.name, ' - ', COALESCE(f.type, 'Type not set')) as facility_name"), 'f.id as facility_id', DB::raw('COUNT(*) as total'),
                 DB::raw("SUM(CASE WHEN e.status = 'Completed' THEN 1 ELSE 0 END) as completed"),
                 DB::raw("SUM(CASE WHEN e.status != 'Completed' AND e.status != 'Cancelled' THEN 1 ELSE 0 END) as active"))
             ->when($programId, fn($q) => $q->where('e.program_id', $programId))
@@ -294,7 +294,7 @@ class EhrReportController extends Controller
             ->join('encounters as e', 'cc.encounter_id', '=', 'e.id')
             ->join('users as u', 'cc.doctor_id', '=', 'u.id')
             ->leftJoin('facilities as f', 'e.facility_id', '=', 'f.id')
-            ->select('u.id', 'u.name as doctor_name', DB::raw("CONCAT(COALESCE(f.type, 'Type not set'), ' - ', f.name) as facility_name"),
+            ->select('u.id', 'u.name as doctor_name', DB::raw("CONCAT(f.name, ' - ', COALESCE(f.type, 'Type not set')) as facility_name"),
                 DB::raw('COUNT(*) as consultations'),
                 DB::raw("SUM(CASE WHEN cc.status = 'Completed' THEN 1 ELSE 0 END) as completed"))
             ->when($facilityId, fn($q) => $q->where('e.facility_id', $facilityId))
@@ -558,7 +558,7 @@ class EhrReportController extends Controller
         // Get base facility stats
         $baseFacilityStats = DB::table('encounters as e')
             ->join('facilities as f', 'e.facility_id', '=', 'f.id')
-            ->select('e.facility_id', DB::raw("CONCAT(COALESCE(f.type, 'Type not set'), ' - ', f.name) as facility_name"),
+            ->select('e.facility_id', DB::raw("CONCAT(f.name, ' - ', COALESCE(f.type, 'Type not set')) as facility_name"),
                 DB::raw("SUM(CASE WHEN e.status = 'Registered' THEN 1 ELSE 0 END) as registered"),
                 DB::raw("SUM(CASE WHEN e.status = 'Triaged' THEN 1 ELSE 0 END) as triaged"),
                 DB::raw("SUM(CASE WHEN e.status IN ('In Consultation','in_progress','In Progress','Consultation') THEN 1 ELSE 0 END) as in_consultation"))
@@ -624,7 +624,7 @@ class EhrReportController extends Controller
             ->join('encounters as e', 'cc.encounter_id', '=', 'e.id')
             ->join('users as u', 'cc.doctor_id', '=', 'u.id')
             ->leftJoin('facilities as f', 'e.facility_id', '=', 'f.id')
-            ->select('u.id', 'u.name', DB::raw("CONCAT(COALESCE(f.type, 'Type not set'), ' - ', f.name) as facility_name"),
+            ->select('u.id', 'u.name', DB::raw("CONCAT(f.name, ' - ', COALESCE(f.type, 'Type not set')) as facility_name"),
                 DB::raw('COUNT(*) as total_consultations'),
                 DB::raw("SUM(CASE WHEN cc.status = 'Completed' THEN 1 ELSE 0 END) as completed"),
                 DB::raw('COUNT(DISTINCT DATE(e.visit_date)) as active_days'),
@@ -647,7 +647,7 @@ class EhrReportController extends Controller
             ->join('encounters as e', 'v.encounter_id', '=', 'e.id')
             ->join('users as u', 'v.taken_by', '=', 'u.id')
             ->leftJoin('facilities as f', 'e.facility_id', '=', 'f.id')
-            ->select('u.id', 'u.name', DB::raw("CONCAT(COALESCE(f.type, 'Type not set'), ' - ', f.name) as facility_name"),
+            ->select('u.id', 'u.name', DB::raw("CONCAT(f.name, ' - ', COALESCE(f.type, 'Type not set')) as facility_name"),
                 DB::raw('COUNT(*) as total_vitals'),
                 DB::raw('COUNT(DISTINCT DATE(e.visit_date)) as active_days'),
                 DB::raw('COUNT(DISTINCT e.patient_id) as unique_patients'))
@@ -671,7 +671,7 @@ class EhrReportController extends Controller
             ->leftJoin('clinical_consultations as cc', 'p.clinical_consultation_id', '=', 'cc.id')
             ->leftJoin('encounters as e', 'cc.encounter_id', '=', 'e.id')
             ->leftJoin('facilities as f', 'e.facility_id', '=', 'f.id')
-            ->select('u.id', 'u.name', DB::raw("CONCAT(COALESCE(f.type, 'Type not set'), ' - ', f.name) as facility_name"),
+            ->select('u.id', 'u.name', DB::raw("CONCAT(f.name, ' - ', COALESCE(f.type, 'Type not set')) as facility_name"),
                 DB::raw('COUNT(*) as total_dispensations'),
                 DB::raw('SUM(CASE WHEN pd.quantity_dispensed > 0 THEN pd.quantity_dispensed ELSE 0 END) as total_qty'),
                 DB::raw('SUM(CASE WHEN pd.cost_of_medication > 0 THEN pd.cost_of_medication ELSE 0 END) as total_cost'),
@@ -696,7 +696,7 @@ class EhrReportController extends Controller
             ->leftJoin('service_orders as so', 'soi.service_order_id', '=', 'so.id')
             ->leftJoin('encounters as e', 'so.encounter_id', '=', 'e.id')
             ->leftJoin('facilities as f', 'e.facility_id', '=', 'f.id')
-            ->select('u.id', 'u.name', DB::raw("CONCAT(COALESCE(f.type, 'Type not set'), ' - ', f.name) as facility_name"),
+            ->select('u.id', 'u.name', DB::raw("CONCAT(f.name, ' - ', COALESCE(f.type, 'Type not set')) as facility_name"),
                 DB::raw('COUNT(*) as total_results'),
                 DB::raw('COUNT(DISTINCT DATE(sr.reported_at)) as active_days'))
             ->when($facilityId, fn($q) => $q->where('e.facility_id', $facilityId))
@@ -715,7 +715,7 @@ class EhrReportController extends Controller
         $receptionists = DB::table('encounters as e')
             ->join('users as u', 'e.officer_in_charge_id', '=', 'u.id')
             ->leftJoin('facilities as f', 'e.facility_id', '=', 'f.id')
-            ->select('u.id', 'u.name', DB::raw("CONCAT(COALESCE(f.type, 'Type not set'), ' - ', f.name) as facility_name"),
+            ->select('u.id', 'u.name', DB::raw("CONCAT(f.name, ' - ', COALESCE(f.type, 'Type not set')) as facility_name"),
                 DB::raw('COUNT(*) as total_encounters'),
                 DB::raw('COUNT(DISTINCT DATE(e.visit_date)) as active_days'),
                 DB::raw('COUNT(DISTINCT e.patient_id) as unique_patients'))
@@ -865,7 +865,7 @@ class EhrReportController extends Controller
                 $query = DB::table('encounters as e')
                     ->join('patients as pt', 'e.patient_id', '=', 'pt.id')
                     ->leftJoin('facilities as f', 'e.facility_id', '=', 'f.id')
-                    ->select('pt.id', 'pt.file_number', 'pt.enrollee_number', 'pt.enrollee_type', DB::raw("CONCAT(COALESCE(f.type, 'Type not set'), ' - ', f.name) as facility"), DB::raw('COUNT(*) as visits'), DB::raw('MAX(e.visit_date) as last_visit'))
+                    ->select('pt.id', 'pt.file_number', 'pt.enrollee_number', 'pt.enrollee_type', DB::raw("CONCAT(f.name, ' - ', COALESCE(f.type, 'Type not set')) as facility"), DB::raw('COUNT(*) as visits'), DB::raw('MAX(e.visit_date) as last_visit'))
                     ->when($facilityId, function($q) use ($facilityId) {
                         return is_array($facilityId) ? $q->whereIn('e.facility_id', $facilityId) : $q->where('e.facility_id', $facilityId);
                     })

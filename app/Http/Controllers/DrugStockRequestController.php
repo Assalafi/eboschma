@@ -316,7 +316,7 @@ class DrugStockRequestController extends Controller
                     $badgeClass = $isPrimary ? 'bg-blue-lt' : 'bg-purple-lt';
                     $typeBadge = ' <span class="badge ' . $badgeClass . ' ms-1">' . e($row->facility_type) . '</span>';
                 }
-                return '<div class="fw-bold">' . $typeBadge . ' ' . e($row->facility_name) . '</div>' .
+                return '<div class="fw-bold">' . e($row->facility_name) . $typeBadge . '</div>' .
                        '<div class="text-muted small">' . e($row->lga ?? '') . '</div>';
             })
             ->addColumn('request_count_fmt', function ($row) {

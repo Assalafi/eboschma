@@ -110,7 +110,7 @@
                                     @foreach ($facilities as $facility)
                                         <option value="{{ $facility->id }}" data-type="{{ $facility->type }}"
                                             data-lga="{{ $facility->lga }}" data-ward="{{ $facility->ward }}">
-                                            {{ $facility->type ?: 'Type not set' }} — {{ $facility->name }}
+                                            {{ $facility->name }} — {{ $facility->type ?: 'Type not set' }}
                                         </option>
                                     @endforeach
                                 </select>

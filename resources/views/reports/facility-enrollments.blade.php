@@ -8,8 +8,8 @@
             <div class="row g-2 align-items-center">
                 <div class="col">
                     <div class="page-pretitle">Reports</div>
-                    <h2 class="page-title">{{ $facility->name }} - Enrollments</h2>
-                    <div class="text-muted mt-1">View all beneficiary enrollments at {{ $facility->name }}</div>
+                    <h2 class="page-title">{{ $facility->display_name }} - Enrollments</h2>
+                    <div class="text-muted mt-1">View all beneficiary enrollments at {{ $facility->display_name }}</div>
                 </div>
                 <div class="col-auto ms-auto d-print-none">
                     <div class="btn-list">

@@ -45,7 +45,7 @@ class BedController extends Controller
                 })
                 ->addColumn('facility_name', function ($bed) {
                     return $bed->room && $bed->room->ward && $bed->room->ward->facility 
-                        ? $bed->room->ward->facility->name : 'N/A';
+                        ? $bed->room->ward->facility->display_name : 'N/A';
                 })
                 ->addColumn('occupancy', function ($bed) {
                     return $bed->occupancy_badge;

@@ -255,7 +255,7 @@
                                                             {{ strtoupper(substr($facility->name, 0, 2)) }}
                                                         </span>
                                                         <div class="flex-fill">
-                                                            <div class="font-weight-medium">{{ $facility->name }}</div>
+                                                            <div class="font-weight-medium">{{ $facility->display_name }}</div>
                                                         </div>
                                                     </div>
                                                 </td>

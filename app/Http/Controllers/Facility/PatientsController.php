@@ -255,7 +255,7 @@ class PatientsController extends Controller
                 'children.birth_certificate_no',
                 'children.birth_certificate_file',
                 'children.nin as child_nin',
-                'facilities.name as facility_name',
+                DB::raw("CONCAT(COALESCE(facilities.type, 'Type not set'), ' - ', facilities.name) as facility_name"),
                 'programs.name as program_name'
             )
             ->where('patients.id', $id)
@@ -311,7 +311,7 @@ class PatientsController extends Controller
             $patient = DB::table('beneficiaries')
                 ->leftJoin('facilities', 'beneficiaries.facility_id', '=', 'facilities.id')
                 ->leftJoin('programs', 'beneficiaries.program_id', '=', 'programs.id')
-                ->select('beneficiaries.*', 'facilities.name as facility_name', 'programs.name as program_name')
+                ->select('beneficiaries.*', DB::raw("CONCAT(COALESCE(facilities.type, 'Type not set'), ' - ', facilities.name) as facility_name"), 'programs.name as program_name')
                 ->where('beneficiaries.id', $id)
                 ->where('beneficiaries.facility_id', $facilityId)
                 ->first();
@@ -339,7 +339,7 @@ class PatientsController extends Controller
         } elseif ($type === 'spouse') {
             $patient = DB::table('spouses')
                 ->leftJoin('facilities', 'spouses.facility_id', '=', 'facilities.id')
-                ->select('spouses.*', 'facilities.name as facility_name')
+                ->select('spouses.*', DB::raw("CONCAT(COALESCE(facilities.type, 'Type not set'), ' - ', facilities.name) as facility_name"))
                 ->where('spouses.id', $id)
                 ->where('spouses.facility_id', $facilityId)
                 ->first();
@@ -352,7 +352,7 @@ class PatientsController extends Controller
         } elseif ($type === 'child') {
             $patient = DB::table('children')
                 ->leftJoin('facilities', 'children.facility_id', '=', 'facilities.id')
-                ->select('children.*', 'facilities.name as facility_name')
+                ->select('children.*', DB::raw("CONCAT(COALESCE(facilities.type, 'Type not set'), ' - ', facilities.name) as facility_name"))
                 ->where('children.id', $id)
                 ->where('children.facility_id', $facilityId)
                 ->first();

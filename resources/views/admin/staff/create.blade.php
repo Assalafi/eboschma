@@ -87,7 +87,7 @@
                                     id="facilities" name="facilities[]" multiple>
                                     @foreach ($facilities as $facility)
                                         <option value="{{ $facility->id }}" {{ (is_array(old('facilities')) && in_array($facility->id, old('facilities'))) ? 'selected' : '' }}>
-                                            {{ $facility->name }}
+                                            {{ $facility->display_name }}
                                         </option>
                                     @endforeach
                                 </select>

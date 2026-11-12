@@ -105,7 +105,7 @@
                             <option value="">All Facilities</option>
                             @if (isset($facilities))
                                 @foreach ($facilities as $facility)
-                                    <option value="{{ $facility->id }}">{{ $facility->name }} — {{ $facility->type ?: 'Type not set' }}</option>
+                                    <option value="{{ $facility->id }}">{{ $facility->type ?: 'Type not set' }} — {{ $facility->name }}</option>
                                 @endforeach
                             @endif
                         </select>
@@ -116,7 +116,7 @@
                             <option value="">All Facilities</option>
                             @if (isset($facilities))
                                 @foreach ($facilities as $facility)
-                                    <option value="{{ $facility->id }}">{{ $facility->name }} — {{ $facility->type ?: 'Type not set' }}</option>
+                                    <option value="{{ $facility->id }}">{{ $facility->type ?: 'Type not set' }} — {{ $facility->name }}</option>
                                 @endforeach
                             @endif
                         </select>

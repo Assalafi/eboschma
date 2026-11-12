@@ -106,10 +106,10 @@ class DrugStockRequestController extends Controller
                     return '<span class="text-muted">#' . str_pad($request->id, 6, '0', STR_PAD_LEFT) . '</span>';
                 })
                 ->addColumn('facility_name_raw', function($request) {
-                    return $request->facility->name ?? '-';
+                    return $request->facility->display_name ?? '-';
                 })
                 ->addColumn('facility_name', function($request) {
-                    $name = $request->facility->name ?? '-';
+                    $name = $request->facility->display_name ?? '-';
                     $wrapped = strlen($name) > 30 ? substr(e($name), 0, 30) . '...' : e($name);
                     return '<div title="' . e($name) . '">' . $wrapped . '</div>';
                 })
@@ -316,7 +316,7 @@ class DrugStockRequestController extends Controller
                     $badgeClass = $isPrimary ? 'bg-blue-lt' : 'bg-purple-lt';
                     $typeBadge = ' <span class="badge ' . $badgeClass . ' ms-1">' . e($row->facility_type) . '</span>';
                 }
-                return '<div class="fw-bold">' . e($row->facility_name) . $typeBadge . '</div>' .
+                return '<div class="fw-bold">' . $typeBadge . ' ' . e($row->facility_name) . '</div>' .
                        '<div class="text-muted small">' . e($row->lga ?? '') . '</div>';
             })
             ->addColumn('request_count_fmt', function ($row) {

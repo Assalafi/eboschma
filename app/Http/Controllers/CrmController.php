@@ -1180,13 +1180,13 @@ class CrmController extends Controller
         // Get base facility stats — all active encounters grouped by facility
         $baseFacilityStats = DB::table('encounters as e')
             ->join('facilities as f', 'e.facility_id', '=', 'f.id')
-            ->select('e.facility_id', 'f.name as facility_name',
+            ->select('e.facility_id', DB::raw("CONCAT(COALESCE(f.type, 'Type not set'), ' - ', f.name) as facility_name"),
                 DB::raw("SUM(CASE WHEN e.status = 'Registered' THEN 1 ELSE 0 END) as registered"),
                 DB::raw("SUM(CASE WHEN e.status = 'Triaged' THEN 1 ELSE 0 END) as triaged"),
                 DB::raw("SUM(CASE WHEN e.status IN ('In Consultation','in_progress','In Progress','Consultation') THEN 1 ELSE 0 END) as in_consultation"))
             ->when($facilityIds !== null, fn($q) => $q->whereIn('e.facility_id', $facilityIds))
             ->whereIn('e.status', $activeStatuses)
-            ->groupBy('e.facility_id', 'f.name')
+            ->groupBy('e.facility_id', 'f.name', 'f.type')
             ->get()
             ->keyBy('facility_id');
 

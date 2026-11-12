@@ -98,7 +98,7 @@
                                         @foreach ($facilities as $facility)
                                             <option value="{{ $facility->id }}"
                                                 {{ old('facility_id', $staff->facility_id) == $facility->id ? 'selected' : '' }}>
-                                                {{ $facility->name }}
+                                                {{ $facility->display_name }}
                                             </option>
                                         @endforeach
                                     </select>

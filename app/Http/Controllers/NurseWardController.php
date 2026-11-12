@@ -43,7 +43,7 @@ class NurseWardController extends Controller
                 })
                 ->addColumn('facility_name', function ($assignment) {
                     return $assignment->ward && $assignment->ward->facility 
-                        ? $assignment->ward->facility->name : 'N/A';
+                        ? $assignment->ward->facility->display_name : 'N/A';
                 })
                 ->addColumn('assigned_date_formatted', function ($assignment) {
                     return $assignment->assigned_date ? $assignment->assigned_date->format('M d, Y') : 'N/A';

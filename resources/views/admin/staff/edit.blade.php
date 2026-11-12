@@ -91,7 +91,7 @@
                                     @endphp
                                     @foreach ($facilities as $facility)
                                         <option value="{{ $facility->id }}" {{ in_array($facility->id, $selectedFacilities) ? 'selected' : '' }}>
-                                            {{ $facility->name }}
+                                            {{ $facility->display_name }}
                                         </option>
                                     @endforeach
                                 </select>

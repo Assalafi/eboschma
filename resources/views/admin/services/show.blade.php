@@ -109,7 +109,7 @@
                                                 @foreach ($facilities as $facility)
                                                     <tr>
                                                         <td>
-                                                            <strong>{{ $facility->name }}</strong>
+                                                            <strong>{{ $facility->display_name }}</strong>
                                                         </td>
                                                         <td>{{ $facility->lga }}</td>
                                                         <td>{{ $facility->ward }}</td>

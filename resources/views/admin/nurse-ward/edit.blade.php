@@ -52,7 +52,7 @@
                                             @foreach ($wards as $ward)
                                                 <option value="{{ $ward->id }}"
                                                     {{ old('ward_id', $assignment->ward_id) == $ward->id ? 'selected' : '' }}>
-                                                    {{ $ward->name }} ({{ $ward->facility->name ?? 'N/A' }})
+                                                    {{ $ward->name }} ({{ $ward->facility->display_name ?? 'N/A' }})
                                                 </option>
                                             @endforeach
                                         </select>

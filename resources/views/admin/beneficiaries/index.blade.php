@@ -194,7 +194,7 @@
                                                 @foreach ($facilities as $facility)
                                                     <option value="{{ $facility->id }}"
                                                         {{ request('facility_id') == $facility->id ? 'selected' : '' }}>
-                                                        {{ $facility->name }}
+                                                        {{ $facility->display_name }}
                                                     </option>
                                                 @endforeach
                                             </select>
@@ -339,7 +339,7 @@
                                             <td>
                                                 @if ($beneficiary->facility)
                                                     <span class="badge bg-info"
-                                                        title="{{ $beneficiary->facility->name }}">{{ strlen($beneficiary->facility->name) > 20 ? substr($beneficiary->facility->name, 0, 20) . '...' : $beneficiary->facility->name }}</span>
+                                                        title="{{ $beneficiary->facility->display_name }}">{{ strlen($beneficiary->facility->display_name) > 20 ? substr($beneficiary->facility->display_name, 0, 20) . '...' : $beneficiary->facility->display_name }}</span>
                                                     <small
                                                         class="d-block text-muted">{{ $beneficiary->facility->lga }}</small>
                                                 @else

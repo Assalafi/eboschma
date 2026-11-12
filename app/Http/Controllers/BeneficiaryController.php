@@ -1952,7 +1952,7 @@ public function startBulkIdCardGeneration(Request $request)
                 $facility = DB::table('facilities')->find($request->facility_id);
                 $criteria = [
                     'facility_id' => $request->facility_id,
-                    'facility_name' => $facility->name,
+                    'facility_name' => $facility->display_name,
                 ];
                 break;
                 

@@ -128,7 +128,7 @@ class ClaimController extends Controller
 
         $facilities = $facilitiesQuery
             ->select([
-                'f.name as facility_name',
+                DB::raw("CONCAT(COALESCE(f.type, 'Type not set'), ' - ', f.name) as facility_name"),
                 'f.id as facility_id',
                 DB::raw('COUNT(DISTINCT fc.id) as total_claims'),
                 DB::raw("SUM(CASE WHEN fc.status IN ('draft', 'submitted') AND NOT {$rejectedSql} THEN 1 ELSE 0 END) as pending_claims"),
@@ -165,7 +165,7 @@ class ClaimController extends Controller
                 DB::raw("SUM(CASE WHEN {$financePaidSql} THEN 1 ELSE 0 END) as finance_paid"),
                 DB::raw("COALESCE(SUM(CASE WHEN {$financePaidSql} THEN fc.total_amount ELSE 0 END), 0) as finance_paid_value"),
             ])
-            ->groupBy('f.id', 'f.name')
+            ->groupBy('f.id', 'f.name', 'f.type')
             ->orderByDesc(match ($userStage) {
                 'verifier' => 'verifier_pending',
                 'approver' => 'approver_pending',
@@ -223,7 +223,7 @@ class ClaimController extends Controller
         $this->applyStageVisibilityFilter($recentActivityQuery, $userStage, 'fc.');
 
         $recentActivity = $recentActivityQuery
-            ->select('fc.*', 'f.name as facility_name')
+            ->select('fc.*', DB::raw("CONCAT(COALESCE(f.type, 'Type not set'), ' - ', f.name) as facility_name"))
             ->orderBy('fc.updated_at', 'desc')
             ->limit(10)
             ->get()
@@ -1908,7 +1908,7 @@ class ClaimController extends Controller
         $facilityBreakdown = (clone $baseQuery)
             ->select(
                 'f.id as facility_id',
-                'f.name as facility_name',
+                DB::raw("CONCAT(COALESCE(f.type, 'Type not set'), ' - ', f.name) as facility_name"),
                 DB::raw('COUNT(*) as claim_count'),
                 DB::raw('SUM(COALESCE(facility_claims.consultation_amount, 0)) as admin_charges'),
                 DB::raw('SUM(COALESCE(facility_claims.pharmacy_amount, 0)) as pharmacy'),
@@ -1916,7 +1916,7 @@ class ClaimController extends Controller
                 DB::raw('SUM(COALESCE(facility_claims.services_amount, 0)) as services'),
                 DB::raw("SUM({$componentSumExpr}) as total_amount")
             )
-            ->groupBy('f.id', 'f.name')
+            ->groupBy('f.id', 'f.name', 'f.type')
             ->orderBy('total_amount', 'desc')
             ->get();
 
@@ -3731,7 +3731,7 @@ class ClaimController extends Controller
             ->leftJoin('encounters as e', 'fc.encounter_id', '=', 'e.id')
             ->where('fc.id', $claimId)
             ->whereNull('fc.deleted_at')
-            ->select('fc.*', 'f.name as facility_name', 'e.nature_of_visit as encounter_nature_of_visit')
+            ->select('fc.*', DB::raw("CONCAT(COALESCE(f.type, 'Type not set'), ' - ', f.name) as facility_name"), 'e.nature_of_visit as encounter_nature_of_visit')
             ->first();
 
         if (!$claim) {
@@ -5032,7 +5032,7 @@ class ClaimController extends Controller
             ->leftJoin('encounters as e', 'fc.encounter_id', '=', 'e.id')
             ->where('fc.id', $claimId)
             ->whereNull('fc.deleted_at')
-            ->select('fc.*', 'f.name as facility_name', 'e.nature_of_visit as encounter_nature_of_visit')
+            ->select('fc.*', DB::raw("CONCAT(COALESCE(f.type, 'Type not set'), ' - ', f.name) as facility_name"), 'e.nature_of_visit as encounter_nature_of_visit')
             ->first();
 
         if (!$claim) {

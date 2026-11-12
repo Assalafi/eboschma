@@ -499,7 +499,7 @@
                                 @foreach ($facilities as $facility)
                                     @if ((int) $facility->id !== (int) $referral->from_facility_id)
                                         <option value="{{ $facility->id }}" {{ (string) old('to_facility_id', $referral->to_facility_id) === (string) $facility->id ? 'selected' : '' }}>
-                                            {{ $facility->name }} — {{ $facility->type ?: 'Type not set' }} ({{ $facility->lga ?: 'LGA not set' }}{{ $facility->ward ? ', ' . $facility->ward : '' }})
+                                            {{ $facility->type ?: 'Type not set' }} — {{ $facility->name }} ({{ $facility->lga ?: 'LGA not set' }}{{ $facility->ward ? ', ' . $facility->ward : '' }})
                                         </option>
                                     @endif
                                 @endforeach

@@ -34,7 +34,7 @@ class RoomController extends Controller
                     return $room->ward ? $room->ward->name : 'N/A';
                 })
                 ->addColumn('facility_name', function ($room) {
-                    return $room->ward && $room->ward->facility ? $room->ward->facility->name : 'N/A';
+                    return $room->ward && $room->ward->facility ? $room->ward->facility->display_name : 'N/A';
                 })
                 ->addColumn('beds_count', function ($room) {
                     return $room->beds()->count();

@@ -257,7 +257,7 @@
                                                     @foreach ($facilities as $facility)
                                                         <option value="{{ $facility->id }}"
                                                             {{ old('facility_id', $ticket->facility_id) == $facility->id ? 'selected' : '' }}>
-                                                            {{ $facility->name }}
+                                                            {{ $facility->display_name }}
                                                         </option>
                                                     @endforeach
                                                 </select>

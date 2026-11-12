@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Wallet - ' . ($wallet->facility->name ?? 'Unknown'))
+@section('title', 'Wallet - ' . ($wallet->facility->display_name ?? 'Unknown'))
 
 @push('styles')
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
@@ -24,7 +24,7 @@
                     <div class="page-pretitle">
                         <a href="{{ route('wallets.index') }}" class="text-muted">Wallets</a> /
                     </div>
-                    <h2 class="page-title">{{ $wallet->facility->name ?? 'Unknown Facility' }}</h2>
+                    <h2 class="page-title">{{ $wallet->facility->display_name ?? 'Unknown Facility' }}</h2>
                     <div class="text-muted mt-1">
                         <strong>Program:</strong> {{ $wallet->program->name ?? 'N/A' }} &bull;
                         <strong>Wallet ID:</strong> {{ $wallet->wallet_number ?? 'N/A' }}

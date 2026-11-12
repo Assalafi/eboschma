@@ -125,7 +125,7 @@
                                                                         @foreach ($facilities as $facility)
                                                                             <option value="{{ $facility->id }}"
                                                                                 {{ old('facility_id') == $facility->id ? 'selected' : '' }}>
-                                                                                {{ $facility->name }} -
+                                                                                {{ $facility->display_name }} -
                                                                                 {{ $facility->lga }},
                                                                                 {{ $facility->ward }}
                                                                             </option>
@@ -200,7 +200,7 @@
                                                                         @foreach ($facilities as $facility)
                                                                             <option value="{{ $facility->id }}"
                                                                                 {{ old('alt_facility_id') == $facility->id ? 'selected' : '' }}>
-                                                                                {{ $facility->name }} -
+                                                                                {{ $facility->display_name }} -
                                                                                 {{ $facility->lga }},
                                                                                 {{ $facility->ward }}
                                                                             </option>

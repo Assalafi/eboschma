@@ -117,7 +117,7 @@
                                     @foreach ($facilities as $facility)
                                         <option value="{{ $facility->id }}"
                                             {{ old('to_facility_id') == $facility->id ? 'selected' : '' }}>
-                                            {{ $facility->name }}
+                                            {{ $facility->display_name }}
                                             @if ($facility->address)
                                                 - {{ $facility->address }}
                                             @endif

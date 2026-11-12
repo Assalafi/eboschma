@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Facility Claims - ' . $facility->name)
+@section('title', 'Facility Claims - ' . $facility->display_name)
 
 @section('content')
     @php
@@ -86,7 +86,7 @@
                         <a href="{{ route('claims.index') }}" class="text-muted">Claims</a>
                     </div>
                     <h2 class="page-title">
-                        {{ $facility->name }} Claims
+                        {{ $facility->display_name }} Claims
                     </h2>
                 </div>
                 <div class="col-auto ms-auto d-print-none">
@@ -377,7 +377,7 @@
             <!-- Claims Table -->
             <div class="card border-0 shadow-sm" style="border-radius: 12px;">
                 <div class="card-header">
-                    <h3 class="card-title">Claims for {{ $facility->name }} ({{ $claims->total() }})</h3>
+                    <h3 class="card-title">Claims for {{ $facility->display_name }} ({{ $claims->total() }})</h3>
                     <div class="card-actions">
                         @php
                             $user = $authUser;

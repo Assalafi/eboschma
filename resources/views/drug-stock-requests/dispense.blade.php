@@ -338,7 +338,7 @@
                         <div class="card">
                             <div class="card-header"><h3 class="card-title mb-0">Facility</h3></div>
                             <div class="card-body">
-                                <div class="fw-bold">{{ $stockRequest->facility->name ?? 'N/A' }}</div>
+                                <div class="fw-bold">{{ $stockRequest->facility->display_name ?? 'N/A' }}</div>
                                 <div class="text-muted small">{{ $stockRequest->facility->type ?? '' }}</div>
                             </div>
                         </div>

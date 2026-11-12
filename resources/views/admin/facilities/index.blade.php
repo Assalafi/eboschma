@@ -126,7 +126,7 @@
                                                         <i class="fe fe-home text-primary"></i>
                                                     </div>
                                                     <div>
-                                                        <h6 class="mb-0">{{ $facility->name }}</h6>
+                                                        <h6 class="mb-0">{{ $facility->display_name }}</h6>
                                                     </div>
                                                 </div>
                                             </td>

@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title', $facility->name . ' - Stock Requests')
+@section('title', $facility->display_name . ' - Stock Requests')
 @push('styles')
 <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
 <style>.status-pill{cursor:pointer;transition:all 0.2s}.status-pill:hover,.status-pill.active{transform:scale(1.05);box-shadow:0 2px 8px rgba(0,0,0,0.2)}</style>
@@ -9,9 +9,9 @@
 <div class="col-md-8">
 <ol class="breadcrumb breadcrumb-arrows mb-1">
     <li class="breadcrumb-item"><a href="{{ route('drug-stock-requests.index') }}">Stock Requests</a></li>
-    <li class="breadcrumb-item active" aria-current="page">{{ $facility->name }}</li>
+    <li class="breadcrumb-item active" aria-current="page">{{ $facility->display_name }}</li>
 </ol>
-<h2 class="page-title"><i class="ti-building me-2 text-primary"></i>{{ $facility->name }}
+<h2 class="page-title"><i class="ti-building me-2 text-primary"></i>{{ $facility->display_name }}
 @if($facility->type)
     <span class="badge {{ str_contains(strtolower($facility->type), 'primary') ? 'bg-blue-lt' : 'bg-purple-lt' }} ms-2" style="font-size:.85rem">{{ $facility->type }}</span>
 @endif

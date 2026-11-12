@@ -8,7 +8,7 @@
         <div>
             <h4>Facility Claims Report</h4>
             @if($facility)
-                <div class="text-muted">Facility: {{ $facility->name }}</div>
+                <div class="text-muted">Facility: {{ $facility->display_name }}</div>
             @endif
             <div class="text-muted">Period: {{ $dateFrom }} to {{ $dateTo }}</div>
         </div>

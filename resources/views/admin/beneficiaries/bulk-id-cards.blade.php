@@ -260,7 +260,7 @@
                                     @foreach ($facilities as $facility)
                                         <option value="{{ $facility->id }}"
                                             {{ request('facility_id') == $facility->id ? 'selected' : '' }}>
-                                            {{ $facility->name }}</option>
+                                            {{ $facility->display_name }}</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -702,7 +702,7 @@
                                     data-placeholder="Choose a facility" style="border-radius: 10px;">
                                     <option value="">Choose a facility</option>
                                     @foreach ($facilities as $facility)
-                                        <option value="{{ $facility->id }}">{{ $facility->name }}</option>
+                                        <option value="{{ $facility->id }}">{{ $facility->display_name }}</option>
                                     @endforeach
                                 </select>
                             </div>

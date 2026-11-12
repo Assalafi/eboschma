@@ -14,7 +14,7 @@
                                 <h4 class="page-title mb-1">Welcome, {{ $user->name }}!</h4>
                                 <p class="text-muted mb-0">
                                     @if ($facility)
-                                        {{ $facility->name }} • {{ $facility->type ?? 'Healthcare Facility' }}
+                                        {{ $facility->display_name ?: 'Healthcare Facility' }}
                                     @else
                                         No facility assigned
                                     @endif

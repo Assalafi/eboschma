@@ -20,7 +20,7 @@ class EhrReportController extends Controller
         $dateFrom   = $request->get('date_from', Carbon::now()->subDays(90)->toDateString());
         $dateTo     = $request->get('date_to', Carbon::now()->toDateString());
 
-        $facilities = DB::table('facilities')->orderBy('name')->get(['id', 'name']);
+        $facilities = DB::table('facilities')->orderBy('name')->get(['id', 'name', 'type']);
         $programs   = DB::table('programs')->where('status', 1)->orderBy('name')->get(['id', 'name']);
 
         // ── 1. Overview KPIs ──────────────────────────────────────────
@@ -199,12 +199,12 @@ class EhrReportController extends Controller
     {
         return DB::table('encounters as e')
             ->join('facilities as f', 'e.facility_id', '=', 'f.id')
-            ->select('f.name as facility_name', 'f.id as facility_id', DB::raw('COUNT(*) as total'),
+            ->select(DB::raw("CONCAT(COALESCE(f.type, 'Type not set'), ' - ', f.name) as facility_name"), 'f.id as facility_id', DB::raw('COUNT(*) as total'),
                 DB::raw("SUM(CASE WHEN e.status = 'Completed' THEN 1 ELSE 0 END) as completed"),
                 DB::raw("SUM(CASE WHEN e.status != 'Completed' AND e.status != 'Cancelled' THEN 1 ELSE 0 END) as active"))
             ->when($programId, fn($q) => $q->where('e.program_id', $programId))
             ->whereBetween('e.visit_date', ["$dateFrom 00:00:00", "$dateTo 23:59:59"])
-            ->groupBy('f.id', 'f.name')
+            ->groupBy('f.id', 'f.name', 'f.type')
             ->orderByDesc('total')
             ->get();
     }
@@ -294,13 +294,13 @@ class EhrReportController extends Controller
             ->join('encounters as e', 'cc.encounter_id', '=', 'e.id')
             ->join('users as u', 'cc.doctor_id', '=', 'u.id')
             ->leftJoin('facilities as f', 'e.facility_id', '=', 'f.id')
-            ->select('u.id', 'u.name as doctor_name', 'f.name as facility_name',
+            ->select('u.id', 'u.name as doctor_name', DB::raw("CONCAT(COALESCE(f.type, 'Type not set'), ' - ', f.name) as facility_name"),
                 DB::raw('COUNT(*) as consultations'),
                 DB::raw("SUM(CASE WHEN cc.status = 'Completed' THEN 1 ELSE 0 END) as completed"))
             ->when($facilityId, fn($q) => $q->where('e.facility_id', $facilityId))
             ->when($programId, fn($q) => $q->where('e.program_id', $programId))
             ->whereBetween('e.visit_date', ["$dateFrom 00:00:00", "$dateTo 23:59:59"])
-            ->groupBy('u.id', 'u.name', 'f.name')
+            ->groupBy('u.id', 'u.name', 'f.name', 'f.type')
             ->orderByDesc('consultations')
             ->limit(15)
             ->get();
@@ -558,7 +558,7 @@ class EhrReportController extends Controller
         // Get base facility stats
         $baseFacilityStats = DB::table('encounters as e')
             ->join('facilities as f', 'e.facility_id', '=', 'f.id')
-            ->select('e.facility_id', 'f.name as facility_name',
+            ->select('e.facility_id', DB::raw("CONCAT(COALESCE(f.type, 'Type not set'), ' - ', f.name) as facility_name"),
                 DB::raw("SUM(CASE WHEN e.status = 'Registered' THEN 1 ELSE 0 END) as registered"),
                 DB::raw("SUM(CASE WHEN e.status = 'Triaged' THEN 1 ELSE 0 END) as triaged"),
                 DB::raw("SUM(CASE WHEN e.status IN ('In Consultation','in_progress','In Progress','Consultation') THEN 1 ELSE 0 END) as in_consultation"))
@@ -566,7 +566,7 @@ class EhrReportController extends Controller
             ->when($programId, fn($q) => $q->where('e.program_id', $programId))
             ->whereBetween('e.visit_date', ["$dateFrom 00:00:00", "$dateTo 23:59:59"])
             ->whereIn('e.status', ['Registered', 'Triaged', 'In Consultation', 'in_progress', 'In Progress', 'Consultation'])
-            ->groupBy('e.facility_id', 'f.name')
+            ->groupBy('e.facility_id', 'f.name', 'f.type')
             ->get()
             ->keyBy('facility_id');
 
@@ -624,7 +624,7 @@ class EhrReportController extends Controller
             ->join('encounters as e', 'cc.encounter_id', '=', 'e.id')
             ->join('users as u', 'cc.doctor_id', '=', 'u.id')
             ->leftJoin('facilities as f', 'e.facility_id', '=', 'f.id')
-            ->select('u.id', 'u.name', 'f.name as facility_name',
+            ->select('u.id', 'u.name', DB::raw("CONCAT(COALESCE(f.type, 'Type not set'), ' - ', f.name) as facility_name"),
                 DB::raw('COUNT(*) as total_consultations'),
                 DB::raw("SUM(CASE WHEN cc.status = 'Completed' THEN 1 ELSE 0 END) as completed"),
                 DB::raw('COUNT(DISTINCT DATE(e.visit_date)) as active_days'),
@@ -632,7 +632,7 @@ class EhrReportController extends Controller
             ->when($facilityId, fn($q) => $q->where('e.facility_id', $facilityId))
             ->when($programId, fn($q) => $q->where('e.program_id', $programId))
             ->whereBetween('e.visit_date', ["$dateFrom 00:00:00", "$dateTo 23:59:59"])
-            ->groupBy('u.id', 'u.name', 'f.name')
+            ->groupBy('u.id', 'u.name', 'f.name', 'f.type')
             ->orderByDesc('total_consultations')
             ->get()
             ->map(function($d) {
@@ -647,14 +647,14 @@ class EhrReportController extends Controller
             ->join('encounters as e', 'v.encounter_id', '=', 'e.id')
             ->join('users as u', 'v.taken_by', '=', 'u.id')
             ->leftJoin('facilities as f', 'e.facility_id', '=', 'f.id')
-            ->select('u.id', 'u.name', 'f.name as facility_name',
+            ->select('u.id', 'u.name', DB::raw("CONCAT(COALESCE(f.type, 'Type not set'), ' - ', f.name) as facility_name"),
                 DB::raw('COUNT(*) as total_vitals'),
                 DB::raw('COUNT(DISTINCT DATE(e.visit_date)) as active_days'),
                 DB::raw('COUNT(DISTINCT e.patient_id) as unique_patients'))
             ->when($facilityId, fn($q) => $q->where('e.facility_id', $facilityId))
             ->when($programId, fn($q) => $q->where('e.program_id', $programId))
             ->whereBetween('e.visit_date', ["$dateFrom 00:00:00", "$dateTo 23:59:59"])
-            ->groupBy('u.id', 'u.name', 'f.name')
+            ->groupBy('u.id', 'u.name', 'f.name', 'f.type')
             ->orderByDesc('total_vitals')
             ->get()
             ->map(function($n) {
@@ -671,7 +671,7 @@ class EhrReportController extends Controller
             ->leftJoin('clinical_consultations as cc', 'p.clinical_consultation_id', '=', 'cc.id')
             ->leftJoin('encounters as e', 'cc.encounter_id', '=', 'e.id')
             ->leftJoin('facilities as f', 'e.facility_id', '=', 'f.id')
-            ->select('u.id', 'u.name', 'f.name as facility_name',
+            ->select('u.id', 'u.name', DB::raw("CONCAT(COALESCE(f.type, 'Type not set'), ' - ', f.name) as facility_name"),
                 DB::raw('COUNT(*) as total_dispensations'),
                 DB::raw('SUM(CASE WHEN pd.quantity_dispensed > 0 THEN pd.quantity_dispensed ELSE 0 END) as total_qty'),
                 DB::raw('SUM(CASE WHEN pd.cost_of_medication > 0 THEN pd.cost_of_medication ELSE 0 END) as total_cost'),
@@ -680,7 +680,7 @@ class EhrReportController extends Controller
             ->when($programId, fn($q) => $q->where('e.program_id', $programId))
             ->whereBetween(DB::raw('DATE(pd.dispensing_date_time)'), [$dateFrom, $dateTo])
             ->where('pd.quantity_dispensed', '>', 0)
-            ->groupBy('u.id', 'u.name', 'f.name')
+            ->groupBy('u.id', 'u.name', 'f.name', 'f.type')
             ->orderByDesc('total_dispensations')
             ->get()
             ->map(function($p) {
@@ -696,13 +696,13 @@ class EhrReportController extends Controller
             ->leftJoin('service_orders as so', 'soi.service_order_id', '=', 'so.id')
             ->leftJoin('encounters as e', 'so.encounter_id', '=', 'e.id')
             ->leftJoin('facilities as f', 'e.facility_id', '=', 'f.id')
-            ->select('u.id', 'u.name', 'f.name as facility_name',
+            ->select('u.id', 'u.name', DB::raw("CONCAT(COALESCE(f.type, 'Type not set'), ' - ', f.name) as facility_name"),
                 DB::raw('COUNT(*) as total_results'),
                 DB::raw('COUNT(DISTINCT DATE(sr.reported_at)) as active_days'))
             ->when($facilityId, fn($q) => $q->where('e.facility_id', $facilityId))
             ->when($programId, fn($q) => $q->where('e.program_id', $programId))
             ->whereBetween(DB::raw('DATE(sr.reported_at)'), [$dateFrom, $dateTo])
-            ->groupBy('u.id', 'u.name', 'f.name')
+            ->groupBy('u.id', 'u.name', 'f.name', 'f.type')
             ->orderByDesc('total_results')
             ->get()
             ->map(function($l) {
@@ -715,14 +715,14 @@ class EhrReportController extends Controller
         $receptionists = DB::table('encounters as e')
             ->join('users as u', 'e.officer_in_charge_id', '=', 'u.id')
             ->leftJoin('facilities as f', 'e.facility_id', '=', 'f.id')
-            ->select('u.id', 'u.name', 'f.name as facility_name',
+            ->select('u.id', 'u.name', DB::raw("CONCAT(COALESCE(f.type, 'Type not set'), ' - ', f.name) as facility_name"),
                 DB::raw('COUNT(*) as total_encounters'),
                 DB::raw('COUNT(DISTINCT DATE(e.visit_date)) as active_days'),
                 DB::raw('COUNT(DISTINCT e.patient_id) as unique_patients'))
             ->when($facilityId, fn($q) => $q->where('e.facility_id', $facilityId))
             ->when($programId, fn($q) => $q->where('e.program_id', $programId))
             ->whereBetween('e.visit_date', ["$dateFrom 00:00:00", "$dateTo 23:59:59"])
-            ->groupBy('u.id', 'u.name', 'f.name')
+            ->groupBy('u.id', 'u.name', 'f.name', 'f.type')
             ->orderByDesc('total_encounters')
             ->get()
             ->map(function($r) {
@@ -784,7 +784,7 @@ class EhrReportController extends Controller
 
             $result[] = (object)[
                 'facility_id'    => $fac->id,
-                'facility_name'  => $fac->name,
+                'facility_name'  => ($fac->type ?: 'Type not set') . ' - ' . $fac->name,
                 'total_encounters' => $totalEnc,
                 'completed'      => $completedEnc,
                 'completion_rate'=> round(($completedEnc / $totalEnc) * 100, 1),
@@ -865,13 +865,13 @@ class EhrReportController extends Controller
                 $query = DB::table('encounters as e')
                     ->join('patients as pt', 'e.patient_id', '=', 'pt.id')
                     ->leftJoin('facilities as f', 'e.facility_id', '=', 'f.id')
-                    ->select('pt.id', 'pt.file_number', 'pt.enrollee_number', 'pt.enrollee_type', 'f.name as facility', DB::raw('COUNT(*) as visits'), DB::raw('MAX(e.visit_date) as last_visit'))
+                    ->select('pt.id', 'pt.file_number', 'pt.enrollee_number', 'pt.enrollee_type', DB::raw("CONCAT(COALESCE(f.type, 'Type not set'), ' - ', f.name) as facility"), DB::raw('COUNT(*) as visits'), DB::raw('MAX(e.visit_date) as last_visit'))
                     ->when($facilityId, function($q) use ($facilityId) {
                         return is_array($facilityId) ? $q->whereIn('e.facility_id', $facilityId) : $q->where('e.facility_id', $facilityId);
                     })
                     ->when($programId, fn($q) => $q->where('e.program_id', $programId))
                     ->whereBetween('e.visit_date', $dateRange)
-                    ->groupBy('pt.id', 'pt.file_number', 'pt.enrollee_number', 'pt.enrollee_type', 'f.name');
+                    ->groupBy('pt.id', 'pt.file_number', 'pt.enrollee_number', 'pt.enrollee_type', 'f.name', 'f.type');
                 $total = DB::table(DB::raw("({$query->toSql()}) as sub"))->mergeBindings($query)->count();
                 $rows = $query->orderByDesc('visits')->offset($offset)->limit($perPage)->get();
                 $columns = ['SN', 'File #', 'Enrollee #', 'Patient Name', 'Type', 'Facility', 'Visits', 'Last Visit'];

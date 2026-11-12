@@ -20,7 +20,7 @@
     <h2>Facility Claims Report</h2>
     @if($facility)
         <div class="report-meta">
-            <strong>{{ $facility->name }}</strong><br>
+            <strong>{{ $facility->display_name }}</strong><br>
             Period: {{ \Carbon\Carbon::parse($dateFrom)->format('M d, Y') }} to {{ \Carbon\Carbon::parse($dateTo)->format('M d, Y') }}<br>
             Generated: {{ now()->format('M d, Y g:i A') }}
         </div>

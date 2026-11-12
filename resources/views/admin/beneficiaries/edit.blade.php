@@ -77,7 +77,7 @@
                                                         @foreach ($facilities as $facility)
                                                             <option value="{{ $facility->id }}"
                                                                 {{ $beneficiary->facility_id == $facility->id ? 'selected' : '' }}>
-                                                                {{ $facility->name }} - {{ $facility->lga }},
+                                                                {{ $facility->display_name }} - {{ $facility->lga }},
                                                                 {{ $facility->ward }}
                                                             </option>
                                                         @endforeach

@@ -73,7 +73,7 @@
                                     @foreach ($facilities as $facility)
                                         <option value="{{ $facility->id }}"
                                             {{ request('old_facility_id') == $facility->id ? 'selected' : '' }}>
-                                            {{ $facility->name }}</option>
+                                            {{ $facility->display_name }}</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -84,7 +84,7 @@
                                     @foreach ($facilities as $facility)
                                         <option value="{{ $facility->id }}"
                                             {{ request('new_facility_id') == $facility->id ? 'selected' : '' }}>
-                                            {{ $facility->name }}</option>
+                                            {{ $facility->display_name }}</option>
                                     @endforeach
                                 </select>
                             </div>

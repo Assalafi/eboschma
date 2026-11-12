@@ -24,7 +24,7 @@ class WardController extends Controller
 
             return DataTables::of($query)
                 ->addColumn('facility_name', function ($ward) {
-                    return $ward->facility ? $ward->facility->name : 'N/A';
+                    return $ward->facility ? $ward->facility->display_name : 'N/A';
                 })
                 ->addColumn('rooms_count', function ($ward) {
                     return $ward->rooms()->count();

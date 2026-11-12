@@ -96,7 +96,7 @@
                         </span>
                     </div>
                     <div class="text-muted">
-                        {{ $request->facility->name }} &middot;
+                        {{ $request->facility->display_name }} &middot;
                         {{ $request->requested_at->format('M j, Y g:i A') }}
                         @if(!$request->drug_id)
                             &middot; <span class="badge bg-primary-lt text-primary">Bulk ({{ $request->items->count() }} items)</span>
@@ -471,7 +471,7 @@
                                     <i class="ti-building"></i>
                                 </span>
                                 <div>
-                                    <div class="fw-bold">{{ $request->facility->name }}</div>
+                                    <div class="fw-bold">{{ $request->facility->display_name }}</div>
                                     <div class="text-muted small">{{ $request->facility->type }}</div>
                                 </div>
                             </div>

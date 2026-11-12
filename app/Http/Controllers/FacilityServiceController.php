@@ -47,7 +47,7 @@ class FacilityServiceController extends Controller
                 ->addColumn('checkbox', function ($row) {
                     return '<input type="checkbox" class="row-checkbox" value="' . $row->id . '">';
                 })
-                ->addColumn('facility_name', fn($row) => $row->facility->name ?? 'N/A')
+                ->addColumn('facility_name', fn($row) => $row->facility->display_name ?? 'N/A')
                 ->addColumn('service_name', fn($row) => $row->serviceItem->name ?? 'N/A')
                 ->addColumn('item_type', fn($row) => $row->serviceItem->type_badge ?? 'N/A')
                 ->addColumn('service_type', fn($row) => $row->serviceItem->serviceType->name ?? 'N/A')

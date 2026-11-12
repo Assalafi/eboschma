@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Edit Fund - ' . ($transaction->wallet->facility->name ?? 'Unknown'))
+@section('title', 'Edit Fund - ' . ($transaction->wallet->facility->display_name ?? 'Unknown'))
 
 @section('content')
 <div class="page-header d-print-none">

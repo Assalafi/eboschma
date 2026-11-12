@@ -64,6 +64,14 @@ class Facility extends Model
     }
 
     /**
+     * Facility label for selectors and lists where the tier helps identify a facility.
+     */
+    public function getDisplayNameAttribute(): string
+    {
+        return ($this->type ? $this->type . ' — ' : '') . $this->name;
+    }
+
+    /**
      * Get all wards for each LGA in Borno State
      * Returns an associative array with LGA names as keys and arrays of wards as values
      */

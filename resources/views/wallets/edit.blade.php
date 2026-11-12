@@ -3,7 +3,7 @@
 @section('content')
 <div class="page-header d-print-none">
     <div class="container-xl">
-        <div class="page-pretitle"><a href="{{ route('wallets.index') }}" class="text-muted">Wallets</a> / <a href="{{ route('wallets.show', $wallet->id) }}" class="text-muted">{{ $wallet->facility->name ?? '' }}</a> /</div>
+        <div class="page-pretitle"><a href="{{ route('wallets.index') }}" class="text-muted">Wallets</a> / <a href="{{ route('wallets.show', $wallet->id) }}" class="text-muted">{{ $wallet->facility->display_name ?? '' }}</a> /</div>
         <h2 class="page-title"><i class="ti-pencil me-2 text-warning"></i>Edit Wallet</h2>
     </div>
 </div>
@@ -14,7 +14,7 @@
             <div class="row">
                 <div class="col-md-8">
                     <div class="card">
-                        <div class="card-header"><h3 class="card-title">{{ $wallet->facility->name ?? 'Unknown' }}</h3></div>
+                        <div class="card-header"><h3 class="card-title">{{ $wallet->facility->display_name ?? 'Unknown' }}</h3></div>
                         <div class="card-body">
                             <div class="mb-3">
                                 <label class="form-label required">Program</label>

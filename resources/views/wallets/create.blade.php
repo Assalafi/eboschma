@@ -24,7 +24,7 @@
                                 <select name="facility_id" class="form-select @error('facility_id') is-invalid @enderror" required>
                                     <option value="">Select Facility...</option>
                                     @foreach($facilities as $facility)
-                                    <option value="{{ $facility->id }}" {{ old('facility_id') == $facility->id ? 'selected' : '' }}>{{ $facility->name }} ({{ $facility->lga }})</option>
+                                    <option value="{{ $facility->id }}" {{ old('facility_id') == $facility->id ? 'selected' : '' }}>{{ $facility->display_name }} ({{ $facility->lga }})</option>
                                     @endforeach
                                 </select>
                                 @error('facility_id')<div class="invalid-feedback">{{ $message }}</div>@enderror

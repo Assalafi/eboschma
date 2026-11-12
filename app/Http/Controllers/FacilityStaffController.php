@@ -55,7 +55,7 @@ class FacilityStaffController extends Controller
 
             return DataTables::of($query)
                 ->addColumn('facility_name', function ($user) {
-                    return $user->facility ? $user->facility->name : 'N/A';
+                    return $user->facility ? $user->facility->display_name : 'N/A';
                 })
                 ->addColumn('position_name', function ($user) {
                     return $user->staffPosition ? $user->staffPosition->name : 'N/A';

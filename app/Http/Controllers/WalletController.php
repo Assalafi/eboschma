@@ -36,7 +36,7 @@ class WalletController extends Controller
                     }
                 })
                 ->addColumn('facility_name', function ($wallet) {
-                    $name = $wallet->facility->name ?? 'Unknown';
+                    $name = $wallet->facility->display_name ?? 'Unknown';
                     $program = $wallet->program->name ?? 'N/A';
                     $walletNo = $wallet->wallet_number ?? '-';
                     return '<div class="fw-bold">' . e($name) . '</div>' .

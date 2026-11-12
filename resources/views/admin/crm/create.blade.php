@@ -134,7 +134,7 @@
                                         <datalist id="facility_list">
                                             @foreach ($facilities as $facility)
                                                 <option value="{{ $facility->name }}" data-id="{{ $facility->id }}">
-                                                    {{ $facility->name }}
+                                                    {{ $facility->display_name }}
                                                 </option>
                                             @endforeach
                                         </datalist>

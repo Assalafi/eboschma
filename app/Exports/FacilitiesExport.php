@@ -39,13 +39,13 @@ class FacilitiesExport implements FromCollection, WithHeadings, WithMapping, Sho
                     'name' => 'Sample Primary Health Care Center',
                     'lga' => 'Maiduguri',
                     'ward' => 'Bulabulin',
-                    'type' => 'Primary Health Care Center',
+                    'type' => 'Primary',
                 ],
                 [
                     'name' => 'Sample General Hospital',
                     'lga' => 'Bama',
                     'ward' => 'Central Ward',
-                    'type' => 'General Hospital',
+                    'type' => 'Secondary',
                 ]
             ]);
         }
@@ -107,7 +107,7 @@ class FacilitiesExport implements FromCollection, WithHeadings, WithMapping, Sho
     public function headings(): array
     {
         if ($this->isTemplate) {
-            return ['Name', 'LGA', 'Ward', 'Type (Optional)'];
+            return ['Name', 'LGA', 'Ward', 'Type (Primary or Secondary)'];
         }
         return ['Facility Name', 'LGA', 'Ward', 'Type', 'Beneficiaries', 'Spouses', 'Children', 'Total'];
     }

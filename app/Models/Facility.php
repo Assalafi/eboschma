@@ -36,15 +36,31 @@ class Facility extends Model
     public static function getFacilityTypes()
     {
         return [
-            'Primary Health Care Center',
-            'Secondary Health Care Center',
             'Primary',
             'Secondary',
-            'Primary Care Center',
-            'Secondary Care Center',
-            'Primary Care',
-            'Secondary Care',
         ];
+    }
+
+    /**
+     * Normalize legacy facility type labels to the two supported tiers.
+     */
+    public static function normalizeType($type): ?string
+    {
+        $value = strtolower(trim((string) $type));
+
+        if ($value === '') {
+            return null;
+        }
+
+        if (str_contains($value, 'secondary') || str_contains($value, 'hospital')) {
+            return 'Secondary';
+        }
+
+        if (str_contains($value, 'primary')) {
+            return 'Primary';
+        }
+
+        return null;
     }
 
     /**

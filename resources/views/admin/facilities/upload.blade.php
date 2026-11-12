@@ -115,12 +115,7 @@
                         <div class="card-body">
                             <div class="row">
                                 @php
-                                    $types = [
-                                        'Primary Health Care Center', 'General Hospital', 'Specialist Hospital',
-                                        'Teaching Hospital', 'Clinic', 'Maternity Home', 'Pharmacy',
-                                        'Laboratory', 'Diagnostic Center', 'Rehabilitation Center',
-                                        'Mental Health Facility', 'Other'
-                                    ];
+                                    $types = ['Primary', 'Secondary'];
                                     $typeChunks = array_chunk($types, 4);
                                 @endphp
                                 @foreach ($typeChunks as $chunk)

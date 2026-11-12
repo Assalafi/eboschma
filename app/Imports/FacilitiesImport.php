@@ -102,28 +102,22 @@ class FacilitiesImport implements ToCollection, WithHeadingRow
                 'matched_lga' => $matchedLGA
             ]);
 
-            // Validate type if provided (case-insensitive)
+            // Validate and normalize type if provided. Recognized legacy labels
+            // are accepted but always stored as Primary or Secondary.
             $matchedType = null;
             if (!empty($data['type'])) {
                 Log::debug("Row {$rowNumber}: Validating facility type", [
                     'provided_type' => $data['type']
                 ]);
-                
-                $typeLower = strtolower($data['type']);
-                
-                foreach (Facility::getFacilityTypes() as $validType) {
-                    if (strtolower($validType) === $typeLower) {
-                        $matchedType = $validType;
-                        break;
-                    }
-                }
+
+                $matchedType = Facility::normalizeType($data['type']);
 
                 if (!$matchedType) {
                     Log::warning("Row {$rowNumber}: Invalid facility type", [
                         'provided_type' => $data['type'],
                         'valid_types' => Facility::getFacilityTypes()
                     ]);
-                    $this->errors[] = "Row {$rowNumber}: Invalid facility type '{$data['type']}'. Must be one of: " . implode(', ', Facility::getFacilityTypes());
+                    $this->errors[] = "Row {$rowNumber}: Invalid facility type '{$data['type']}'. Use Primary or Secondary.";
                     continue;
                 }
 

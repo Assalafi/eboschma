@@ -259,7 +259,7 @@
                                             @endif
                                         </td>
                                         <td>
-                                            <strong>{{ $facility->display_name }}</strong>
+                                            <strong>{{ $facility->display_name ?? $facility->name }}</strong>
                                         </td>
                                         <td class="text-muted">{{ $facility->lga ?? 'N/A' }}</td>
                                         <td class="text-center">

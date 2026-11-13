@@ -313,16 +313,22 @@ class Beneficiary extends Model
             ->select(
                 'facilities.id',
                 'facilities.name',
+                'facilities.type',
+                'facilities.lga',
                 DB::raw('COUNT(DISTINCT beneficiaries.id) as beneficiaries_count'),
                 DB::raw('COUNT(DISTINCT spouses.id) as spouses_count'),
                 DB::raw('COUNT(DISTINCT children.id) as children_count'),
                 DB::raw('(COUNT(DISTINCT beneficiaries.id) + COUNT(DISTINCT spouses.id) + COUNT(DISTINCT children.id)) as enrollments_count')
             )
-            ->groupBy('facilities.id', 'facilities.name')
+            ->groupBy('facilities.id', 'facilities.name', 'facilities.type', 'facilities.lga')
             ->havingRaw('(COUNT(DISTINCT beneficiaries.id) + COUNT(DISTINCT spouses.id) + COUNT(DISTINCT children.id)) > 0')
             ->orderByDesc('enrollments_count')
             ->limit($limit)
-            ->get();
+            ->get()
+            ->map(function ($facility) {
+                $facility->display_name = $facility->name . ($facility->type ? ' — ' . $facility->type : '');
+                return $facility;
+            });
 
         return $results;
     }

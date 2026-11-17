@@ -143,8 +143,11 @@
 
             <!-- Statistics Cards -->
             @if ($stageConfig)
+                @php
+                    $cardColClass = ($userStage === 'finance') ? 'col-sm-6 col-lg-4 col-xl' : 'col-sm-6 col-lg-4 col-xl-2';
+                @endphp
                 <div class="row row-deck row-cards mb-4">
-                    <div class="col-sm-6 col-lg-4 col-xl-2">
+                    <div class="{{ $cardColClass }}">
                         <div class="card border-0 shadow-sm hover-lift" style="border-radius: 12px; border-left: 4px solid #206bc4 !important;">
                             <div class="card-body p-3">
                                 <div class="d-flex align-items-center mb-1">
@@ -157,7 +160,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-sm-6 col-lg-4 col-xl-2">
+                    <div class="{{ $cardColClass }}">
                         <div class="card border-0 shadow-sm hover-lift" style="border-radius: 12px; border-left: 4px solid #f59f00 !important;">
                             <div class="card-body p-3">
                                 <div class="d-flex align-items-center mb-1">
@@ -168,7 +171,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-sm-6 col-lg-4 col-xl-2">
+                    <div class="{{ $cardColClass }}">
                         <div class="card border-0 shadow-sm hover-lift" style="border-radius: 12px; border-left: 4px solid #2fb344 !important;">
                             <div class="card-body p-3">
                                 <div class="d-flex align-items-center mb-1">
@@ -179,7 +182,8 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-sm-6 col-lg-4 col-xl-2">
+                    @if ($userStage !== 'finance')
+                    <div class="{{ $cardColClass }}">
                         <div class="card border-0 shadow-sm hover-lift" style="border-radius: 12px; border-left: 4px solid #d63939 !important;">
                             <div class="card-body p-3">
                                 <div class="d-flex align-items-center mb-1">
@@ -192,7 +196,8 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-sm-6 col-lg-4 col-xl-2">
+                    @endif
+                    <div class="{{ $cardColClass }}">
                         <div class="card border-0 shadow-sm hover-lift" style="border-radius: 12px; border-left: 4px solid #f59f00 !important;">
                             <div class="card-body p-3">
                                 <div class="d-flex align-items-center mb-1">
@@ -205,7 +210,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-sm-6 col-lg-4 col-xl-2">
+                    <div class="{{ $cardColClass }}">
                         <div class="card border-0 shadow-sm hover-lift" style="border-radius: 12px; border-left: 4px solid #016634 !important;">
                             <div class="card-body p-3">
                                 <div class="d-flex align-items-center mb-1">

@@ -199,9 +199,12 @@
 
             <!-- 1. Statistics & Workflow Metrics Cards -->
             @if ($stageConfig)
+                @php
+                    $cardColClass = ($userStage === 'finance') ? 'col-sm-6 col-lg-4 col-xl' : 'col-sm-6 col-lg-4 col-xl-2';
+                @endphp
                 <div class="row row-deck row-cards mb-4">
                     <!-- Card 1: Total Claims -->
-                    <div class="col-sm-6 col-lg-4 col-xl-2">
+                    <div class="{{ $cardColClass }}">
                         <div class="card border-0 shadow-sm card-metric" style="border-radius: 14px; border-left: 4px solid #206bc4 !important;">
                             <div class="card-body p-3">
                                 <div class="d-flex align-items-center justify-content-between mb-2">
@@ -219,7 +222,7 @@
                     </div>
 
                     <!-- Card 2: Pending at Stage -->
-                    <div class="col-sm-6 col-lg-4 col-xl-2">
+                    <div class="{{ $cardColClass }}">
                         <div class="card border-0 shadow-sm card-metric" style="border-radius: 14px; border-left: 4px solid #f59f00 !important;">
                             <div class="card-body p-3">
                                 <div class="d-flex align-items-center justify-content-between mb-2">
@@ -235,7 +238,7 @@
                     </div>
 
                     <!-- Card 3: Total Verified / Approved at Stage -->
-                    <div class="col-sm-6 col-lg-4 col-xl-2">
+                    <div class="{{ $cardColClass }}">
                         <div class="card border-0 shadow-sm card-metric" style="border-radius: 14px; border-left: 4px solid #2fb344 !important;">
                             <div class="card-body p-3">
                                 <div class="d-flex align-items-center justify-content-between mb-2">
@@ -250,8 +253,9 @@
                         </div>
                     </div>
 
+                    @if ($userStage !== 'finance')
                     <!-- Card 4: Rejected Claims (by Next Stage) -->
-                    <div class="col-sm-6 col-lg-4 col-xl-2">
+                    <div class="{{ $cardColClass }}">
                         <div class="card border-0 shadow-sm card-metric" style="border-radius: 14px; border-left: 4px solid #d63939 !important;">
                             <div class="card-body p-3">
                                 <div class="d-flex align-items-center justify-content-between mb-2">
@@ -267,9 +271,10 @@
                             </div>
                         </div>
                     </div>
+                    @endif
 
                     <!-- Card 5: Total Amount Waiting at Stage -->
-                    <div class="col-sm-6 col-lg-4 col-xl-2">
+                    <div class="{{ $cardColClass }}">
                         <div class="card border-0 shadow-sm card-metric" style="border-radius: 14px; border-left: 4px solid #f59f00 !important;">
                             <div class="card-body p-3">
                                 <div class="d-flex align-items-center justify-content-between mb-2">
@@ -287,7 +292,7 @@
                     </div>
 
                     <!-- Card 6: Total Approved Value at Stage -->
-                    <div class="col-sm-6 col-lg-4 col-xl-2">
+                    <div class="{{ $cardColClass }}">
                         <div class="card border-0 shadow-sm card-metric" style="border-radius: 14px; border-left: 4px solid #016634 !important;">
                             <div class="card-body p-3">
                                 <div class="d-flex align-items-center justify-content-between mb-2">
@@ -438,7 +443,9 @@
                                         <th class="fw-bold text-muted text-uppercase text-center" style="font-size: 0.75rem;">Total Claims</th>
                                         <th class="fw-bold text-muted text-uppercase text-center" style="font-size: 0.75rem;">{{ $stageConfig['tbl_pending'] }}</th>
                                         <th class="fw-bold text-muted text-uppercase text-center" style="font-size: 0.75rem;">{{ $stageConfig['tbl_approved'] }}</th>
-                                        <th class="fw-bold text-muted text-uppercase text-center" style="font-size: 0.75rem;">{{ $stageConfig['tbl_rejected'] }}</th>
+                                        @if ($userStage !== 'finance')
+                                            <th class="fw-bold text-muted text-uppercase text-center" style="font-size: 0.75rem;">{{ $stageConfig['tbl_rejected'] }}</th>
+                                        @endif
                                         <th class="fw-bold text-muted text-uppercase text-end" style="font-size: 0.75rem;">Total Claimed Amount</th>
                                         <th class="fw-bold text-muted text-uppercase text-end" style="font-size: 0.75rem;">{{ $stageConfig['tbl_pending_amt'] }}</th>
                                         <th class="fw-bold text-muted text-uppercase text-end" style="font-size: 0.75rem;">{{ $stageConfig['tbl_approved_amt'] }}</th>
@@ -528,15 +535,17 @@
                                                     <span class="badge bg-secondary text-white px-3 py-1">0</span>
                                                 @endif
                                             </td>
-                                            <td class="text-center">
-                                                @if ($fRejected > 0)
-                                                    <span class="badge bg-danger text-white px-3 py-1 fw-bold">
-                                                        <i class="ti-x me-1"></i>{{ number_format($fRejected) }} Rejected
-                                                    </span>
-                                                @else
-                                                    <span class="badge bg-secondary text-white px-3 py-1">0</span>
-                                                @endif
-                                            </td>
+                                            @if ($userStage !== 'finance')
+                                                <td class="text-center">
+                                                    @if ($fRejected > 0)
+                                                        <span class="badge bg-danger text-white px-3 py-1 fw-bold">
+                                                            <i class="ti-x me-1"></i>{{ number_format($fRejected) }} Rejected
+                                                        </span>
+                                                    @else
+                                                        <span class="badge bg-secondary text-white px-3 py-1">0</span>
+                                                    @endif
+                                                </td>
+                                            @endif
                                             <td class="text-end">
                                                 <div class="fw-bold text-dark">₦{{ number_format($facility->total_value ?? 0, 2) }}</div>
                                             </td>
@@ -603,7 +612,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="{{ $stageConfig ? 9 : 11 }}" class="text-center py-5">
+                                        <td colspan="{{ $stageConfig ? ($userStage === 'finance' ? 8 : 9) : 11 }}" class="text-center py-5">
                                             <div class="empty">
                                                 <div class="empty-icon text-muted mb-2">
                                                     <i class="ti-file-off fs-1"></i>

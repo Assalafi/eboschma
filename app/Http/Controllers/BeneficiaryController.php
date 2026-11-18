@@ -1864,7 +1864,7 @@ public function bulkIdCards(Request $request)
     }
     
     $beneficiaries = $query->orderBy('created_at', 'desc')->paginate(500);
-    $facilities = DB::table('facilities')->orderBy('name')->get();
+    $facilities = Facility::orderBy('name')->get();
     $programs = \App\Models\Program::orderBy('name')->get();
     
     // Get unique workplaces for dropdown
@@ -1949,10 +1949,10 @@ public function startBulkIdCardGeneration(Request $request)
                 
             case 'facility':
                 $request->validate(['facility_id' => 'required|exists:facilities,id']);
-                $facility = DB::table('facilities')->find($request->facility_id);
+                $facility = Facility::find($request->facility_id);
                 $criteria = [
                     'facility_id' => $request->facility_id,
-                    'facility_name' => $facility->display_name,
+                    'facility_name' => $facility ? ($facility->display_name ?? $facility->name) : 'N/A',
                 ];
                 break;
                 

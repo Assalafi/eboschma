@@ -2027,7 +2027,7 @@ class ClaimController extends Controller
 
         $facility = null;
         if ($facilityId) {
-            $facility = DB::table('facilities')->where('id', $facilityId)->first();
+            $facility = Facility::find($facilityId);
         }
 
         if ($format === 'pdf') {
